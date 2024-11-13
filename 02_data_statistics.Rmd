@@ -1,0 +1,91 @@
+# Data statistics
+
+```{r load_data_stats}
+load("data/data.Rdata")
+```
+
+## Sequencing reads statistics
+
+```{r reads_stats}
+sample_metadata %>% 
+    summarise(Total=sum(reads_post_fastp * 150 / 1000000000) %>% round(2), 
+              mean=mean(reads_post_fastp * 150 / 1000000000) %>% round(2),
+              sd=sd(reads_post_fastp * 150 / 1000000000) %>% round(2)) %>%
+    unite("Average",mean, sd, sep = " ± ", remove = TRUE) %>%
+    tt()
+```
+
+## DNA fractions
+```{r dna_fractions_stats}
+sequence_fractions <- read_counts %>%
+  pivot_longer(-genome, names_to = "sample", values_to = "value") %>%
+  group_by(sample) %>%
+  summarise(mags = sum(value)) %>%
+	left_join(sample_metadata, by = join_by(sample == sample)) %>%
+	select(sample,mags,metagenomic_bases,host_bases,bases_lost_fastp_percent) %>%
+	mutate(mags_bases = mags*146) %>%
+	mutate(lowqual_bases = ((metagenomic_bases+host_bases)/(1-bases_lost_fastp_percent))-(metagenomic_bases+host_bases)) %>%
+	mutate(unmapped_bases = metagenomic_bases - mags_bases) %>%
+	mutate(unmapped_bases = ifelse(unmapped_bases < 0, 0, unmapped_bases)) %>%
+	select(sample, lowqual_bases, host_bases, unmapped_bases, mags_bases)
+
+sequence_fractions %>%
+  mutate_at(vars(-sample), ~./1000000000) %>%
+  rename("Sample"=1, "Low quality"=2, "Mapped to host"=3, "Unmapped"=4, "Mapped to MAGs"=5) %>%
+  tt()
+
+sequence_fractions %>%
+  mutate_at(vars(-sample), ~./1000000000) %>%
+  rename("Sample"=1, "Low quality"=2, "Mapped to host"=3, "Unmapped"=4, "Mapped to MAGs"=5) %>%
+  summarise(across(where(is.numeric), mean, na.rm = TRUE)) %>%
+  tt()
+
+```
+
+
+```{r dna_fractions_plot, message=FALSE, warning=FALSE, fig.height=6, fig.width=10, fig.fullwidth=TRUE}
+sequence_fractions %>%
+	pivot_longer(!sample, names_to = "fraction", values_to = "value") %>%
+	mutate(value = value / 1000000000) %>%
+	mutate(fraction = factor(fraction, levels = c("lowqual_bases","host_bases","unmapped_bases","mags_bases"))) %>%
+  
+	ggplot(., aes(x = sample, y = value, fill=fraction)) +
+	    geom_bar(position="stack", stat = "identity") +
+      scale_fill_manual(name="Sequence type",
+                    breaks=c("lowqual_bases","host_bases","unmapped_bases","mags_bases"),
+                    labels=c("Low quality","Mapped to host","Unmapped","Mapped to MAGs"),
+                    values=c("#CCCCCC", "#bcdee1", "#d8b8a3","#93655c"))+
+	    labs(x = "Samples", y = "Amount of data (GB)") +
+	    theme_classic() +
+	    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size=6),legend.position = "bottom")
+```
+
+## Recovered microbial fraction
+
+```{r data_estimations_plot, message=FALSE, warning=FALSE, fig.height=6, fig.width=10, fig.fullwidth=TRUE}
+singlem_table <- sequence_fractions %>%
+	mutate(mags_proportion = round((mags_bases / (mags_bases + unmapped_bases))*100,2)) %>%
+	left_join(sample_metadata, by = join_by(sample == sample))  %>%
+	mutate(singlem_proportion = round(singlem_fraction*100,2)) %>%
+	select(sample,mags_proportion,singlem_proportion) %>%
+	mutate(mags_proportion = ifelse(singlem_proportion == 0, 0, mags_proportion)) %>% #convert zeros to NA
+	mutate(singlem_proportion = ifelse(singlem_proportion == 0, NA, singlem_proportion)) %>% #convert zeros to NA
+	mutate(singlem_proportion = ifelse(singlem_proportion < mags_proportion, NA, singlem_proportion)) %>% #if singlem is smaller, then NA, to simplify plot
+	mutate(singlem_proportion = ifelse(singlem_proportion > 100, 100, singlem_proportion)) #simplify
+
+singlem_table %>%
+	pivot_longer(!sample, names_to = "proportion", values_to = "value") %>%
+	mutate(proportion = factor(proportion, levels = c("mags_proportion","singlem_proportion"))) %>%
+	ggplot(., aes(x = value, y = sample, color=proportion)) +
+			geom_line(aes(group = sample), color = "#f8a538") +
+			geom_point() +
+      scale_color_manual(name="Proportion",
+                    breaks=c("mags_proportion","singlem_proportion"),
+                    labels=c("Recovered","Estimated"),
+                    values=c("#52e1e8", "#876b53"))+
+			theme_classic() +
+			labs(y = "Samples", x = "Prokaryotic fraction (%)") +
+	    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size=6),legend.position = "right")
+
+```
+
