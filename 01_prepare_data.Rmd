@@ -57,7 +57,7 @@ airtable("MAGs", "appWbHBNLE6iAsMRV") %>% #get base ID from Airtable browser URL
   filter(mag_name %in% paste0(genome_metadata$genome,".fa")) %>% #filter by MAG name
   filter(number_genes > 0) %>% #genes need to exist
   select(anno_url) %>% #list MAG annotation urls
-  pull() %>%
+  pull() %>% 
   read_tsv() %>% #load all tables
   rename(gene=1, genome=2, contig=3) %>% #rename first 3 columns
   write_tsv(file="data/genome_annotations.tsv.xz") #write to overall compressed file
@@ -98,7 +98,7 @@ genome_counts_filt <- read_counts_filt %>%
 ### Distill annotations into GIFTs 
 
 ```{r distill_annotations, warning=FALSE, comments="", message=FALSE, eval=FALSE}
-genome_gifts_raw <- distill(genome_annotations,GIFT_db,genomecol=2,annotcol=c(9,10,19), verbosity=F)
+genome_gifts <- distill(genome_annotations,GIFT_db,genomecol=2,annotcol=c(9,10,19), verbosity=F)
 ```
 
 ## Prepare color scheme
@@ -115,11 +115,6 @@ phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI
     pull(colors, name=phylum)
 ```
 
-```{r get_colors, warning=FALSE, comments="", message=FALSE, eval=FALSE}
-diet_colors<- c("#00AEDB","#00AFA1", "#00B159")
-```
-
-
 ## Wrap working objects
 
 All working objects are wrapped into a single Rdata object to facilitate downstream usage.
@@ -131,8 +126,7 @@ save(sample_metadata,
      genome_counts, 
      genome_counts_filt, 
      genome_tree,
-     #genome_gifts_raw, 
-#     genome_gifts,
+     genome_gifts,
      phylum_colors,
      file = "data/data.Rdata")
 ```
