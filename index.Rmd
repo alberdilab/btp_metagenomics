@@ -1,6 +1,6 @@
 ---
 title: "AlberdiLab | Manuscript in prep"
-subtitle: "Lepus europaeus metagenomics"
+subtitle: "Brush-tail possum metagenomics"
 author:
   - Lukas Fix, Antton Alberdi, Raphael Eisenhofer[University of Copenhagen, raphael.eisenhofer@sund.ku.dk]
 date: "`r Sys.Date()`"
@@ -9,7 +9,7 @@ documentclass: book
 bibliography: [book.bib, packages.bib]
 url: https://alberdilab.github.io/btp_metagenomics
 description: |
-  Data analysis code for the study of European hare metagenomics.
+  Data analysis code for the study of Tasmanian brush-tail possums.
 link-citations: yes
 github-repo: alberdilab/btp_metagenomics
 ---
