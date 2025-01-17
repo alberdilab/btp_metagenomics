@@ -1,4 +1,7 @@
-#MAG Catalouge
+#4 MAG Catalouge
+load("data/data.Rdata")
+
+#4.1 Genom Phylogeny
 
 # Generate the phylum color heatmap
 phylum_heatmap <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
@@ -60,4 +63,135 @@ pdf("clean_circular_tree_large.pdf", width=50, height=50)
 print(circular_tree)
 dev.off()
 
-  
+#4.2 Genom Quality
+
+genome_metadata$completeness %>% mean()
+
+genome_metadata$completeness %>% sd()
+
+genome_metadata$contamination %>% mean()
+
+genome_metadata$contamination %>% sd()
+
+#Generate quality biplot
+genome_biplot <- genome_metadata %>%
+  select(c(genome,domain,phylum,completeness,contamination,length)) %>%
+  arrange(match(genome, rev(genome_tree$tip.label))) %>% #sort MAGs according to phylogenetic tree
+  ggplot(aes(x=completeness,y=contamination,size=length,color=phylum)) +
+  geom_point(alpha=0.7) +
+  ylim(c(10,0)) +
+  scale_color_manual(values=phylum_colors) +
+  labs(y= "Contamination", x = "Completeness") +
+  theme_classic() +
+  theme(legend.position = "none")
+
+#Generate contamination boxplot
+genome_contamination <- genome_metadata %>%
+  ggplot(aes(y=contamination)) +
+  ylim(c(10,0)) +
+  geom_boxplot(colour = "#999999", fill="#cccccc") +
+  theme_void() +
+  theme(legend.position = "none",
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        plot.margin = unit(c(0, 0, 0.40, 0),"inches")) #add bottom-margin (top, right, bottom, left)
+
+#Generate completeness boxplot
+genome_completeness <- genome_metadata %>%
+  ggplot(aes(x=completeness)) +
+  xlim(c(50,100)) +
+  geom_boxplot(colour = "#999999", fill="#cccccc") +
+  theme_void() +
+  theme(legend.position = "none",
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        plot.margin = unit(c(0, 0, 0, 0.50),"inches")) #add left-margin (top, right, bottom, left)
+
+#Render composite figure
+grid.arrange(grobs = list(genome_completeness,genome_biplot,genome_contamination),
+             layout_matrix = rbind(c(1,1,1,1,1,1,1,1,1,1,1,4),
+                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
+                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
+                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
+                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
+                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
+                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
+                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
+                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
+                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
+                                   c(2,2,2,2,2,2,2,2,2,2,2,3)))
+
+#4.3 Functional Overview
+
+# Aggregate basal GIFT into elements
+function_table <- genome_gifts %>%
+  to.elements(., GIFT_db)
+
+# Generate  basal tree
+function_tree <- force.ultrametric(genome_tree, method="extend") %>%
+  ggtree(., size = 0.3) 
+
+#Add phylum colors next to the tree tips
+function_tree <- gheatmap(function_tree, phylum_heatmap, offset=0, width=0.1, colnames=FALSE) +
+  scale_fill_manual(values=phylum_colors) +
+  labs(fill="Phylum")
+
+#Reset fill scale to use a different colour profile in the heatmap
+function_tree <- function_tree + new_scale_fill()
+
+#Add functions heatmap
+function_tree <- gheatmap(function_tree, function_table, offset=0.5, width=3.5, colnames=FALSE) +
+  vexpand(.08) +
+  coord_cartesian(clip = "off") +
+  scale_fill_gradient(low = "#f4f4f4", high = "steelblue", na.value="white") +
+  labs(fill="GIFT")
+
+#Reset fill scale to use a different colour profile in the heatmap
+function_tree <- function_tree + new_scale_fill()
+
+# Add completeness barplots
+function_tree <- function_tree +
+  geom_fruit(data=genome_metadata,
+             geom=geom_bar,
+             grid.params=list(axis="x", text.size=2, nbreak = 1),
+             axis.params=list(vline=TRUE),
+             mapping = aes(x=length, y=genome, fill=completeness),
+             offset = 3.8,
+             orientation="y",
+             stat="identity") +
+  scale_fill_gradient(low = "#cf8888", high = "#a2cc87") +
+  labs(fill="Genome\ncompleteness")
+
+function_tree
+
+ggsave("functiontree.png", plot=function_tree, dpi=300, width=30, height=30, limitsize = FALSE)
+pdf("functiontree.pdf", width=30, height=30)
+
+#4.4 Functional Ordination
+# Generate the tSNE ordination
+tSNE_function <- Rtsne(X=function_table, dims = 2, check_duplicates = FALSE)
+
+# Plot the ordination
+function_ordination <- tSNE_function$Y %>%
+  as.data.frame() %>%
+  mutate(genome=rownames(function_table)) %>%
+  inner_join(genome_metadata, by="genome") %>%
+  rename(tSNE1="V1", tSNE2="V2") %>%
+  select(genome,phylum,tSNE1,tSNE2, length) %>%
+  ggplot(aes(x = tSNE1, y = tSNE2, color = phylum, size=length))+
+  geom_point(shape=16, alpha=0.7) +
+  scale_color_manual(values=phylum_colors) +
+  theme_minimal() +
+  labs(color="Phylum", size="Genome size") +
+  guides(color = guide_legend(override.aes = list(size = 5))) # enlarge Phylum dots in legend
+
+function_ordination
+print(function_ordination)
