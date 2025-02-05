@@ -1,0 +1,150 @@
+#7  Functional differences
+```{r data_load}
+load("resources/data.Rdata")
+```
+
+```{r Aggregate_bundle}
+# Aggregate bundle-level GIFTs into the compound level
+GIFTs_elements <- to.elements(genome_gifts, GIFT_db)
+GIFTs_elements_filtered <- GIFTs_elements[rownames(GIFTs_elements) %in% genome_counts$genome, ]
+GIFTs_elements_filtered <- as.data.frame(GIFTs_elements_filtered) %>%
+  select_if(~ !is.numeric(.) || sum(.) != 0)
+
+elements <- GIFTs_elements_filtered %>%
+  as.data.frame()
+
+# Aggregate element-level GIFTs into the function level
+GIFTs_functions <- to.functions(GIFTs_elements_filtered, GIFT_db)
+functions <- GIFTs_functions %>%
+  as.data.frame()
+
+# Aggregate function-level GIFTs into overall Biosynthesis, Degradation and Structural GIFTs
+GIFTs_domains <- to.domains(GIFTs_functions, GIFT_db)
+domains <- GIFTs_domains %>%
+  as.data.frame()
+
+# Get community-weighed average GIFTs per sample
+GIFTs_elements_community <- to.community(GIFTs_elements_filtered, genome_counts_filt %>% column_to_rownames(., "genome") %>% tss(), GIFT_db)
+GIFTs_functions_community <- to.community(GIFTs_functions, genome_counts_filt %>% column_to_rownames(., "genome") %>% tss(), GIFT_db)
+GIFTs_domains_community <- to.community(GIFTs_domains, genome_counts_filt %>% column_to_rownames(., "genome") %>% tss(), GIFT_db)
+```
+##7.1 Function level
+```{r GIFTS_function}
+GIFTs_functions_community %>%
+    as.data.frame() %>%
+    rownames_to_column(var="sample") %>%
+    pivot_longer(!sample,names_to="trait",values_to="gift") %>%
+    left_join(sample_metadata, by = join_by(sample == sample)) %>%
+    ggplot(aes(x=trait,y=sample,fill=gift)) +
+        geom_tile(colour="white", size=0.2)+
+        scale_fill_gradientn(colours=rev(c("#d53e4f", "#f46d43", "#fdae61", "#fee08b", "#e6f598", "#abdda4", "#ddf1da")))+
+        facet_grid(type ~ ., scales="free",space="free")
+```
+###7.1.1 GIFT test
+```{r setup, include=FALSE}
+GIFTs_functions_community_tt <- GIFTs_functions_community %>%
+  as.data.frame() %>%
+  rownames_to_column("sample") %>%
+  separate(sample, into = c("individual", "type"), sep = "\\.") %>%
+  pivot_longer(-c(individual, type), names_to = "trait", values_to = "value") %>%
+  group_by(trait) %>%
+  mutate(model_result = list(lmerTest::lmer(value ~ type + (1 | individual)))) %>%
+  ungroup() %>%
+  select(trait,model_result) %>%
+  unique() %>%
+  mutate(estimate = map_dbl(model_result, ~broom.mixed::tidy(.) %>% filter(term == "typefeces") %>% pull(estimate))) %>%
+
+  mutate(p_value = map_dbl(model_result, ~broom.mixed::tidy(.) %>% filter(term == "typefeces") %>% pull(p.value))) %>%
+  mutate(p_value_adj = p.adjust(p_value, method = "bonferroni")) %>%
+  left_join(GIFT_db %>% select(Code_function,Function) %>% unique(),by=join_by(trait==Code_function)) %>%
+  rename(id=trait,trait=Function) %>%
+  select(id,trait, estimate, p_value_adj)
+
+GIFTs_functions_community_tt %>% tt() |> 
+      style_tt(
+        i = which(GIFTs_functions_community_tt$estimate < 0 & GIFTs_functions_community_tt$p_value_adj < 0.05),
+        background = "#E5D5B1") |> 
+      style_tt(
+        i = which(GIFTs_functions_community_tt$estimate > 0 & GIFTs_functions_community_tt$p_value_adj < 0.05),
+        background = "#B7BCCE")
+```
+###7.1.2 GIFT test visualisation
+```{r GIFT_visualisation}
+GIFTs_functions_community %>%
+  as.data.frame() %>%
+  rownames_to_column("sample") %>%
+  separate(sample, into = c("individual", "type"), sep = "\\.") %>%
+  pivot_longer(-c(individual, type), names_to = "trait", values_to = "value") %>%
+  mutate(trait = case_when(
+      trait %in% GIFT_db$Code_function ~ GIFT_db$Function[match(trait, GIFT_db$Code_function)],
+      TRUE ~ trait
+    )) %>%
+  mutate(trait=factor(trait,levels=unique(GIFT_db$Function))) %>%
+  ggplot(aes(x=value, y=type, group=type, fill=type, color=type)) +
+    geom_boxplot() +
+    scale_color_manual(name="Sample type",
+          breaks=c("cloaca","feces"),
+          labels=c("Cloaca","Faeces"),
+          values=c("#e5bd5b", "#6b7398")) +
+      scale_fill_manual(name="Sample type",
+          breaks=c("cloaca","feces"),
+          labels=c("Cloaca","Faeces"),
+          values=c("#e5bd5b50", "#6b739850")) +
+    facet_grid(trait ~ ., space="free", scales="free") +
+              theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+              strip.text.y = element_text(angle = 0)) + 
+        labs(y="Traits",x="Metabolic capacity index")
+```
+##7.2 Element level
+```{r GIFTS_elements}
+GIFTs_elements_community %>%
+    as.data.frame() %>%
+    rownames_to_column(var="sample") %>%
+    pivot_longer(!sample,names_to="trait",values_to="gift") %>%
+    left_join(sample_metadata, by = join_by(sample == sample)) %>%
+    mutate(functionid = substr(trait, 1, 3)) %>%
+    mutate(trait = case_when(
+      trait %in% GIFT_db$Code_element ~ GIFT_db$Element[match(trait, GIFT_db$Code_element)],
+      TRUE ~ trait
+    )) %>%
+    mutate(functionid = case_when(
+      functionid %in% GIFT_db$Code_function ~ GIFT_db$Function[match(functionid, GIFT_db$Code_function)],
+      TRUE ~ functionid
+    )) %>%
+    mutate(trait=factor(trait,levels=unique(GIFT_db$Element))) %>%
+    mutate(functionid=factor(functionid,levels=unique(GIFT_db$Function))) %>%
+    ggplot(aes(x=sample,y=trait,fill=gift)) +
+        geom_tile(colour="white", linewidth=0.2)+
+        scale_fill_gradientn(colours=rev(c("#d53e4f", "#f46d43", "#fdae61", "#fee08b", "#e6f598", "#abdda4", "#ddf1da")))+
+        facet_grid(functionid ~ type, scales="free",space="free") +
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+              strip.text.y = element_text(angle = 0)) + 
+        labs(y="Traits",x="Samples",fill="GIFT")
+```
+###7.2.1 GIFT test
+```{r GIFTS_elements2}
+GIFTs_elements_community_tt <- GIFTs_elements_community %>%
+  as.data.frame() %>%
+  rownames_to_column("sample") %>%
+  separate(sample, into = c("individual", "type"), sep = "\\.") %>%
+  pivot_longer(-c(individual, type), names_to = "trait", values_to = "value") %>%
+  group_by(trait) %>%
+  mutate(model_result = list(lmerTest::lmer(value ~ type + (1 | individual)))) %>%
+  ungroup() %>%
+  select(trait,model_result) %>%
+  unique() %>%
+  mutate(estimate = map_dbl(model_result, ~broom.mixed::tidy(.) %>% filter(term == "typefeces") %>% pull(estimate))) %>%
+  mutate(p_value = map_dbl(model_result, ~broom.mixed::tidy(.) %>% filter(term == "typefeces") %>% pull(p.value))) %>%
+  mutate(p_value_adj = p.adjust(p_value, method = "bonferroni")) %>%
+  left_join(GIFT_db %>% select(Code_element,Element) %>% unique(),by=join_by(trait==Code_element)) %>%
+  rename(id=trait,trait=Element) %>%
+  select(id,trait, estimate, p_value_adj)
+
+GIFTs_elements_community_tt %>% tt() |> 
+      style_tt(
+        i = which(GIFTs_elements_community_tt$estimate < 0 & GIFTs_elements_community_tt$p_value_adj < 0.05),
+        background = "#E5D5B1") |> 
+      style_tt(
+        i = which(GIFTs_elements_community_tt$estimate > 0 & GIFTs_elements_community_tt$p_value_adj < 0.05),
+        background = "#B7BCCE")
+```

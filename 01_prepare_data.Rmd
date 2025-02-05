@@ -100,12 +100,12 @@ genome_counts_filt <- read_counts_filt %>%
 ```{r distill_annotations, warning=FALSE, comments="", message=FALSE, eval=FALSE}
 genome_gifts <- distill(genome_annotations,GIFT_db,genomecol=2,annotcol=c(9,10,19), verbosity=F)
 ```
-
 ## Prepare color scheme
 
 [AlberdiLab](www.alberdilab.dk) projects use unified color schemes developed for the [Earth Hologenome Initiative](www.earthhologenome.org), to facilitate figure interpretation.
 
 ```{r get_ehi_colors, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+
 phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
     right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
     arrange(match(genome, genome_tree$tip.label)) %>%

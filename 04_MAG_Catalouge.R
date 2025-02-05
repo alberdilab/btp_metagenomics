@@ -172,7 +172,7 @@ function_tree <- function_tree +
 
 function_tree
 
-ggsave("functiontree.png", plot=function_tree, dpi=300, width=30, height=30, limitsize = FALSE)
+ggplot2::ggsaveggsave("functiontree.png", plot=function_tree, dpi=300, width=30, height=30, limitsize = FALSE)
 pdf("functiontree.pdf", width=30, height=30)
 
 #4.4 Functional Ordination
