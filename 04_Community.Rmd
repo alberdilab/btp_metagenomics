@@ -1,24 +1,26 @@
+# Inline Annotated R Markdown: Community Composition
 
-#Community composition
+This version keeps the format similar to your original R Markdown file,
+with `#` comments added **at the end of code lines** wherever possible.
 
-```{r data_load overview,}
-load("data/data.Rdata")
+## Code Chunk 1
+```{r}
+load("data/data.Rdata")  # Load the saved R data file containing datasets and variables
 ```
-##5.1 Taxonomy Overview
 
-### 5.1.1 Stacked Barplot
-```{r taxonomybarplot overview,}
+## Code Chunk 2
+```{r}
 genome_counts_filt %>%
-  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
-  pivot_longer(-genome, names_to = "sample", values_to = "count") %>% #reduce to minimum number of columns
-  left_join(., genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata
-  left_join(., sample_metadata, by = join_by(sample == sample)) %>% #append sample metadata
-  filter(!is.na(count)) %>%
-  ggplot(aes(y=count,x=sample, fill=phylum, group=phylum)) + #grouping enables keeping the same sorting of taxonomic units
-    geom_bar(stat="identity", colour="white", linewidth=0.1) + #plot stacked bars with white borders
-    scale_fill_manual(values=phylum_colors) +
-    labs(x = "Relative abundance", y ="Samples") +
-    facet_nested(. ~ species.y + sample_type ,  scales="free", space="free") + #facet per day and treatment
+  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS normalisation  # Normalize counts in each column (TSS normalization)
+  pivot_longer(-genome, names_to = "sample", values_to = "count") %>% #reduce to minimum number of columns  # Transform wide data to long format for plotting
+  left_join(., genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata  # Add metadata about each genome
+  left_join(., sample_metadata, by = join_by(sample == sample)) %>% #append sample metadata  # Add metadata about each sample
+  filter(!is.na(count)) %>%  # Keep only rows that have actual values
+  ggplot(aes(y=count,x=sample, fill=phylum, group=phylum)) + #grouping enables keeping the same sorting of taxonomic units  # Start plotting: define x, y, fill colors
+    geom_bar(stat="identity", colour="white", linewidth=0.1) + #plot stacked bars with white borders  # Draw stacked bar charts for each sample
+    scale_fill_manual(values=phylum_colors) +  # Use specific colors for phylum groups
+    labs(x = "Relative abundance", y ="Samples") +  # Label the x and y axes
+    facet_nested(. ~ species.y ,  scales="free", space="free") + #facet per day and treatment  # Split the plots by species and treatment
     scale_y_continuous(expand = c(0.001, 0.001)) +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
           axis.title.x = element_blank(),
@@ -31,14 +33,13 @@ genome_counts_filt %>%
           strip.background.x=element_rect(color = NA, fill= "#f4f4f4"))
 ```
 
-
-###5.1.2 Phylum relative abundances
-```{r phylum_abundance}
+## Code Chunk 3
+```{r}
 phylum_summary <- genome_counts_filt %>%
-  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
-  pivot_longer(-genome, names_to = "sample", values_to = "count") %>%
-  left_join(sample_metadata, by = join_by(sample == sample)) %>%
-  left_join(genome_metadata, by = join_by(genome == genome)) %>%
+  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation  # Normalize counts in each column (TSS normalization)
+  pivot_longer(-genome, names_to = "sample", values_to = "count") %>%  # Transform wide data to long format for plotting
+  left_join(sample_metadata, by = join_by(sample == sample)) %>%  # Add metadata about each sample
+  left_join(genome_metadata, by = join_by(genome == genome)) %>%  # Add metadata about each genome
   group_by(sample,phylum) %>%
   summarise(relabun=sum(count))
 
@@ -48,7 +49,9 @@ phylum_summary %>%
     arrange(-mean) %>%
     tt()
 ```
-```{r phylum_abundance2}
+
+## Code Chunk 4
+```{r}
 phylum_arrange <- phylum_summary %>%
     group_by(phylum) %>%
     summarise(mean=mean(relabun)) %>%
@@ -59,28 +62,26 @@ phylum_arrange <- phylum_summary %>%
 phylum_summary %>%
     filter(phylum %in% phylum_arrange) %>%
     mutate(phylum=factor(phylum,levels=rev(phylum_arrange))) %>%
-    ggplot(aes(x=relabun, y=phylum, group=phylum, color=phylum)) +
+    ggplot(aes(x=relabun, y=phylum, group=phylum, color=phylum)) +  # Start plotting: define x, y, fill colors
         scale_color_manual(values=phylum_colors[rev(phylum_arrange)]) +
         geom_jitter(alpha=0.5) + 
         theme_minimal() + 
         theme(legend.position="none") +
-        labs(y="Phylum",x="Relative abundance")
+        labs(y="Phylum",x="Relative abundance")  # Label the x and y axes
 ```
 
-##5.2 Taxonomy boxplot
-
-###5.2.1 Family
-```{r family}
+## Code Chunk 5
+```{r}
 family_summary <- genome_counts_filt %>%
-  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
-  pivot_longer(-genome, names_to = "sample", values_to = "count") %>% #reduce to minimum number of columns
-  left_join(sample_metadata, by = join_by(sample == sample)) %>% #append sample metadata
-  left_join(., genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata
+  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation  # Normalize counts in each column (TSS normalization)
+  pivot_longer(-genome, names_to = "sample", values_to = "count") %>% #reduce to minimum number of columns  # Transform wide data to long format for plotting
+  left_join(sample_metadata, by = join_by(sample == sample)) %>% #append sample metadata  # Add metadata about each sample
+  left_join(., genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata  # Add metadata about each genome
   group_by(sample,family) %>%
   summarise(relabun=sum(count))
 
 family_summary %>%
-    filter(!is.na(relabun)) %>%
+    filter(!is.na(relabun)) %>%  # Keep only rows that have actual values
     group_by(family) %>%
     summarise(mean=mean(relabun),sd=sd(relabun)) %>%
     mutate(family= sub("^f__", "", family)) %>%
@@ -88,9 +89,10 @@ family_summary %>%
     tt()
 ```
 
-```{r family2}
+## Code Chunk 6
+```{r}
 family_arrange <- family_summary %>%
-    filter(!is.na(relabun)) %>%
+    filter(!is.na(relabun)) %>%  # Keep only rows that have actual values
     group_by(family) %>%
     summarise(mean=sum(relabun)) %>%
     arrange(-mean) %>%
@@ -99,41 +101,43 @@ family_arrange <- family_summary %>%
     pull()
 
 family_summary %>%
-    left_join(genome_metadata %>% select(family,phylum) %>% unique(),by=join_by(family==family)) %>%
-    left_join(sample_metadata,by=join_by(sample==sample)) %>%
+    left_join(genome_metadata %>% select(family,phylum) %>% unique(),by=join_by(family==family)) %>%  # Add metadata about each genome
+    left_join(sample_metadata,by=join_by(sample==sample)) %>%  # Add metadata about each sample
     mutate(family= sub("^f__", "", family)) %>%
     filter(family %in% family_arrange[1:20]) %>%
     mutate(family=factor(family,levels=rev(family_arrange[1:20]))) %>%
     filter(relabun > 0) %>%
-    ggplot(aes(x=relabun, y=family, group=family, color=phylum, fill=phylum)) +
+    ggplot(aes(x=relabun, y=family, group=family, color=phylum, fill=phylum)) +  # Start plotting: define x, y, fill colors
         scale_color_manual(values=phylum_colors[-8]) +
-        scale_fill_manual(values=phylum_colors[-8]) +
+        scale_fill_manual(values=phylum_colors[-8]) +  # Use specific colors for phylum groups
         #geom_boxplot(alpha=0.2) +
         geom_jitter(alpha=0.5) + 
-        facet_nested(. ~ species + sample_type)+
+        facet_nested(. ~ species + sample_type)+  # Split the plots by species and treatment
         theme_minimal() +
         theme(legend.position = "none")
 ```
-###5.2.2 Genus
-```{r Genus}
+
+## Code Chunk 7
+```{r}
 genus_summary <- genome_counts_filt %>%
-  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
-  pivot_longer(-genome, names_to = "sample", values_to = "count") %>% #reduce to minimum number of columns
-  left_join(sample_metadata, by = join_by(sample == sample)) %>% #append sample metadata
-  left_join(genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata
+  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation  # Normalize counts in each column (TSS normalization)
+  pivot_longer(-genome, names_to = "sample", values_to = "count") %>% #reduce to minimum number of columns  # Transform wide data to long format for plotting
+  left_join(sample_metadata, by = join_by(sample == sample)) %>% #append sample metadata  # Add metadata about each sample
+  left_join(genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata  # Add metadata about each genome
   group_by(sample,genus) %>%
   summarise(relabun=sum(count)) %>%
   filter(genus != "g__")
 
 genus_summary %>%
-    filter(!is.na(relabun)) %>%
+    filter(!is.na(relabun)) %>%  # Keep only rows that have actual values
     group_by(genus) %>%
     summarise(mean=mean(relabun),sd=sd(relabun)) %>%
     arrange(-mean) %>%
     tt()
 ```
 
-```{r Genus2}
+## Code Chunk 8
+```{r}
 genus_arrange <- genus_summary %>%
     group_by(genus) %>%
     summarise(mean=sum(relabun)) %>%
@@ -144,21 +148,22 @@ genus_arrange <- genus_summary %>%
     pull()
 
 genus_summary %>%
-    left_join(genome_metadata %>% select(genus,phylum) %>% unique(),by=join_by(genus==genus)) %>%
-    left_join(sample_metadata,by=join_by(sample==sample)) %>%
+    left_join(genome_metadata %>% select(genus,phylum) %>% unique(),by=join_by(genus==genus)) %>%  # Add metadata about each genome
+    left_join(sample_metadata,by=join_by(sample==sample)) %>%  # Add metadata about each sample
     mutate(genus= sub("^g__", "", genus)) %>%
     filter(genus %in% genus_arrange[1:20]) %>%
     mutate(genus=factor(genus,levels=rev(genus_arrange[1:20]))) %>%
     filter(relabun > 0) %>%
-    ggplot(aes(x=relabun, y=genus, group=genus, color=phylum)) +
+    ggplot(aes(x=relabun, y=genus, group=genus, color=phylum)) +  # Start plotting: define x, y, fill colors
         scale_color_manual(values=phylum_colors) +
         #geom_boxplot() +
         geom_jitter(alpha=0.5) + 
-        facet_nested(. ~ species + sample_type)+
+        facet_nested(. ~ species )+  # Split the plots by species and treatment
         theme_minimal()
 ```
-##5.3 Alpha diversity
-```{r Alpha diversity}
+
+## Code Chunk 9
+```{r}
 # Calculate Hill numbers
 richness <- genome_counts_filt %>%
   column_to_rownames(var = "genome") %>%
@@ -210,20 +215,21 @@ alpha_div <- richness %>%
   full_join(functional, by = join_by(sample == sample))
 ```
 
-```{r alpha div2}
+## Code Chunk 10
+```{r}
 alpha_div %>%
-  pivot_longer(-sample, names_to = "metric", values_to = "value") %>%
-  left_join(., sample_metadata, by = join_by(sample == sample)) %>%
+  pivot_longer(-sample, names_to = "metric", values_to = "value") %>%  # Transform wide data to long format for plotting
+  left_join(., sample_metadata, by = join_by(sample == sample)) %>%  # Add metadata about each sample
   mutate(metric=factor(metric,levels=c("richness","neutral","phylogenetic","functional"))) %>%
   unite("group", c(species,sample_type), remove = FALSE) %>%
-      ggplot(aes(y = value, x = group, group=group, color=group, fill=group)) +
+      ggplot(aes(y = value, x = group, group=group, color=group, fill=group)) +  # Start plotting: define x, y, fill colors
       geom_boxplot(outlier.shape = NA) +
       geom_jitter(alpha=0.5) +
       scale_color_manual(name="Group",
           breaks=c("Cathartes aura_Colon contents","Coragyps atratus_Colon contents","Cathartes aura_Stomach contents","Coragyps atratus_Stomach contents"),
           labels=c("Cathartes aura (colon)","Coragyps atratus (colon)","Cathartes aura (stomach)","Coragyps atratus (stomach)"),
           values=c("#e5bd5b", "#6b7398","#e2815a", "#876b96")) +
-      scale_fill_manual(name="Group",
+      scale_fill_manual(name="Group",  # Use specific colors for phylum groups
           breaks=c("Cathartes aura_Colon contents","Coragyps atratus_Colon contents","Cathartes aura_Stomach contents","Coragyps atratus_Stomach contents"),
           labels=c("Cathartes aura (colon)","Coragyps atratus (colon)","Cathartes aura (stomach)","Coragyps atratus (stomach)"),
           values=c("#e5bd5b50", "#6b739850","#e2815a50", "#876b9650")) +
@@ -238,8 +244,8 @@ alpha_div %>%
         axis.text.x = element_blank())
 ```
 
-##5.4 Beta diversity
-```{r betadiv}
+## Code Chunk 11
+```{r}
 beta_q0n <- genome_counts_filt %>%
   column_to_rownames(., "genome") %>%
   hillpair(., q = 0)
@@ -258,73 +264,77 @@ beta_q1f <- genome_counts_filt %>%
   hillpair(., q = 1, dist = dist)
 ```
 
-```{r Betadiv2}
+## Code Chunk 12
+```{r}
 #Richness
-betadisper(beta_q0n$C, sample_metadata$type) %>% permutest(., pairwise = TRUE) 
+betadisper(beta_q0n$C, sample_metadata$region) %>% permutest(., pairwise = TRUE)
 ```
 
-```{r Betadiv3}
-adonis2(beta_q0n$C ~ type, 
+## Code Chunk 13
+```{r}
+adonis2(beta_q0n$C ~ region,   # Run a PERMANOVA test to compare groups
         data = sample_metadata %>% arrange(match(sample,labels(beta_q1n$C))), 
         permutations = 999, 
-        strata = sample_metadata %>% arrange(match(sample,labels(beta_q1n$C))) %>% pull(individual)) %>%
+        strata = sample_metadata %>% arrange(match(sample,labels(beta_q1n$C))) %>% pull(sample)) %>%
         broom::tidy() %>%
         tt()
 ```
 
-```{r Betadiv4}
+## Code Chunk 14
+```{r}
 #Neutral diversity
-betadisper(beta_q1n$C, sample_metadata$type) %>% permutest(., pairwise = TRUE) 
+betadisper(beta_q1n$C, sample_metadata$region) %>% permutest(., pairwise = TRUE)
 ```
 
-```{r Betadiv5}
-adonis2(beta_q1n$C ~ type, 
+## Code Chunk 15
+```{r}
+adonis2(beta_q1n$C ~ region,   # Run a PERMANOVA test to compare groups
         data = sample_metadata %>% arrange(match(sample,labels(beta_q1n$C))), 
         permutations = 999, 
-        strata = sample_metadata %>% arrange(match(sample,labels(beta_q1n$C))) %>% pull(individual)) %>%
+        strata = sample_metadata %>% arrange(match(sample,labels(beta_q1n$C))) %>% pull(sample)) %>%
         broom::tidy() %>%
         tt()
 ```
 
-```{r Betadiv6}
+## Code Chunk 16
+```{r}
 #Phylogenetic diversity
-betadisper(beta_q1p$C, sample_metadata$type) %>% permutest(., pairwise = TRUE) 
+betadisper(beta_q1p$C, sample_metadata$region) %>% permutest(., pairwise = TRUE)
 ```
 
-```{r Betadiv7}
-adonis2(beta_q1p$C ~ type, 
+## Code Chunk 17
+```{r}
+adonis2(beta_q1p$C ~ region,   # Run a PERMANOVA test to compare groups
         data = sample_metadata %>% arrange(match(sample,labels(beta_q1n$C))), 
         permutations = 999, 
-        strata = sample_metadata %>% arrange(match(sample,labels(beta_q1n$C))) %>% pull(individual)) %>%
+        strata = sample_metadata %>% arrange(match(sample,labels(beta_q1n$C))) %>% pull(sample)) %>%
         broom::tidy() %>%
         tt()
 ```
 
-```{r Betadiv8}
-adonis2(beta_q1f$C ~ type, 
+## Code Chunk 18
+```{r}
+adonis2(beta_q1f$C ~ region,   # Run a PERMANOVA test to compare groups
         data = sample_metadata %>% arrange(match(sample,labels(beta_q1n$C))), 
         permutations = 999, 
-        strata = sample_metadata %>% arrange(match(sample,labels(beta_q1n$C))) %>% pull(individual)) %>%
+        strata = sample_metadata %>% arrange(match(sample,labels(beta_q1n$C))) %>% pull(sample)) %>%
         broom::tidy() %>%
         tt()
 ```
-###Richness diversity plot
-```{r Betadiv9}
+
+## Code Chunk 19
+```{r}
 beta_q0n$S %>%
   vegan::metaMDS(., trymax = 500, k = 2, verbosity = FALSE, trace=FALSE) %>%
   vegan::scores() %>%
   as_tibble(., rownames = "sample") %>%
-  dplyr::left_join(sample_metadata, by = join_by(sample == sample)) %>%
-  group_by(type) %>%
+  dplyr::left_join(sample_metadata, by = join_by(sample == sample)) %>%  # Add metadata about each sample
+  group_by(region) %>%
   mutate(x_cen = mean(NMDS1, na.rm = TRUE)) %>%
   mutate(y_cen = mean(NMDS2, na.rm = TRUE)) %>%
-  mutate(individual=factor(individual, levels=c("Sg1","Sg2","Sg3","Sg4","Sg5","Sg6","Sg7","Sg8","Sg9","Sg10"))) %>%
+  mutate(sample=factor(sample, levels=c("Sg1","Sg2","Sg3","Sg4","Sg5","Sg6","Sg7","Sg8","Sg9","Sg10"))) %>%
   ungroup() %>%
-  ggplot(aes(x = NMDS1, y = NMDS2, color = type, shape = individual)) +
-    scale_color_manual(name="Sample type",
-          breaks=c("cloaca","feces"),
-          labels=c("Cloaca","Faeces"),
-          values=c("#e5bd5b", "#6b7398")) +
+  ggplot(aes(x = NMDS1, y = NMDS2, color = region, shape = sample)) +  # Start plotting: define x, y, fill colors
     scale_shape_manual(values = 1:10) +
     geom_point(size = 4) +
     #   stat_ellipse(aes(color = beta_q1n_nmds$Groups))+
@@ -341,21 +351,22 @@ beta_q0n$S %>%
       legend.title = element_text(size = 18),
       legend.position = "right", legend.box = "vertical"
     ) +
-    labs(shape="Individual")
+    labs(shape="Individual")  # Label the x and y axes
 ```
-###Neutral diversity plot
-```{r Neutrality plot}
+
+## Code Chunk 20
+```{r}
 beta_q1n$S %>%
   vegan::metaMDS(., trymax = 500, k = 2, verbosity = FALSE, trace=FALSE) %>%
   vegan::scores() %>%
   as_tibble(., rownames = "sample") %>%
-  dplyr::left_join(sample_metadata, by = join_by(sample == sample)) %>%
-  group_by(type) %>%
+  dplyr::left_join(sample_metadata, by = join_by(sample == sample)) %>%  # Add metadata about each sample
+  group_by(region) %>%
   mutate(x_cen = mean(NMDS1, na.rm = TRUE)) %>%
   mutate(y_cen = mean(NMDS2, na.rm = TRUE)) %>%
   mutate(individual=factor(individual, levels=c("Sg1","Sg2","Sg3","Sg4","Sg5","Sg6","Sg7","Sg8","Sg9","Sg10"))) %>%
   ungroup() %>%
-  ggplot(aes(x = NMDS1, y = NMDS2, color = type, shape = individual)) +
+  ggplot(aes(x = NMDS1, y = NMDS2, color = type, shape = individual)) +  # Start plotting: define x, y, fill colors
     scale_color_manual(name="Sample type",
           breaks=c("cloaca","feces"),
           labels=c("Cloaca","Faeces"),
@@ -376,57 +387,22 @@ beta_q1n$S %>%
       legend.title = element_text(size = 18),
       legend.position = "right", legend.box = "vertical"
     ) +
-    labs(shape="Individual")
-```
-###5.4.3Phylogenetic diversity plot
-```{r phyloplot}
-beta_q1p$S %>%
-  vegan::metaMDS(., trymax = 500, k = 2, verbosity = FALSE, trace=FALSE) %>%
-  vegan::scores() %>%
-  as_tibble(., rownames = "sample") %>%
-  dplyr::left_join(sample_metadata, by = join_by(sample == sample)) %>%
-  group_by(type) %>%
-  mutate(x_cen = mean(NMDS1, na.rm = TRUE)) %>%
-  mutate(y_cen = mean(NMDS2, na.rm = TRUE)) %>%
-  mutate(individual=factor(individual, levels=c("Sg1","Sg2","Sg3","Sg4","Sg5","Sg6","Sg7","Sg8","Sg9","Sg10"))) %>%
-  ungroup() %>%
-  ggplot(aes(x = NMDS1, y = NMDS2, color = type, shape = individual)) +
-    scale_color_manual(name="Sample type",
-          breaks=c("cloaca","feces"),
-          labels=c("Cloaca","Faeces"),
-          values=c("#e5bd5b", "#6b7398")) +
-    scale_shape_manual(values = 1:10) +
-    geom_point(size = 4) +
-    #   stat_ellipse(aes(color = beta_q1n_nmds$Groups))+
-    geom_segment(aes(x = x_cen, y = y_cen, xend = NMDS1, yend = NMDS2), alpha = 0.9) +
-    theme_classic() +
-    theme(
-      axis.text.x = element_text(size = 12),
-      axis.text.y = element_text(size = 12),
-      axis.title = element_text(size = 20, face = "bold"),
-      axis.text = element_text(face = "bold", size = 18),
-      panel.background = element_blank(),
-      axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
-      legend.text = element_text(size = 16),
-      legend.title = element_text(size = 18),
-      legend.position = "right", legend.box = "vertical"
-    ) +
-    labs(shape="Individual")
+    labs(shape="Individual")  # Label the x and y axes
 ```
 
-###5.4.4 Functional diversity plot
-```{r Functionalplot}
+## Code Chunk 21
+```{r}
 beta_q1p$S %>%
   vegan::metaMDS(., trymax = 500, k = 2, verbosity = FALSE, trace=FALSE) %>%
   vegan::scores() %>%
   as_tibble(., rownames = "sample") %>%
-  dplyr::left_join(sample_metadata, by = join_by(sample == sample)) %>%
-  group_by(type) %>%
+  dplyr::left_join(sample_metadata, by = join_by(sample == sample)) %>%  # Add metadata about each sample
+  group_by(region) %>%
   mutate(x_cen = mean(NMDS1, na.rm = TRUE)) %>%
   mutate(y_cen = mean(NMDS2, na.rm = TRUE)) %>%
   mutate(individual=factor(individual, levels=c("Sg1","Sg2","Sg3","Sg4","Sg5","Sg6","Sg7","Sg8","Sg9","Sg10"))) %>%
   ungroup() %>%
-  ggplot(aes(x = NMDS1, y = NMDS2, color = type, shape = individual)) +
+  ggplot(aes(x = NMDS1, y = NMDS2, color = type, shape = individual)) +  # Start plotting: define x, y, fill colors
     scale_color_manual(name="Sample type",
           breaks=c("cloaca","feces"),
           labels=c("Cloaca","Faeces"),
@@ -447,6 +423,42 @@ beta_q1p$S %>%
       legend.title = element_text(size = 18),
       legend.position = "right", legend.box = "vertical"
     ) +
-    labs(shape="Individual")
+    labs(shape="Individual")  # Label the x and y axes
 ```
- 
+
+## Code Chunk 22
+```{r}
+beta_q1p$S %>%
+  vegan::metaMDS(., trymax = 500, k = 2, verbosity = FALSE, trace=FALSE) %>%
+  vegan::scores() %>%
+  as_tibble(., rownames = "sample") %>%
+  dplyr::left_join(sample_metadata, by = join_by(sample == sample)) %>%  # Add metadata about each sample
+  group_by(region) %>%
+  mutate(x_cen = mean(NMDS1, na.rm = TRUE)) %>%
+  mutate(y_cen = mean(NMDS2, na.rm = TRUE)) %>%
+  mutate(individual=factor(individual, levels=c("Sg1","Sg2","Sg3","Sg4","Sg5","Sg6","Sg7","Sg8","Sg9","Sg10"))) %>%
+  ungroup() %>%
+  ggplot(aes(x = NMDS1, y = NMDS2, color = type, shape = individual)) +  # Start plotting: define x, y, fill colors
+    scale_color_manual(name="Sample type",
+          breaks=c("cloaca","feces"),
+          labels=c("Cloaca","Faeces"),
+          values=c("#e5bd5b", "#6b7398")) +
+    scale_shape_manual(values = 1:10) +
+    geom_point(size = 4) +
+    #   stat_ellipse(aes(color = beta_q1n_nmds$Groups))+
+    geom_segment(aes(x = x_cen, y = y_cen, xend = NMDS1, yend = NMDS2), alpha = 0.9) +
+    theme_classic() +
+    theme(
+      axis.text.x = element_text(size = 12),
+      axis.text.y = element_text(size = 12),
+      axis.title = element_text(size = 20, face = "bold"),
+      axis.text = element_text(face = "bold", size = 18),
+      panel.background = element_blank(),
+      axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
+      legend.text = element_text(size = 16),
+      legend.title = element_text(size = 18),
+      legend.position = "right", legend.box = "vertical"
+    ) +
+    labs(shape="Individual")  # Label the x and y axes
+```
+

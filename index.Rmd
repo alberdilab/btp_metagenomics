@@ -1,49 +1,15 @@
----
-title: "AlberdiLab | Manuscript in prep"
-subtitle: "Brush-tail possum metagenomics"
-author:
-  - Lukas Fix, Antton Alberdi, Raphael Eisenhofer[University of Copenhagen, raphael.eisenhofer@sund.ku.dk]
-date: "`r Sys.Date()`"
-site: bookdown::bookdown_site
-documentclass: book
-bibliography: [book.bib, packages.bib]
-url: https://alberdilab.github.io/btp_metagenomics
-description: |
-  Data analysis code for the study of Tasmanian brush-tail possums.
-link-citations: yes
-github-repo: alberdilab/btp_metagenomics
----
+# Inline Annotated R Markdown: index_Inline_Annotated
 
-```{r knitr_opts, echo=FALSE}
+## Code Chunk 1
+```{r}
 knitr::opts_chunk$set(
     class.source = "script-source",
     class.output = "script-output",
     comment = NA)
 ```
 
-# Introduction
-
-## Prepare the R environment
-
-### Environment
-
-To reproduce all the analyses locally, clone this repository in your computer using:
-
-```
-RStudio > New Project > Version Control > Git
-```
-
-And indicating the following git repository:
-
-> https://github.com/alberdilab/btp_metagenomics.git
-
-Once the R project has been created, follow the instructions and code chunks shown in this webbook.
-
-### Libraries
-
-The following R packages are required for the data analysis.
-
-```{r load_libraries, warning=FALSE, comments="", message=FALSE}
+## Code Chunk 2
+```{r}
 # Base
 library(R.utils)
 library(knitr)
@@ -51,6 +17,7 @@ library(tidyverse)
 library(devtools)
 library(tinytable)
 library(rairtable)
+library(readxl)
 
 # For tree handling
 library(ape)
@@ -58,7 +25,7 @@ library(phyloseq)
 library(phytools)
 
 # For plotting
-library(ggplot2)
+library(ggplot2)  # Begin plotting using ggplot2
 library(ggrepel)
 library(ggpubr)
 library(ggnewscale)
@@ -81,4 +48,9 @@ library(corrplot)
 library(lme4)
 library(nlme)
 library(ANCOMBC)
+#for geogrphic visualisation
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(patchwork)
 ```
+

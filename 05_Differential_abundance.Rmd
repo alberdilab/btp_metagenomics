@@ -1,9 +1,12 @@
-#6 Differential abundance
-```{r load_data}
-load("resources/data.Rdata")
+# Inline Annotated R Markdown: 05_Differential_abundance_Inline_Annotated
+
+## Code Chunk 1
+```{r}
+load("data/data.Rdata")  # Load an RData file with variables and datasets
 ```
-##6.1 Create phyloseq object
-```{r phyloseq_object}
+
+## Code Chunk 2
+```{r}
 # phyloseq object considering structual zeros
 phylo_samples <- sample_metadata %>%
   column_to_rownames("sample") %>%
@@ -16,18 +19,18 @@ phylo_genome <- genome_counts_filt %>%
   otu_table(., taxa_are_rows = TRUE)
 
 phylo_taxonomy <- genome_metadata %>%
-  filter(genome %in% rownames(phylo_genome)) %>% # remove structural zeros
-  mutate(genome2 = genome) %>% # create a pseudo genome name column
+  filter(genome %in% rownames(phylo_genome)) %>% # remove structural zeros  # Filter the data to include only rows that meet certain conditions
+  mutate(genome2 = genome) %>% # create a pseudo genome name column  # Add or modify columns in the dataset
   column_to_rownames("genome2") %>%
-  dplyr::select(domain, phylum, class, order, family, genus, species, genome) %>% # add an additional taxonomic level to ensure genome-level analysis (as no all genomes have species-level taxonomic assignments. Otherwise, ANCOMBC2 aggregates analyses per species)
+  dplyr::select(domain, phylum, class, order, family, genus, species, genome) %>% # add an additional taxonomic level to ensure genome-level analysis (as no all genomes have species-level taxonomic assignments. Otherwise, ANCOMBC2 aggregates analyses per species)  # Select specific columns from the data
   as.matrix() %>%
   tax_table() # convert to phyloseq tax_table object
 
 phyloseq <- phyloseq(phylo_genome, phylo_taxonomy, phylo_samples)
 ```
-##6.2 Run ANCOMBC2
-###6.2.1 MAG level
-```{r MAG_level}
+
+## Code Chunk 3
+```{r}
 differential_abundance <- ancombc2(
   data = phyloseq,
   assay_name = "counts",
@@ -57,6 +60,7 @@ differential_abundance <- ancombc2(
 )
 
 # Save differential abundance to data object
+
 save(sample_metadata, 
      genome_metadata, 
      read_counts, 
@@ -70,29 +74,31 @@ save(sample_metadata,
      file = "resources/data.Rdata")
 ```
 
-```{r MAG_level2}
+## Code Chunk 4
+```{r}
 tax <- data.frame(phyloseq@tax_table) %>%
   rownames_to_column(., "taxon")
 
 differential_abundance_table <- differential_abundance$res %>%
-  dplyr::select(genome=taxon, lfc_typefeces, p_typefeces) %>%
-  filter(p_typefeces < 0.05) %>%
+  dplyr::select(genome=taxon, lfc_typefeces, p_typefeces) %>%  # Select specific columns from the data
+  filter(p_typefeces < 0.05) %>%  # Filter the data to include only rows that meet certain conditions
   dplyr::arrange(p_typefeces) %>%
   merge(., tax, by = "genome")
 
 differential_abundance_table %>%
-  select(genome,order,phylum, lfc_typefeces, p_typefeces) %>%
+  select(genome,order,phylum, lfc_typefeces, p_typefeces) %>%  # Select specific columns from the data
   tt()
 ```
 
-```{r MAG_3}
-ggplot(differential_abundance_table, aes(x = forcats::fct_rev(genome), y = lfc_typefeces, color = phylum)) +
-  geom_point(size = 3) +
-  scale_color_manual(values = phylum_colors[-c(3,4)]) +
-  geom_hline(yintercept = 0) +
+## Code Chunk 5
+```{r}
+ggplot(differential_abundance_table, aes(x = forcats::fct_rev(genome), y = lfc_typefeces, color = phylum)) +  # Begin plotting using ggplot2
+  geom_point(size = 3) +  # Add a specific type of plot layer (bars, points, lines, etc.)
+  scale_color_manual(values = phylum_colors[-c(3,4)]) +  # Adjust color scales, axes, or fill options
+  geom_hline(yintercept = 0) +  # Add a specific type of plot layer (bars, points, lines, etc.)
   coord_flip() +
-  facet_grid(phylum ~ ., scales = "free", space = "free") +
-  theme(
+  facet_grid(phylum ~ ., scales = "free", space = "free") +  # Create multiple subplots based on a variable
+  theme(  # Customize visual aspects of the plot
     panel.background = element_blank(),
     axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
     axis.title.x = element_blank(),
@@ -104,21 +110,23 @@ ggplot(differential_abundance_table, aes(x = forcats::fct_rev(genome), y = lfc_t
   guides(col = guide_legend("Phylum"))
 ```
 
-```{r MAG_4}
+## Code Chunk 6
+```{r}
 differential_abundance$res %>%
   na.omit() %>%
-  dplyr::select(genome=taxon, lfc_typefeces, p_typefeces) %>%
-  left_join(genome_metadata, by = join_by(genome == genome)) %>%
-  mutate(phylum = ifelse(p_typefeces < 0.05, phylum, NA)) %>%
-  ggplot(., aes(x = lfc_typefeces, y = -log(p_typefeces), color = phylum)) +
-  geom_point() +
+  dplyr::select(genome=taxon, lfc_typefeces, p_typefeces) %>%  # Select specific columns from the data
+  left_join(genome_metadata, by = join_by(genome == genome)) %>%  # Merge two datasets, keeping all rows from the left one
+  mutate(phylum = ifelse(p_typefeces < 0.05, phylum, NA)) %>%  # Add or modify columns in the dataset
+  ggplot(., aes(x = lfc_typefeces, y = -log(p_typefeces), color = phylum)) +  # Begin plotting using ggplot2
+  geom_point() +  # Add a specific type of plot layer (bars, points, lines, etc.)
   #xlim(c(-10,4)) +
-  scale_color_manual(values = phylum_colors[-c(3,4)]) +
-  labs(color = "Significance", x = "Log-fold difference between sample types", y = "p-value") +
+  scale_color_manual(values = phylum_colors[-c(3,4)]) +  # Adjust color scales, axes, or fill options
+  labs(color = "Significance", x = "Log-fold difference between sample types", y = "p-value") +  # Customize axis labels or plot titles
   theme_classic()
 ```
-##6.2.2 Genus level
-```{r Genus_level}
+
+## Code Chunk 7
+```{r}
 differential_abundance_genus <- ancombc2(
   data = phyloseq,
   assay_name = "counts",
@@ -148,6 +156,7 @@ differential_abundance_genus <- ancombc2(
 )
 
 # Save differential abundance to data object
+
 save(sample_metadata, 
      genome_metadata, 
      read_counts, 
@@ -162,20 +171,22 @@ save(sample_metadata,
      file = "resources/data.Rdata")
 ```
 
-```{r Genus_level2}
+## Code Chunk 8
+```{r}
 tax <- data.frame(phyloseq@tax_table) %>%
   rownames_to_column(., "taxon")
 
 differential_abundance_genus$res %>%
-  filter(nchar(taxon) > 5) %>%
-  dplyr::select(taxon=taxon, lfc_typefeces, p_typefeces) %>%
-  filter(p_typefeces < 0.05) %>%
+  filter(nchar(taxon) > 5) %>%  # Filter the data to include only rows that meet certain conditions
+  dplyr::select(taxon=taxon, lfc_typefeces, p_typefeces) %>%  # Select specific columns from the data
+  filter(p_typefeces < 0.05) %>%  # Filter the data to include only rows that meet certain conditions
   dplyr::arrange(lfc_typefeces) %>%
-  left_join(tax %>% select(-c(taxon,genome,species)) %>% unique(), by = join_by(taxon==genus)) %>%
+  left_join(tax %>% select(-c(taxon,genome,species)) %>% unique(), by = join_by(taxon==genus)) %>%  # Select specific columns from the data
   tt()
 ```
-##6.2.3 Phylum level
-```{r Phylum_level}
+
+## Code Chunk 9
+```{r}
 differential_abundance_phylum <- ancombc2(
   data = phyloseq,
   assay_name = "counts",
@@ -220,42 +231,45 @@ save(sample_metadata,
      file = "resources/data.Rdata")
 ```
 
-```{r phylum_2}
+## Code Chunk 10
+```{r}
 differential_abundance_phylum_table <- differential_abundance_phylum$res %>%
-  dplyr::select(taxon=taxon, lfc_typefeces, p_typefeces) %>%
-  #filter(p_typefeces < 0.05) %>%
+  dplyr::select(taxon=taxon, lfc_typefeces, p_typefeces) %>%  # Select specific columns from the data
+  #filter(p_typefeces < 0.05) %>%  # Filter the data to include only rows that meet certain conditions
   dplyr::arrange(lfc_typefeces)
 
 
 phylum_colors2 <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
-    left_join(differential_abundance_phylum_table, by=join_by(phylum == taxon)) %>%
+    left_join(differential_abundance_phylum_table, by=join_by(phylum == taxon)) %>%  # Merge two datasets, keeping all rows from the left one
     arrange(match(phylum, differential_abundance_phylum_table$taxon)) %>%
-    select(phylum, colors) %>% 
+    select(phylum, colors) %>%   # Select specific columns from the data
     unique() %>%
-    select(colors) %>%
+    select(colors) %>%  # Select specific columns from the data
     pull()
 
 differential_abundance_phylum_table %>%
-  filter(p_typefeces < 0.05) %>%
+  filter(p_typefeces < 0.05) %>%  # Filter the data to include only rows that meet certain conditions
   dplyr::arrange(lfc_typefeces) %>%
   tt()
 ```
 
-```{r phylum_3}
+## Code Chunk 11
+```{r}
 differential_abundance_phylum_table %>%
-      mutate(taxon=factor(taxon,levels=differential_abundance_phylum_table$taxon)) %>%
-      ggplot(aes(x = lfc_typefeces, y = forcats::fct_rev(taxon), fill = taxon)) +
-        geom_col(size = 2) +
-        scale_fill_manual(values = phylum_colors2) +
-        geom_hline(yintercept = 0) +
-        geom_vline(xintercept = 4, linetype="dashed", color = "grey", size=1) +
-        geom_vline(xintercept = -4, linetype="dashed", color = "grey", size=1) +
-        theme(
+      mutate(taxon=factor(taxon,levels=differential_abundance_phylum_table$taxon)) %>%  # Add or modify columns in the dataset
+      ggplot(aes(x = lfc_typefeces, y = forcats::fct_rev(taxon), fill = taxon)) +  # Begin plotting using ggplot2
+        geom_col(size = 2) +  # Add a specific type of plot layer (bars, points, lines, etc.)
+        scale_fill_manual(values = phylum_colors2) +  # Adjust color scales, axes, or fill options
+        geom_hline(yintercept = 0) +  # Add a specific type of plot layer (bars, points, lines, etc.)
+        geom_vline(xintercept = 4, linetype="dashed", color = "grey", size=1) +  # Add a specific type of plot layer (bars, points, lines, etc.)
+        geom_vline(xintercept = -4, linetype="dashed", color = "grey", size=1) +  # Add a specific type of plot layer (bars, points, lines, etc.)
+        theme(  # Customize visual aspects of the plot
           panel.background = element_blank(),
           axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
           axis.title.x = element_blank(),
           strip.background = element_blank(), 
           strip.text = element_blank()
         ) +
-        labs(x="log2FoldChange", y="Phylum")
+        labs(x="log2FoldChange", y="Phylum")  # Customize axis labels or plot titles
 ```
+

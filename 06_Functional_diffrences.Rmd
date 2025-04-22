@@ -1,9 +1,12 @@
-#7  Functional differences
-```{r data_load}
-load("resources/data.Rdata")
+# Inline Annotated R Markdown: 06_Functional_diffrences_Inline_Annotated
+
+## Code Chunk 1
+```{r}
+load("resources/data.Rdata")  # Load an RData file with variables and datasets
 ```
 
-```{r Aggregate_bundle}
+## Code Chunk 2
+```{r}
 # Aggregate bundle-level GIFTs into the compound level
 GIFTs_elements <- to.elements(genome_gifts, GIFT_db)
 GIFTs_elements_filtered <- GIFTs_elements[rownames(GIFTs_elements) %in% genome_counts$genome, ]
@@ -28,37 +31,39 @@ GIFTs_elements_community <- to.community(GIFTs_elements_filtered, genome_counts_
 GIFTs_functions_community <- to.community(GIFTs_functions, genome_counts_filt %>% column_to_rownames(., "genome") %>% tss(), GIFT_db)
 GIFTs_domains_community <- to.community(GIFTs_domains, genome_counts_filt %>% column_to_rownames(., "genome") %>% tss(), GIFT_db)
 ```
-##7.1 Function level
-```{r GIFTS_function}
+
+## Code Chunk 3
+```{r}
 GIFTs_functions_community %>%
     as.data.frame() %>%
     rownames_to_column(var="sample") %>%
     pivot_longer(!sample,names_to="trait",values_to="gift") %>%
-    left_join(sample_metadata, by = join_by(sample == sample)) %>%
-    ggplot(aes(x=trait,y=sample,fill=gift)) +
-        geom_tile(colour="white", size=0.2)+
-        scale_fill_gradientn(colours=rev(c("#d53e4f", "#f46d43", "#fdae61", "#fee08b", "#e6f598", "#abdda4", "#ddf1da")))+
-        facet_grid(type ~ ., scales="free",space="free")
+    left_join(sample_metadata, by = join_by(sample == sample)) %>%  # Merge two datasets, keeping all rows from the left one
+    ggplot(aes(x=trait,y=sample,fill=gift)) +  # Begin plotting using ggplot2
+        geom_tile(colour="white", size=0.2)+  # Add a specific type of plot layer (bars, points, lines, etc.)
+        scale_fill_gradientn(colours=rev(c("#d53e4f", "#f46d43", "#fdae61", "#fee08b", "#e6f598", "#abdda4", "#ddf1da")))+  # Adjust color scales, axes, or fill options
+        facet_grid(type ~ ., scales="free",space="free")  # Create multiple subplots based on a variable
 ```
-###7.1.1 GIFT test
-```{r setup, include=FALSE}
+
+## Code Chunk 4
+```{r}
 GIFTs_functions_community_tt <- GIFTs_functions_community %>%
   as.data.frame() %>%
   rownames_to_column("sample") %>%
   separate(sample, into = c("individual", "type"), sep = "\\.") %>%
   pivot_longer(-c(individual, type), names_to = "trait", values_to = "value") %>%
-  group_by(trait) %>%
-  mutate(model_result = list(lmerTest::lmer(value ~ type + (1 | individual)))) %>%
+  group_by(trait) %>%  # Group the data by one or more variables
+  mutate(model_result = list(lmerTest::lmer(value ~ type + (1 | individual)))) %>%  # Add or modify columns in the dataset
   ungroup() %>%
-  select(trait,model_result) %>%
+  select(trait,model_result) %>%  # Select specific columns from the data
   unique() %>%
-  mutate(estimate = map_dbl(model_result, ~broom.mixed::tidy(.) %>% filter(term == "typefeces") %>% pull(estimate))) %>%
+  mutate(estimate = map_dbl(model_result, ~broom.mixed::tidy(.) %>% filter(term == "typefeces") %>% pull(estimate))) %>%  # Filter the data to include only rows that meet certain conditions
 
-  mutate(p_value = map_dbl(model_result, ~broom.mixed::tidy(.) %>% filter(term == "typefeces") %>% pull(p.value))) %>%
-  mutate(p_value_adj = p.adjust(p_value, method = "bonferroni")) %>%
-  left_join(GIFT_db %>% select(Code_function,Function) %>% unique(),by=join_by(trait==Code_function)) %>%
+  mutate(p_value = map_dbl(model_result, ~broom.mixed::tidy(.) %>% filter(term == "typefeces") %>% pull(p.value))) %>%  # Filter the data to include only rows that meet certain conditions
+  mutate(p_value_adj = p.adjust(p_value, method = "bonferroni")) %>%  # Add or modify columns in the dataset
+  left_join(GIFT_db %>% select(Code_function,Function) %>% unique(),by=join_by(trait==Code_function)) %>%  # Select specific columns from the data
   rename(id=trait,trait=Function) %>%
-  select(id,trait, estimate, p_value_adj)
+  select(id,trait, estimate, p_value_adj)  # Select specific columns from the data
 
 GIFTs_functions_community_tt %>% tt() |> 
       style_tt(
@@ -68,77 +73,80 @@ GIFTs_functions_community_tt %>% tt() |>
         i = which(GIFTs_functions_community_tt$estimate > 0 & GIFTs_functions_community_tt$p_value_adj < 0.05),
         background = "#B7BCCE")
 ```
-###7.1.2 GIFT test visualisation
-```{r GIFT_visualisation}
+
+## Code Chunk 5
+```{r}
 GIFTs_functions_community %>%
   as.data.frame() %>%
   rownames_to_column("sample") %>%
   separate(sample, into = c("individual", "type"), sep = "\\.") %>%
   pivot_longer(-c(individual, type), names_to = "trait", values_to = "value") %>%
-  mutate(trait = case_when(
+  mutate(trait = case_when(  # Add or modify columns in the dataset
       trait %in% GIFT_db$Code_function ~ GIFT_db$Function[match(trait, GIFT_db$Code_function)],
       TRUE ~ trait
     )) %>%
-  mutate(trait=factor(trait,levels=unique(GIFT_db$Function))) %>%
-  ggplot(aes(x=value, y=type, group=type, fill=type, color=type)) +
-    geom_boxplot() +
-    scale_color_manual(name="Sample type",
+  mutate(trait=factor(trait,levels=unique(GIFT_db$Function))) %>%  # Add or modify columns in the dataset
+  ggplot(aes(x=value, y=type, group=type, fill=type, color=type)) +  # Begin plotting using ggplot2
+    geom_boxplot() +  # Add a specific type of plot layer (bars, points, lines, etc.)
+    scale_color_manual(name="Sample type",  # Adjust color scales, axes, or fill options
           breaks=c("cloaca","feces"),
           labels=c("Cloaca","Faeces"),
           values=c("#e5bd5b", "#6b7398")) +
-      scale_fill_manual(name="Sample type",
+      scale_fill_manual(name="Sample type",  # Adjust color scales, axes, or fill options
           breaks=c("cloaca","feces"),
           labels=c("Cloaca","Faeces"),
           values=c("#e5bd5b50", "#6b739850")) +
-    facet_grid(trait ~ ., space="free", scales="free") +
-              theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+    facet_grid(trait ~ ., space="free", scales="free") +  # Create multiple subplots based on a variable
+              theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),  # Customize visual aspects of the plot
               strip.text.y = element_text(angle = 0)) + 
-        labs(y="Traits",x="Metabolic capacity index")
+        labs(y="Traits",x="Metabolic capacity index")  # Customize axis labels or plot titles
 ```
-##7.2 Element level
-```{r GIFTS_elements}
+
+## Code Chunk 6
+```{r}
 GIFTs_elements_community %>%
     as.data.frame() %>%
     rownames_to_column(var="sample") %>%
     pivot_longer(!sample,names_to="trait",values_to="gift") %>%
-    left_join(sample_metadata, by = join_by(sample == sample)) %>%
-    mutate(functionid = substr(trait, 1, 3)) %>%
-    mutate(trait = case_when(
+    left_join(sample_metadata, by = join_by(sample == sample)) %>%  # Merge two datasets, keeping all rows from the left one
+    mutate(functionid = substr(trait, 1, 3)) %>%  # Add or modify columns in the dataset
+    mutate(trait = case_when(  # Add or modify columns in the dataset
       trait %in% GIFT_db$Code_element ~ GIFT_db$Element[match(trait, GIFT_db$Code_element)],
       TRUE ~ trait
     )) %>%
-    mutate(functionid = case_when(
+    mutate(functionid = case_when(  # Add or modify columns in the dataset
       functionid %in% GIFT_db$Code_function ~ GIFT_db$Function[match(functionid, GIFT_db$Code_function)],
       TRUE ~ functionid
     )) %>%
-    mutate(trait=factor(trait,levels=unique(GIFT_db$Element))) %>%
-    mutate(functionid=factor(functionid,levels=unique(GIFT_db$Function))) %>%
-    ggplot(aes(x=sample,y=trait,fill=gift)) +
-        geom_tile(colour="white", linewidth=0.2)+
-        scale_fill_gradientn(colours=rev(c("#d53e4f", "#f46d43", "#fdae61", "#fee08b", "#e6f598", "#abdda4", "#ddf1da")))+
-        facet_grid(functionid ~ type, scales="free",space="free") +
-        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+    mutate(trait=factor(trait,levels=unique(GIFT_db$Element))) %>%  # Add or modify columns in the dataset
+    mutate(functionid=factor(functionid,levels=unique(GIFT_db$Function))) %>%  # Add or modify columns in the dataset
+    ggplot(aes(x=sample,y=trait,fill=gift)) +  # Begin plotting using ggplot2
+        geom_tile(colour="white", linewidth=0.2)+  # Add a specific type of plot layer (bars, points, lines, etc.)
+        scale_fill_gradientn(colours=rev(c("#d53e4f", "#f46d43", "#fdae61", "#fee08b", "#e6f598", "#abdda4", "#ddf1da")))+  # Adjust color scales, axes, or fill options
+        facet_grid(functionid ~ type, scales="free",space="free") +  # Create multiple subplots based on a variable
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),  # Customize visual aspects of the plot
               strip.text.y = element_text(angle = 0)) + 
-        labs(y="Traits",x="Samples",fill="GIFT")
+        labs(y="Traits",x="Samples",fill="GIFT")  # Customize axis labels or plot titles
 ```
-###7.2.1 GIFT test
-```{r GIFTS_elements2}
+
+## Code Chunk 7
+```{r}
 GIFTs_elements_community_tt <- GIFTs_elements_community %>%
   as.data.frame() %>%
   rownames_to_column("sample") %>%
   separate(sample, into = c("individual", "type"), sep = "\\.") %>%
   pivot_longer(-c(individual, type), names_to = "trait", values_to = "value") %>%
-  group_by(trait) %>%
-  mutate(model_result = list(lmerTest::lmer(value ~ type + (1 | individual)))) %>%
+  group_by(trait) %>%  # Group the data by one or more variables
+  mutate(model_result = list(lmerTest::lmer(value ~ type + (1 | individual)))) %>%  # Add or modify columns in the dataset
   ungroup() %>%
-  select(trait,model_result) %>%
+  select(trait,model_result) %>%  # Select specific columns from the data
   unique() %>%
-  mutate(estimate = map_dbl(model_result, ~broom.mixed::tidy(.) %>% filter(term == "typefeces") %>% pull(estimate))) %>%
-  mutate(p_value = map_dbl(model_result, ~broom.mixed::tidy(.) %>% filter(term == "typefeces") %>% pull(p.value))) %>%
-  mutate(p_value_adj = p.adjust(p_value, method = "bonferroni")) %>%
-  left_join(GIFT_db %>% select(Code_element,Element) %>% unique(),by=join_by(trait==Code_element)) %>%
+  mutate(estimate = map_dbl(model_result, ~broom.mixed::tidy(.) %>% filter(term == "typefeces") %>% pull(estimate))) %>%  # Filter the data to include only rows that meet certain conditions
+  mutate(p_value = map_dbl(model_result, ~broom.mixed::tidy(.) %>% filter(term == "typefeces") %>% pull(p.value))) %>%  # Filter the data to include only rows that meet certain conditions
+  mutate(p_value_adj = p.adjust(p_value, method = "bonferroni")) %>%  # Add or modify columns in the dataset
+  left_join(GIFT_db %>% select(Code_element,Element) %>% unique(),by=join_by(trait==Code_element)) %>%  # Select specific columns from the data
   rename(id=trait,trait=Element) %>%
-  select(id,trait, estimate, p_value_adj)
+  select(id,trait, estimate, p_value_adj)  # Select specific columns from the data
 
 GIFTs_elements_community_tt %>% tt() |> 
       style_tt(
@@ -148,3 +156,4 @@ GIFTs_elements_community_tt %>% tt() |>
         i = which(GIFTs_elements_community_tt$estimate > 0 & GIFTs_elements_community_tt$p_value_adj < 0.05),
         background = "#B7BCCE")
 ```
+

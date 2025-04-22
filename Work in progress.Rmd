@@ -1,0 +1,144 @@
+
+## Load Required Libraries
+
+```{r load_libraries}
+# Install necessary packages if not already installed
+install.packages(c("ggplot2", "sf", "rnaturalearth", "rnaturalearthdata", "dplyr", "readr", "patchwork"))
+
+# Load libraries
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(dplyr)
+library(readr)
+library(patchwork)  # For combining plots
+```
+
+## Load Dataset
+
+```{r load_sample_metadata}
+# Load the dataset using the provided chunk
+sample_metadata <- read_tsv("data/DMB0167_metadata.tsv.gz") %>%
+    rename(sample=1)
+```
+```{r Update description}
+sample_metadata <- sample_metadata %>%
+  mutate(region = case_when(
+    longitude == 146.91 & latitude == -42.32 ~ "Centralhills, Tasmania",
+    TRUE ~ region  # Keep the existing value for other rows
+  ))
+```
+
+
+## Classify Biomes
+```{r assigning_biomes}
+# Assign biome types based on region names
+sample_metadata <- sample_metadata %>%
+  mutate(biome_type = case_when(
+    # Cities, towns, and settlements
+    region %in% c("Hobart", "Launceston", "Forth, Tasmania", "Ringarooma, Tasmania", "Warren") ~ "Urban areas",
+    
+    # Waterways and riparian regions
+    region %in% c("Dip River, Tasmania", "Inglis River, Tasmania") ~ "Waterways and wetland regions",
+    
+    # Dense vegetation and wooded areas
+    region %in% c("Mersey Forests, Tasmania", "Rocky Cape, Tasmania", "Dryandra") ~ "Dense vegetation",
+    
+    # Agricultural or open landscapes
+    region %in% c("Northern Midlands, Tasmania", "Pioneer, Tasmania", "Warren", "Tasmania") ~ "Open land",
+    
+    # Elevated regions with rugged terrain
+    region %in% c("Mount William, Tasmania", "Mountain River, Tasmania", "Ikara-Flinders Ranges National Park", "Centralhills, Tasmania") ~ "Elevated, arid terrain",
+    
+    # Coastal sandy areas
+    region %in% c("Friendly Beaches, Tasmania", "Green Beach, Tasmania") ~ "Coastlines",
+    
+    # Default for anything unclassified
+    TRUE ~ "Unknown"
+  ))
+```
+
+## Filter Data
+
+```{r filter_data}
+# Define extended boundary to include all possum data points
+lat_min <- -45.0  # Slightly smaller than -42.93
+lat_max <- -28.0  # Slightly larger than -30.65
+lon_min <- 110.0  # Slightly smaller than 116.47
+lon_max <- 150.0  # Slightly larger than 148.28
+
+# Full dataset with all points (Tasmania & Australia border)
+full_possums <- sample_metadata %>%
+  filter(latitude >= lat_min & latitude <= lat_max, 
+         longitude >= lon_min & longitude <= lon_max)
+
+# Filter for Tasmania only
+tasmania_possums <- full_possums %>%
+  filter(latitude < -38 & latitude > -45,  # Tasmania lat range
+         longitude > 140 & longitude < 150)  # Tasmania lon range
+
+# Aggregate possum count per location
+full_possums_count <- full_possums %>%
+  group_by(latitude, longitude, biome_type) %>%
+  summarise(count = n(), .groups = "drop")
+
+tasmania_possums_count <- tasmania_possums %>%
+  group_by(latitude, longitude, biome_type) %>%
+  summarise(count = n(), .groups = "drop")
+```
+
+## Load Map
+
+```{r load_map}
+# Load world map
+australia_map <- ne_countries(scale = "medium", returnclass = "sf") %>%
+  filter(admin == "Australia")
+```
+
+## Plot Possum Locations
+
+```{r plot_maps, warning=FALSE, message=FALSE}
+# Ensure region are factors
+full_possums_count <- full_possums_count %>%
+  mutate(region = as.factor(biome_type), )
+tasmania_possums_count <- tasmania_possums_count %>%
+  mutate(region = as.factor(biome_type), )
+
+# Get Tasmania data range to set zoom
+lat_range <- range(tasmania_possums$latitude, na.rm = TRUE)
+lon_range <- range(tasmania_possums$longitude, na.rm = TRUE)
+
+# Count total possums
+total_full <- sum(full_possums_count$count)
+total_tasmania <- sum(tasmania_possums_count$count)
+
+# Plot 1: Full Dataset (Including Border Data)
+map_plot_full <- ggplot() +
+  geom_sf(data = australia_map, fill = "lightgray", color = "black") +  # Base map
+  geom_point(data = full_possums_count, aes(x = longitude, y = latitude, 
+                                            color = biome_type, size = count), 
+             alpha = 0.8) +
+  theme_minimal() + 
+  labs(title = paste("PD - Full Dataset (", total_full, ")"),
+       x = "Longitude", y = "Latitude", color = "Environment Type", size = "Count") +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 14, face = "bold"))
+
+# Plot 2: Zoomed-in Tasmania (with entire landmass and cleaned longitude labels)
+map_plot_zoomed <- ggplot() +
+  geom_sf(data = australia_map, fill = "lightgray", color = "black") +  # Base map
+  geom_point(data = tasmania_possums_count, aes(x = longitude, y = latitude, 
+                                                color = biome_type, size = count), 
+             alpha = 0.8) + 
+  coord_sf(xlim = c(143, 149), ylim = c(-44, -39)) +  # Full Tasmania view
+  theme_minimal() + 
+  labs(title = paste("PD - Tasmania (", total_tasmania, ")"),
+       x = "Longitude", y = "Latitude",
+       color = "Environment Type", size = "Count" ) +
+  theme(legend.position = "right", 
+        axis.text.x = element_text(angle = 0, hjust = 0.5),
+        plot.title = element_text(size = 14, face = "bold"))
+
+# Combine the plots side by side with shared legend and increased size
+(map_plot_full + map_plot_zoomed) + plot_layout(guides = "collect", widths = c(1, 1.2))
+```

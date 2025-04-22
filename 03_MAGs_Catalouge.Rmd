@@ -1,95 +1,82 @@
-#3 MAGS_Catalouge
+# Inline Annotated R Markdown: 03_MAGs_Catalouge_Inline_Annotated
 
-##3.1 Genom Phylogeny
-
-### Load data
-
-```{r load_data}
-load("data/data.Rdata")
+## Code Chunk 1
+```{r}
+load("data/data.Rdata")  # Load an RData file with variables and datasets
 ```
 
-### Generate the phylum color heatmap
-
-```{r load_phylum_heatmap}
+## Code Chunk 2
+```{r}
 # Generate the phylum color heatmap
 phylum_heatmap <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
     right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
     arrange(match(genome, genome_tree$tip.label)) %>%
-    select(genome,phylum) %>%
-    mutate(phylum = factor(phylum, levels = unique(phylum))) %>%
+    select(genome,phylum) %>%  # Select specific columns from the data
+    mutate(phylum = factor(phylum, levels = unique(phylum))) %>%  # Add or modify columns in the dataset
     column_to_rownames(var = "genome")
 
 # Generate  basal tree
 circular_tree <- force.ultrametric(genome_tree, method="extend") %>% # extend to ultrametric for the sake of visualisation
-    ggtree(., layout="fan", open.angle=10, size=0.5)
+    ggtree(., layout="fan", open.angle=20, size=0.2)
 ```
 
-### Build circular tree
-
-###Build basal tree
-
-```{r load_phylum_basal_tree}
+## Code Chunk 3
+```{r}
 circular_tree <- force.ultrametric(genome_tree, method="extend") %>% # extend to ultrametric for the sake of visualisation
   ggtree(., layout="fan", open.angle=10, size=0.5)
 ```
 
-### Add phylum ring
-
-```{r load_circular_tree}
+## Code Chunk 4
+```{r}
 circular_tree <- gheatmap(circular_tree, phylum_heatmap, offset=0.55, width=0.1, colnames=FALSE) +
-  scale_fill_manual(values=phylum_colors) +
-  geom_tiplab2(size=1, hjust=-0.1) +
-  theme(legend.position = "none", plot.margin = margin(0, 0, 0, 0), panel.margin = margin(0, 0, 0, 0))
+  scale_fill_manual(values=phylum_colors) +  # Adjust color scales, axes, or fill options
+  geom_tiplab2(size=1, hjust=-0.1) +  # Add a specific type of plot layer (bars, points, lines, etc.)
+  theme(legend.position = "none", plot.margin = margin(0, 0, 0, 0), panel.margin = margin(0, 0, 0, 0))  # Customize visual aspects of the plot
 ```
 
-### Flush color scale to enable a new color scheme in the next ring
-
-```{r load_circular_tree_colour}
-circular_tree <- circular_tree + new_scale_fill()
+## Code Chunk 5
+```{r}
+circular_tree <- circular_tree + new_scale_fill()  # Adjust color scales, axes, or fill options
 ```
 
-### Add completeness ring
-
-```{r load_circular_tree_ring}
+## Code Chunk 6
+```{r}
 circular_tree <- circular_tree +
-  new_scale_fill() +
-  scale_fill_gradient(low = "#d1f4ba", high = "#f4baba") +
-  geom_fruit(
+  new_scale_fill() +  # Adjust color scales, axes, or fill options
+  scale_fill_gradient(low = "#d1f4ba", high = "#f4baba") +  # Adjust color scales, axes, or fill options
+  geom_fruit(  # Add a specific type of plot layer (bars, points, lines, etc.)
     data=genome_metadata,
-    geom=geom_bar,
+    geom=geom_bar,  # Add a specific type of plot layer (bars, points, lines, etc.)
     mapping = aes(x=completeness, y=genome, fill=contamination),
     offset = 0.55,
     orientation="y",
     stat="identity")
 ```
 
-### Add genome-size ring
-
-```{r load_circular_tree_sizering}
+## Code Chunk 7
+```{r}
 circular_tree <-  circular_tree +
-  new_scale_fill() +
-  scale_fill_manual(values = "#cccccc") +
-  geom_fruit(
+  new_scale_fill() +  # Adjust color scales, axes, or fill options
+  scale_fill_manual(values = "#cccccc") +  # Adjust color scales, axes, or fill options
+  geom_fruit(  # Add a specific type of plot layer (bars, points, lines, etc.)
     data=genome_metadata,
-    geom=geom_bar,
+    geom=geom_bar,  # Add a specific type of plot layer (bars, points, lines, etc.)
     mapping = aes(x=length, y=genome),
     offset = 0.05,
     orientation="y",
     stat="identity")
 ```
 
-### Generate tree (without labels)
-
-```{r data_estimations_plot, message=FALSE, warning=FALSE, fig.height=6, fig.width=10, fig.fullwidth=TRUE}
-ggsave("clean_circular_tree_large.png", plot=circular_tree, dpi=300, width=70, height=70, limitsize = FALSE)
+## Code Chunk 8
+```{r}
+ggsave("clean_circular_tree_large.png", plot=circular_tree, dpi=600, width=80, height=80, limitsize = FALSE, units = "cm")
 
 #Plot circular tree
-circular_tree %>% open_tree(30) %>% rotate_tree(90)
+circular_tree %>% open_tree(15) %>% rotate_tree(90)
 ```
 
-##3.2 Genom Quality
-
-```{r genome_quality}
+## Code Chunk 9
+```{r}
 genome_metadata$completeness %>% mean()
 
 genome_metadata$completeness %>% sd()
@@ -99,28 +86,28 @@ genome_metadata$contamination %>% mean()
 genome_metadata$contamination %>% sd()
 ```
 
-### Genom biplot
-```{r genome_biplot}
+## Code Chunk 10
+```{r}
 genome_biplot <- genome_metadata %>%
-  select(c(genome,domain,phylum,completeness,contamination,length)) %>%
+  select(c(genome,domain,phylum,completeness,contamination,length)) %>%  # Select specific columns from the data
   arrange(match(genome, rev(genome_tree$tip.label))) %>% #sort MAGs according to phylogenetic tree
-  ggplot(aes(x=completeness,y=contamination,size=length,color=phylum)) +
-  geom_point(alpha=0.7) +
+  ggplot(aes(x=completeness,y=contamination,size=length,color=phylum)) +  # Begin plotting using ggplot2
+  geom_point(alpha=0.7) +  # Add a specific type of plot layer (bars, points, lines, etc.)
   ylim(c(10,0)) +
-  scale_color_manual(values=phylum_colors) +
-  labs(y= "Contamination", x = "Completeness") +
+  scale_color_manual(values=phylum_colors) +  # Adjust color scales, axes, or fill options
+  labs(y= "Contamination", x = "Completeness") +  # Customize axis labels or plot titles
   theme_classic() +
-  theme(legend.position = "none")
+  theme(legend.position = "none")  # Customize visual aspects of the plot
 ```
 
-### Genome contamination
-```{r genome_contamination}
+## Code Chunk 11
+```{r}
 genome_contamination <- genome_metadata %>%
-  ggplot(aes(y=contamination)) +
+  ggplot(aes(y=contamination)) +  # Begin plotting using ggplot2
   ylim(c(10,0)) +
-  geom_boxplot(colour = "#999999", fill="#cccccc") +
+  geom_boxplot(colour = "#999999", fill="#cccccc") +  # Add a specific type of plot layer (bars, points, lines, etc.)
   theme_void() +
-  theme(legend.position = "none",
+  theme(legend.position = "none",  # Customize visual aspects of the plot
         axis.title.x = element_blank(),
         axis.title.y = element_blank(),
         axis.text.y=element_blank(),
@@ -129,14 +116,15 @@ genome_contamination <- genome_metadata %>%
         axis.ticks.x=element_blank(),
         plot.margin = unit(c(0, 0, 0.40, 0),"inches")) #add bottom-margin (top, right, bottom, left)
 ```
-### Genome completness
-```{r genome_completness}
+
+## Code Chunk 12
+```{r}
 genome_completeness <- genome_metadata %>%
-  ggplot(aes(x=completeness)) +
+  ggplot(aes(x=completeness)) +  # Begin plotting using ggplot2
   xlim(c(50,100)) +
-  geom_boxplot(colour = "#999999", fill="#cccccc") +
+  geom_boxplot(colour = "#999999", fill="#cccccc") +  # Add a specific type of plot layer (bars, points, lines, etc.)
   theme_void() +
-  theme(legend.position = "none",
+  theme(legend.position = "none",  # Customize visual aspects of the plot
         axis.title.x = element_blank(),
         axis.title.y = element_blank(),
         axis.text.y=element_blank(),
@@ -146,8 +134,8 @@ genome_completeness <- genome_metadata %>%
         plot.margin = unit(c(0, 0, 0, 0.50),"inches")) #add left-margin (top, right, bottom, left)
 ```
 
-###Render composite figure
-```{r compisote_figure}
+## Code Chunk 13
+```{r}
 grid.arrange(grobs = list(genome_completeness,genome_biplot,genome_contamination),
              layout_matrix = rbind(c(1,1,1,1,1,1,1,1,1,1,1,4),
                                    c(2,2,2,2,2,2,2,2,2,2,2,3),
@@ -160,78 +148,85 @@ grid.arrange(grobs = list(genome_completeness,genome_biplot,genome_contamination
                                    c(2,2,2,2,2,2,2,2,2,2,2,3),
                                    c(2,2,2,2,2,2,2,2,2,2,2,3),
                                    c(2,2,2,2,2,2,2,2,2,2,2,3)))
+
 ```
 
-##3.3 Functional Overview
-
-### Aggregate basal GIFT into elements
-
-```{r GIFT}
+## Code Chunk 14
+```{r}
 function_table <- genome_gifts %>%
   to.elements(., GIFT_db)
 ```
 
-###Generate basal tree
-```{r function}
+## Code Chunk 15
+```{r}
 function_tree <- force.ultrametric(genome_tree, method="extend") %>%
   ggtree(., size = 0.3)
 ```
 
-###Add phylum colors next to the tree tips
-```{r phylum_colors}
+## Code Chunk 16
+```{r}
 function_tree <- gheatmap(function_tree, phylum_heatmap, offset=0, width=0.1, colnames=FALSE) +
-  scale_fill_manual(values=phylum_colors) +
-  labs(fill="Phylum")
+  scale_fill_manual(values=phylum_colors) +  # Adjust color scales, axes, or fill options
+  labs(fill="Phylum")  # Customize axis labels or plot titles
 ```
-###Reset fill scale to use a different colour profile in the heatmap
-```{r reset_scale}
-function_tree <- function_tree + new_scale_fill()
+
+## Code Chunk 17
+```{r}
+function_tree <- function_tree + new_scale_fill()  # Adjust color scales, axes, or fill options
 ```
-###Add functions heatmap
-```{r heatmap}
+
+## Code Chunk 18
+```{r}
 function_tree <- gheatmap(function_tree, function_table, offset=0.5, width=3.5, colnames=FALSE) +
   vexpand(.08) +
   coord_cartesian(clip = "off") +
-  scale_fill_gradient(low = "#f4f4f4", high = "steelblue", na.value="white") +
-  labs(fill="GIFT")
+  scale_fill_gradient(low = "#f4f4f4", high = "steelblue", na.value="white") +  # Adjust color scales, axes, or fill options
+  labs(fill="GIFT")  # Customize axis labels or plot titles
 ```
-###Add completeness barplots
-```{r completness_barplot}
+
+## Code Chunk 19
+```{r}
 function_tree <- function_tree +
-  geom_fruit(data=genome_metadata,
-             geom=geom_bar,
+  geom_fruit(data=genome_metadata,  # Add a specific type of plot layer (bars, points, lines, etc.)
+             geom=geom_bar,  # Add a specific type of plot layer (bars, points, lines, etc.)
              grid.params=list(axis="x", text.size=2, nbreak = 1),
              axis.params=list(vline=TRUE),
              mapping = aes(x=length, y=genome, fill=completeness),
              offset = 3.8,
              orientation="y",
              stat="identity") +
-  scale_fill_gradient(low = "#cf8888", high = "#a2cc87") +
-  labs(fill="Genome\ncompleteness")
+  scale_fill_gradient(low = "#cf8888", high = "#a2cc87") +  # Adjust color scales, axes, or fill options
+  labs(fill="Genome\ncompleteness")  # Customize axis labels or plot titles
 
 function_tree
+
+ggsave("function_tree_highres.png", 
+       plot = function_tree, 
+       width = 12, 
+       height = 10, 
+       dpi = 600)  # Higher dpi = better quality
 ```
 
-##3.4 Functional Ordination
-
-### Generate the tSNE ordination
-```{r tSNE}
+## Code Chunk 20
+```{r}
 tSNE_function <- Rtsne(X=function_table, dims = 2, check_duplicates = FALSE)
 ```
-### Plot the ordination
-```{r functional_ordination}
+
+## Code Chunk 21
+```{r}
 function_ordination <- tSNE_function$Y %>%
   as.data.frame() %>%
-  mutate(genome=rownames(function_table)) %>%
+  mutate(genome=rownames(function_table)) %>%  # Add or modify columns in the dataset
   inner_join(genome_metadata, by="genome") %>%
   rename(tSNE1="V1", tSNE2="V2") %>%
-  select(genome,phylum,tSNE1,tSNE2, length) %>%
-  ggplot(aes(x = tSNE1, y = tSNE2, color = phylum, size=length))+
-  geom_point(shape=16, alpha=0.7) +
-  scale_color_manual(values=phylum_colors) +
+  select(genome,phylum,tSNE1,tSNE2, length) %>%  # Select specific columns from the data
+  ggplot(aes(x = tSNE1, y = tSNE2, color = phylum, size=length))+  # Begin plotting using ggplot2
+  geom_point(shape=16, alpha=0.7) +  # Add a specific type of plot layer (bars, points, lines, etc.)
+  scale_color_manual(values=phylum_colors) +  # Adjust color scales, axes, or fill options
   theme_minimal() +
-  labs(color="Phylum", size="Genome size") +
+  labs(color="Phylum", size="Genome size") +  # Customize axis labels or plot titles
   guides(color = guide_legend(override.aes = list(size = 5))) # enlarge Phylum dots in legend
 
 function_ordination
 ```
+
