@@ -1,0 +1,743 @@
+# Inline Annotated R Markdown: index_Inline_Annotated
+
+## Code Chunk 1
+```{r}
+knitr::opts_chunk$set(
+    class.source = "script-source",
+    class.output = "script-output",
+    comment = NA)
+```
+
+## Code Chunk 2
+```{r}
+# Base
+library(R.utils)
+library(knitr)
+library(tidyverse)
+library(devtools)
+library(tinytable)
+library(rairtable)
+library(readxl)
+
+# For tree handling
+library(ape)
+library(phyloseq)
+library(phytools)
+
+# For plotting
+library(ggplot2)  # Begin plotting using ggplot2
+library(ggrepel)
+library(ggpubr)
+library(ggnewscale)
+library(gridExtra)
+library(ggtreeExtra)
+library(ggtree)
+library(ggh4x)
+
+# For statistics
+library(spaa)
+library(vegan)
+library(Rtsne)
+library(geiger)
+library(hilldiv2)
+library(distillR)
+library(broom.mixed)
+#library(lmerTest)
+library(Hmsc)
+library(corrplot)
+library(lme4)
+library(nlme)
+library(ANCOMBC)
+#for geogrphic visualisation
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(patchwork)
+```
+
+
+<!--chapter:end:index.Rmd-->
+
+# Inline Annotated R Markdown: 01_prepare_data_Inline_Annotated
+
+## Code Chunk 1
+```{r eval=FALSE}
+sample_metadata <- read_excel("~/btp_metagenomics/data/Merged_Metadata.xlsx") %>%
+    rename(sample=1)
+```
+
+## Code Chunk 2
+```{r eval=FALSE}
+read_counts <- read_tsv("data/DMB0167_counts.tsv.gz") %>%
+    rename(genome=1) %>% 
+    select(one_of(c("genome",sample_metadata$sample)))  # Select specific columns from the data
+```
+
+## Code Chunk 3
+```{r eval=FALSE}
+genome_metadata <- read_tsv("data/DMB0167_mag_info.tsv.gz") %>%
+    rename(length=mag_size)%>%
+  semi_join(., read_counts, by = "genome") %>% 
+  arrange(match(genome,read_counts$genome))
+```
+
+## Code Chunk 4
+```{r eval=FALSE}
+genome_coverage <- read_tsv("data/DMB0167_coverage.tsv.gz") %>%
+    rename(genome=1) %>% 
+    select(one_of(c("genome",sample_metadata$sample)))%>%   # Select specific columns from the data
+  semi_join(., genome_metadata, by = "genome")%>%
+  arrange(match(genome, read_counts$genome))
+```
+
+## Code Chunk 5
+```{r eval=FALSE}
+genome_tree <- read_tree("data/DMB0167.tree.gz")
+genome_tree$tip.label <- str_replace_all(genome_tree$tip.label,"'", "") #remove single quotes in MAG names
+genome_tree <- keep.tip(genome_tree, tip=genome_metadata$genome) # keep only MAG tips
+```
+
+## Code Chunk 6
+```{r eval=FALSE}
+library(rairtable)
+Sys.setenv(AIRTABLE_API_KEY = "patmRpNHp5cMxwd8y.ac9b4c3710ad0a2ab334ec3ffa971fb97834f96d0244640f0cedacf0f1d44e22")
+##
+```
+
+## Code Chunk 7
+```{r eval=FALSE}
+# STEP 1: Get annotation URLs from Airtable
+anno_urls <- airtable(
+  base = "appWbHBNLE6iAsMRV",
+  table = "tblMzd3oyaJhdeQcs",
+  view = "viwx4daClBXQW02LB"
+) %>%
+  read_airtable(fields = c("ID", "mag_name", "number_genes", "anno_url"), id_to_col = TRUE) %>%
+  filter(  # Filter the data to include only rows that meet certain conditions
+    mag_name %in% paste0(genome_metadata$genome, ".fa"),
+    number_genes > 0,
+    !is.na(anno_url),
+    anno_url != ""
+  ) %>%
+  pull(anno_url)
+
+# STEP 2: Download and merge annotations with explicit column names
+successful_data <- list()
+successful_urls <- c()
+failed_urls <- c()
+
+if (length(anno_urls) > 0) {
+  walk(anno_urls, function(url) {
+    tryCatch({
+      df <- suppressMessages(read_tsv(
+        url,
+        col_types = cols(),
+        col_names = c("gene", "genome", "contig"),
+        skip = 0  # change to 1 if you want to skip header row
+      ))
+
+      # Keep only the first 3 columns (ignore extras)
+      df <- df[, 1:3]
+
+      successful_data <<- append(successful_data, list(df))
+      successful_urls <<- c(successful_urls, url)
+    }, error = function(e) {
+      message("❌ Failed to read: ", url)
+      failed_urls <<- c(failed_urls, url)
+    })
+  })
+
+  # Save merged data
+  if (length(successful_data) > 0) {
+    bind_rows(successful_data) %>%
+      write_tsv("data/genome_annotations.tsv.xz")
+    message("✅ Merged annotations saved to data/genome_annotations.tsv.xz")
+  } else {
+    message("⚠️ No data was successfully read.")
+  }
+
+  # Save logs
+  if (length(successful_urls) > 0) {
+    write_lines(successful_urls, "data/successful_annotation_urls.txt")
+  }
+  if (length(failed_urls) > 0) {
+    write_lines(failed_urls, "data/failed_annotation_urls.txt")
+  }
+
+} else {
+  message("⚠️ No valid annotation URLs found.")
+}
+
+#
+```
+
+## Code Chunk 8
+```{r eval=FALSE}
+min_coverage=0.3
+read_counts_filt <- genome_coverage %>%
+  mutate(across(where(is.numeric), ~ ifelse(. > min_coverage, 1, 0))) %>%  # Add or modify columns in the dataset
+  mutate(across(-1, ~ . * read_counts[[cur_column()]]))  # Add or modify columns in the dataset
+```
+
+## Code Chunk 9
+```{r eval=FALSE}
+readlength=150
+genome_counts <- read_counts %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))  # Add or modify columns in the dataset
+```
+
+## Code Chunk 10
+```{r eval=FALSE}
+readlength=150
+genome_counts_filt <- read_counts_filt %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))  # Add or modify columns in the dataset
+```
+
+## Code Chunk 11
+```{r eval=FALSE}
+genome_gifts <- distill(genome_annotations,GIFT_db,genomecol=2,annotcol=c(9,10,19), verbosity=F)
+```
+
+## Code Chunk 12
+```{r eval=FALSE}
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+    right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    arrange(match(genome, genome_tree$tip.label)) %>%
+    select(phylum, colors) %>%   # Select specific columns from the data
+    unique() %>%
+    arrange(phylum) %>%
+    pull(colors, name=phylum)
+```
+
+## Code Chunk 13
+```{r eval=FALSE}
+save(sample_metadata, 
+     genome_metadata, 
+     read_counts, 
+     genome_counts, 
+     genome_counts_filt, 
+     genome_tree,
+     genome_gifts,
+     phylum_colors,
+     file = "data/data.Rdata")
+```
+
+
+<!--chapter:end:01_prepare_data.Rmd-->
+
+# Inline Annotated R Markdown: 02_data_statistics_Inline_Annotated
+
+## Code Chunk 1
+```{r}
+load("data/data.Rdata")  # Load an RData file with variables and datasets
+```
+
+## Code Chunk 2
+```{r}
+# Define extended boundary to include all possum data points
+lat_min <- -45.0  # Slightly smaller than -42.93
+lat_max <- -28.0  # Slightly larger than -30.65
+lon_min <- 110.0  # Slightly smaller than 116.47
+lon_max <- 150.0  # Slightly larger than 148.28
+
+# Full dataset with all points (Tasmania & Australia border)
+full_possums <- sample_metadata %>%
+  filter(latitude >= lat_min & latitude <= lat_max,   # Filter the data to include only rows that meet certain conditions
+         longitude >= lon_min & longitude <= lon_max)
+
+# Filter for Tasmania only
+tasmania_possums <- full_possums %>%
+  filter(latitude < -38 & latitude > -45,  # Tasmania lat range  # Filter the data to include only rows that meet certain conditions
+         longitude > 140 & longitude < 150)  # Tasmania lon range
+
+# Aggregate possum count per location
+full_possums_count <- full_possums %>%
+  group_by(latitude, longitude, broad.scale.environmental.context) %>%  # Group the data by one or more variables
+  summarise(count = n(), .groups = "drop")  # Summarize grouped data (e.g., calculate averages)
+
+tasmania_possums_count <- tasmania_possums %>%
+  group_by(latitude, longitude, broad.scale.environmental.context) %>%  # Group the data by one or more variables
+  summarise(count = n(), .groups = "drop")  # Summarize grouped data (e.g., calculate averages)
+```
+
+## Code Chunk 3
+```{r}
+# Load world map
+australia_map <- ne_countries(scale = "medium", returnclass = "sf") %>%
+  filter(admin == "Australia")  # Filter the data to include only rows that meet certain conditions
+```
+
+## Code Chunk 4
+```{r}
+# Get Tasmania data range to set zoom
+lat_range <- range(tasmania_possums$latitude, na.rm = TRUE)
+lon_range <- range(tasmania_possums$longitude, na.rm = TRUE)
+
+# Count total possums
+total_full <- sum(full_possums_count$count)
+total_tasmania <- sum(tasmania_possums_count$count)
+
+# Plot 1: Full Dataset (Including Border Data)
+map_plot_full <- ggplot() +  # Begin plotting using ggplot2
+  geom_sf(data = australia_map, fill = "lightgray", color = "black") +  # Base map  # Add a specific type of plot layer (bars, points, lines, etc.)
+  geom_point(data = full_possums_count, aes(x = longitude, y = latitude,   # Add a specific type of plot layer (bars, points, lines, etc.)
+                                            color = broad.scale.environmental.context, size = count), 
+             alpha = 0.8) +
+  theme_minimal() + 
+  labs(title = paste("PD - Full Dataset (", total_full, ")"),  # Customize axis labels or plot titles
+       x = "Longitude", y = "Latitude", color = "Environment Type", size = "Count", shape = "species") +
+  theme(legend.position = "none",  # Customize visual aspects of the plot
+        plot.title = element_text(size = 14, face = "bold"))
+
+# Plot 2: Zoomed-in Tasmania (with entire landmass and cleaned longitude labels)
+map_plot_zoomed <- ggplot() +  # Begin plotting using ggplot2
+  geom_sf(data = australia_map, fill = "lightgray", color = "black") +  # Base map  # Add a specific type of plot layer (bars, points, lines, etc.)
+  geom_point(data = tasmania_possums_count, aes(x = longitude, y = latitude,   # Add a specific type of plot layer (bars, points, lines, etc.)
+                                                color = broad.scale.environmental.context, size = count), 
+             alpha = 0.8) + 
+  coord_sf(xlim = c(143, 149), ylim = c(-44, -39)) +  # Full Tasmania view
+  theme_minimal() + 
+  labs(title = paste("PD - Tasmania (", total_tasmania, ")"),  # Customize axis labels or plot titles
+       x = "Longitude", y = "Latitude",
+       color = "Environment Type", size = "Count", shape = "species" ) +
+  theme(legend.position = "right",   # Customize visual aspects of the plot
+        axis.text.x = element_text(angle = 0, hjust = 0.5),
+        plot.title = element_text(size = 14, face = "bold"))
+
+# Combine the plots side by side with shared legend and increased size
+(map_plot_full + map_plot_zoomed) + plot_layout(guides = "collect", widths = c(1, 1.2))
+```
+
+## Code Chunk 5
+```{r}
+# Define extended boundary to include all possum data points
+lat_min <- -45.0  # Slightly smaller than -42.93
+lat_max <- -28.0  # Slightly larger than -30.65
+lon_min <- 110.0  # Slightly smaller than 116.47
+lon_max <- 150.0  # Slightly larger than 148.28
+
+# Full dataset with all points (Tasmania & Australia border)
+full_possums <- sample_metadata %>%
+  filter(latitude >= lat_min & latitude <= lat_max,   # Filter the data to include only rows that meet certain conditions
+         longitude >= lon_min & longitude <= lon_max)
+
+# Filter for Tasmania only
+tasmania_possums <- full_possums %>%
+  filter(latitude < -38 & latitude > -45,  # Tasmania lat range  # Filter the data to include only rows that meet certain conditions
+         longitude > 140 & longitude < 150)  # Tasmania lon range
+
+# Aggregate possum count per location
+full_possums_count <- full_possums %>%
+  group_by(latitude, longitude, local.environmental.context) %>%  # Group the data by one or more variables
+  summarise(count = n(), .groups = "drop")  # Summarize grouped data (e.g., calculate averages)
+
+tasmania_possums_count <- tasmania_possums %>%
+  group_by(latitude, longitude, local.environmental.context) %>%  # Group the data by one or more variables
+  summarise(count = n(), .groups = "drop")  # Summarize grouped data (e.g., calculate averages)
+```
+
+## Code Chunk 6
+```{r}
+# Load world map
+australia_map <- ne_countries(scale = "medium", returnclass = "sf") %>%
+  filter(admin == "Australia")  # Filter the data to include only rows that meet certain conditions
+```
+
+## Code Chunk 7
+```{r}
+library(RColorBrewer)
+
+# Get Tasmania data range to set zoom
+lat_range <- range(tasmania_possums$latitude, na.rm = TRUE)
+lon_range <- range(tasmania_possums$longitude, na.rm = TRUE)
+
+# Count total possums
+total_full <- sum(full_possums_count$count)
+total_tasmania <- sum(tasmania_possums_count$count)
+
+# Plot 1: Full Dataset (Including Border Data)
+map_plot_full <- ggplot() +  # Begin plotting using ggplot2
+  geom_sf(data = australia_map, fill = "lightgray", color = "black") +  # Add a specific type of plot layer (bars, points, lines, etc.)
+  geom_point(data = full_possums_count, aes(x = longitude, y = latitude,  # Add a specific type of plot layer (bars, points, lines, etc.)
+                                            color = local.environmental.context, size = count),
+             alpha = 0.8) +
+  scale_color_viridis_d(name = "Environment Type", option = "D") +  # Adjust color scales, axes, or fill options
+  theme_minimal() +
+  labs(title = paste("PD - Full Dataset (", total_full, ")"),  # Customize axis labels or plot titles
+       x = "Longitude", y = "Latitude") +
+  theme(  # Customize visual aspects of the plot
+    plot.title = element_text(size = 10, face = "bold"),
+    legend.position = "none"
+  )
+
+# Plot 2: Zoomed-in Tasmania
+map_plot_zoomed <- ggplot() +  # Begin plotting using ggplot2
+  geom_sf(data = australia_map, fill = "lightgray", color = "black") +  # Add a specific type of plot layer (bars, points, lines, etc.)
+  geom_point(data = tasmania_possums_count, aes(x = longitude, y = latitude,  # Add a specific type of plot layer (bars, points, lines, etc.)
+                                                color = local.environmental.context, size = count),
+             alpha = 0.8) +
+  coord_sf(xlim = c(143, 149), ylim = c(-44, -39)) +
+  scale_color_viridis_d(name = "Environment Type", option = "D") +  # Adjust color scales, axes, or fill options
+  theme_minimal() +
+  labs(title = paste("PD - Tasmania (", total_tasmania, ")"),  # Customize axis labels or plot titles
+       x = "Longitude", y = "Latitude") +
+  theme(  # Customize visual aspects of the plot
+    plot.title = element_text(size = 10, face = "bold"),
+    axis.text.x = element_text(angle = 0, hjust = 0.5),
+    legend.position = "none"
+  )
+
+# Combine the plots side by side
+(map_plot_full + map_plot_zoomed) +
+  plot_layout(widths = c(1, 1.2))
+```
+
+## Code Chunk 8
+```{r}
+# Step 1: Create simplified/aggregated legend data
+legend_data <- tasmania_possums_count %>%
+  group_by(local.environmental.context) %>%  # Group the data by one or more variables
+  summarise(mean_count = mean(count, na.rm = TRUE)) %>%  # Summarize grouped data (e.g., calculate averages)
+  filter(!is.na(local.environmental.context)) %>%  # Filter the data to include only rows that meet certain conditions
+  arrange(desc(mean_count)) %>%
+  mutate(env_label = paste0(local.environmental.context))  # Add or modify columns in the dataset
+
+# Step 2: Plot custom "legend" with clean layout
+custom_legend_plot <- ggplot(legend_data, aes(x = 1, y = reorder(env_label, mean_count),  # Begin plotting using ggplot2
+                                              color = env_label, size = mean_count)) +
+  geom_point(show.legend = FALSE) +  # Add a specific type of plot layer (bars, points, lines, etc.)
+  scale_size_continuous(range = c(3, 6)) +  # tweak dot size scaling  # Adjust color scales, axes, or fill options
+  scale_color_viridis_d(name = "Environment Type", option = "D") +  # Adjust color scales, axes, or fill options
+  theme_minimal() +
+  theme(  # Customize visual aspects of the plot
+    axis.title = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    plot.margin = margin(10, 30, 10, 10),
+    axis.text.y = element_text(size = 9, hjust = 0)
+  )
+
+# Show it
+custom_legend_plot
+```
+
+## Code Chunk 9
+```{r}
+sample_metadata %>% 
+    summarise(Total=sum(reads_post_fastp * 150 / 1000000000) %>% round(2),   # Summarize grouped data (e.g., calculate averages)
+              mean=mean(reads_post_fastp * 150 / 1000000000) %>% round(2),
+              sd=sd(reads_post_fastp * 150 / 1000000000) %>% round(2)) %>%
+    unite("Average",mean, sd, sep = " ± ", remove = TRUE) %>%
+    tt()
+```
+
+## Code Chunk 10
+```{r}
+sequence_fractions <- read_counts %>%
+  pivot_longer(-genome, names_to = "sample", values_to = "value") %>%
+  group_by(sample) %>%  # Group the data by one or more variables
+  summarise(mags = sum(value)) %>%  # Summarize grouped data (e.g., calculate averages)
+	left_join(sample_metadata, by = join_by(sample == sample)) %>%  # Merge two datasets, keeping all rows from the left one
+	select(sample,mags,metagenomic_bases,host_bases,bases_lost_fastp_percent) %>%  # Select specific columns from the data
+	mutate(mags_bases = mags*146) %>%  # Add or modify columns in the dataset
+	mutate(lowqual_bases = ((metagenomic_bases+host_bases)/(1-bases_lost_fastp_percent))-(metagenomic_bases+host_bases)) %>%  # Add or modify columns in the dataset
+	mutate(unmapped_bases = metagenomic_bases - mags_bases) %>%  # Add or modify columns in the dataset
+	mutate(unmapped_bases = ifelse(unmapped_bases < 0, 0, unmapped_bases)) %>%  # Add or modify columns in the dataset
+	select(sample, lowqual_bases, host_bases, unmapped_bases, mags_bases)  # Select specific columns from the data
+
+sequence_fractions %>%
+  mutate_at(vars(-sample), ~./1000000000) %>%
+  rename("Sample"=1, "Low quality"=2, "Mapped to host"=3, "Unmapped"=4, "Mapped to MAGs"=5) %>%
+  tt()
+
+sequence_fractions %>%
+  mutate_at(vars(-sample), ~./1000000000) %>%
+  rename("Sample"=1, "Low quality"=2, "Mapped to host"=3, "Unmapped"=4, "Mapped to MAGs"=5) %>%
+  summarise(across(where(is.numeric), mean, na.rm = TRUE)) %>%  # Summarize grouped data (e.g., calculate averages)
+  tt()
+```
+
+## Code Chunk 11
+```{r}
+sequence_fractions %>%
+	pivot_longer(!sample, names_to = "fraction", values_to = "value") %>%
+	mutate(value = value / 1000000000) %>%  # Add or modify columns in the dataset
+	mutate(fraction = factor(fraction, levels = c("lowqual_bases","host_bases","unmapped_bases","mags_bases"))) %>%  # Add or modify columns in the dataset
+  
+	ggplot(., aes(x = sample, y = value, fill=fraction)) +  # Begin plotting using ggplot2
+	    geom_bar(position="stack", stat = "identity") +  # Add a specific type of plot layer (bars, points, lines, etc.)
+      scale_fill_manual(name="Sequence type",  # Adjust color scales, axes, or fill options
+                    breaks=c("lowqual_bases","host_bases","unmapped_bases","mags_bases"),
+                    labels=c("Low quality","Mapped to host","Unmapped","Mapped to MAGs"),
+                    values=c("#CCCCCC", "#bcdee1", "#d8b8a3","#93655c"))+
+	    labs(x = "Samples", y = "Amount of data (GB)") +  # Customize axis labels or plot titles
+	    theme_classic() +
+	    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size=6),legend.position = "bottom")  # Customize visual aspects of the plot
+```
+
+## Code Chunk 12
+```{r}
+singlem_table <- sequence_fractions %>%
+	mutate(mags_proportion = round((mags_bases / (mags_bases + unmapped_bases))*100,2)) %>%  # Add or modify columns in the dataset
+	left_join(sample_metadata, by = join_by(sample == sample))  %>%  # Merge two datasets, keeping all rows from the left one
+	mutate(singlem_proportion = round(singlem_fraction,2)) %>%  # Add or modify columns in the dataset
+	select(sample,mags_proportion,singlem_proportion) %>%  # Select specific columns from the data
+	mutate(mags_proportion = ifelse(singlem_proportion == 0, 0, mags_proportion)) %>% #convert zeros to NA  # Add or modify columns in the dataset
+	mutate(singlem_proportion = ifelse(singlem_proportion == 0, NA, singlem_proportion)) %>% #convert zeros to NA  # Add or modify columns in the dataset
+	mutate(singlem_proportion = ifelse(singlem_proportion < mags_proportion, NA, singlem_proportion)) %>% #if singlem is smaller, then NA, to simplify plot  # Add or modify columns in the dataset
+	mutate(singlem_proportion = ifelse(singlem_proportion > 100, 100, singlem_proportion)) #simplify  # Add or modify columns in the dataset
+
+singlem_table %>%
+	pivot_longer(!sample, names_to = "proportion", values_to = "value") %>%
+	mutate(proportion = factor(proportion, levels = c("mags_proportion","singlem_proportion"))) %>%  # Add or modify columns in the dataset
+	ggplot(., aes(x = value, y = sample, color=proportion)) +  # Begin plotting using ggplot2
+			geom_line(aes(group = sample), color = "#f8a538") +  # Add a specific type of plot layer (bars, points, lines, etc.)
+			geom_point() +  # Add a specific type of plot layer (bars, points, lines, etc.)
+      scale_color_manual(name="Proportion",  # Adjust color scales, axes, or fill options
+                    breaks=c("mags_proportion","singlem_proportion"),
+                    labels=c("Recovered","Estimated"),
+                    values=c("#52e1e8", "#876b53"))+
+			theme_classic() +
+			labs(y = "Samples", x = "Prokaryotic fraction (%)") +  # Customize axis labels or plot titles
+	    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size=6),legend.position = "right")  # Customize visual aspects of the plot
+```
+
+
+<!--chapter:end:02_data_statistics.Rmd-->
+
+# Inline Annotated R Markdown: 03_MAGs_Catalouge_Inline_Annotated
+
+## Code Chunk 1
+```{r}
+load("data/data.Rdata")  # Load an RData file with variables and datasets
+```
+
+## Code Chunk 2
+```{r}
+# Generate the phylum color heatmap
+phylum_heatmap <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+    right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    arrange(match(genome, genome_tree$tip.label)) %>%
+    select(genome,phylum) %>%  # Select specific columns from the data
+    mutate(phylum = factor(phylum, levels = unique(phylum))) %>%  # Add or modify columns in the dataset
+    column_to_rownames(var = "genome")
+
+# Generate  basal tree
+circular_tree <- force.ultrametric(genome_tree, method="extend") %>% # extend to ultrametric for the sake of visualisation
+    ggtree(., layout="fan", open.angle=20, size=0.2)
+```
+
+## Code Chunk 3
+```{r}
+circular_tree <- force.ultrametric(genome_tree, method="extend") %>% # extend to ultrametric for the sake of visualisation
+  ggtree(., layout="fan", open.angle=10, size=0.5)
+```
+
+## Code Chunk 4
+```{r}
+circular_tree <- gheatmap(circular_tree, phylum_heatmap, offset=0.55, width=0.1, colnames=FALSE) +
+  scale_fill_manual(values=phylum_colors) +  # Adjust color scales, axes, or fill options
+  geom_tiplab2(size=1, hjust=-0.1) +  # Add a specific type of plot layer (bars, points, lines, etc.)
+  theme(legend.position = "none", plot.margin = margin(0, 0, 0, 0), panel.margin = margin(0, 0, 0, 0))  # Customize visual aspects of the plot
+```
+
+## Code Chunk 5
+```{r}
+circular_tree <- circular_tree + new_scale_fill()  # Adjust color scales, axes, or fill options
+```
+
+## Code Chunk 6
+```{r}
+circular_tree <- circular_tree +
+  new_scale_fill() +  # Adjust color scales, axes, or fill options
+  scale_fill_gradient(low = "#d1f4ba", high = "#f4baba") +  # Adjust color scales, axes, or fill options
+  geom_fruit(  # Add a specific type of plot layer (bars, points, lines, etc.)
+    data=genome_metadata,
+    geom=geom_bar,  # Add a specific type of plot layer (bars, points, lines, etc.)
+    mapping = aes(x=completeness, y=genome, fill=contamination),
+    offset = 0.55,
+    orientation="y",
+    stat="identity")
+```
+
+## Code Chunk 7
+```{r}
+circular_tree <-  circular_tree +
+  new_scale_fill() +  # Adjust color scales, axes, or fill options
+  scale_fill_manual(values = "#cccccc") +  # Adjust color scales, axes, or fill options
+  geom_fruit(  # Add a specific type of plot layer (bars, points, lines, etc.)
+    data=genome_metadata,
+    geom=geom_bar,  # Add a specific type of plot layer (bars, points, lines, etc.)
+    mapping = aes(x=length, y=genome),
+    offset = 0.05,
+    orientation="y",
+    stat="identity")
+```
+
+## Code Chunk 8
+```{r}
+ggsave("clean_circular_tree_large.png", plot=circular_tree, dpi=600, width=80, height=80, limitsize = FALSE, units = "cm")
+
+#Plot circular tree
+circular_tree %>% open_tree(15) %>% rotate_tree(90)
+```
+
+## Code Chunk 9
+```{r}
+genome_metadata$completeness %>% mean()
+
+genome_metadata$completeness %>% sd()
+
+genome_metadata$contamination %>% mean()
+
+genome_metadata$contamination %>% sd()
+```
+
+## Code Chunk 10
+```{r}
+genome_biplot <- genome_metadata %>%
+  select(c(genome,domain,phylum,completeness,contamination,length)) %>%  # Select specific columns from the data
+  arrange(match(genome, rev(genome_tree$tip.label))) %>% #sort MAGs according to phylogenetic tree
+  ggplot(aes(x=completeness,y=contamination,size=length,color=phylum)) +  # Begin plotting using ggplot2
+  geom_point(alpha=0.7) +  # Add a specific type of plot layer (bars, points, lines, etc.)
+  ylim(c(10,0)) +
+  scale_color_manual(values=phylum_colors) +  # Adjust color scales, axes, or fill options
+  labs(y= "Contamination", x = "Completeness") +  # Customize axis labels or plot titles
+  theme_classic() +
+  theme(legend.position = "none")  # Customize visual aspects of the plot
+```
+
+## Code Chunk 11
+```{r}
+genome_contamination <- genome_metadata %>%
+  ggplot(aes(y=contamination)) +  # Begin plotting using ggplot2
+  ylim(c(10,0)) +
+  geom_boxplot(colour = "#999999", fill="#cccccc") +  # Add a specific type of plot layer (bars, points, lines, etc.)
+  theme_void() +
+  theme(legend.position = "none",  # Customize visual aspects of the plot
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        plot.margin = unit(c(0, 0, 0.40, 0),"inches")) #add bottom-margin (top, right, bottom, left)
+```
+
+## Code Chunk 12
+```{r}
+genome_completeness <- genome_metadata %>%
+  ggplot(aes(x=completeness)) +  # Begin plotting using ggplot2
+  xlim(c(50,100)) +
+  geom_boxplot(colour = "#999999", fill="#cccccc") +  # Add a specific type of plot layer (bars, points, lines, etc.)
+  theme_void() +
+  theme(legend.position = "none",  # Customize visual aspects of the plot
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        plot.margin = unit(c(0, 0, 0, 0.50),"inches")) #add left-margin (top, right, bottom, left)
+```
+
+## Code Chunk 13
+```{r}
+grid.arrange(grobs = list(genome_completeness,genome_biplot,genome_contamination),
+             layout_matrix = rbind(c(1,1,1,1,1,1,1,1,1,1,1,4),
+                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
+                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
+                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
+                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
+                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
+                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
+                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
+                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
+                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
+                                   c(2,2,2,2,2,2,2,2,2,2,2,3)))
+
+```
+
+## Code Chunk 14
+```{r}
+function_table <- genome_gifts %>%
+  to.elements(., GIFT_db)
+```
+
+## Code Chunk 15
+```{r}
+function_tree <- force.ultrametric(genome_tree, method="extend") %>%
+  ggtree(., size = 0.3)
+```
+
+## Code Chunk 16
+```{r}
+function_tree <- gheatmap(function_tree, phylum_heatmap, offset=0, width=0.1, colnames=FALSE) +
+  scale_fill_manual(values=phylum_colors) +  # Adjust color scales, axes, or fill options
+  labs(fill="Phylum")  # Customize axis labels or plot titles
+```
+
+## Code Chunk 17
+```{r}
+function_tree <- function_tree + new_scale_fill()  # Adjust color scales, axes, or fill options
+```
+
+## Code Chunk 18
+```{r}
+function_tree <- gheatmap(function_tree, function_table, offset=0.5, width=3.5, colnames=FALSE) +
+  vexpand(.08) +
+  coord_cartesian(clip = "off") +
+  scale_fill_gradient(low = "#f4f4f4", high = "steelblue", na.value="white") +  # Adjust color scales, axes, or fill options
+  labs(fill="GIFT")  # Customize axis labels or plot titles
+```
+
+## Code Chunk 19
+```{r}
+function_tree <- function_tree +
+  geom_fruit(data=genome_metadata,  # Add a specific type of plot layer (bars, points, lines, etc.)
+             geom=geom_bar,  # Add a specific type of plot layer (bars, points, lines, etc.)
+             grid.params=list(axis="x", text.size=2, nbreak = 1),
+             axis.params=list(vline=TRUE),
+             mapping = aes(x=length, y=genome, fill=completeness),
+             offset = 3.8,
+             orientation="y",
+             stat="identity") +
+  scale_fill_gradient(low = "#cf8888", high = "#a2cc87") +  # Adjust color scales, axes, or fill options
+  labs(fill="Genome\ncompleteness")  # Customize axis labels or plot titles
+
+function_tree
+
+ggsave("function_tree_highres.png", 
+       plot = function_tree, 
+       width = 12, 
+       height = 10, 
+       dpi = 600)  # Higher dpi = better quality
+```
+
+## Code Chunk 20
+```{r}
+tSNE_function <- Rtsne(X=function_table, dims = 2, check_duplicates = FALSE)
+```
+
+## Code Chunk 21
+```{r}
+function_ordination <- tSNE_function$Y %>%
+  as.data.frame() %>%
+  mutate(genome=rownames(function_table)) %>%  # Add or modify columns in the dataset
+  inner_join(genome_metadata, by="genome") %>%
+  rename(tSNE1="V1", tSNE2="V2") %>%
+  select(genome,phylum,tSNE1,tSNE2, length) %>%  # Select specific columns from the data
+  ggplot(aes(x = tSNE1, y = tSNE2, color = phylum, size=length))+  # Begin plotting using ggplot2
+  geom_point(shape=16, alpha=0.7) +  # Add a specific type of plot layer (bars, points, lines, etc.)
+  scale_color_manual(values=phylum_colors) +  # Adjust color scales, axes, or fill options
+  theme_minimal() +
+  labs(color="Phylum", size="Genome size") +  # Customize axis labels or plot titles
+  guides(color = guide_legend(override.aes = list(size = 5))) # enlarge Phylum dots in legend
+
+function_ordination
+```
+
+
+<!--chapter:end:03_MAGs_Catalouge.Rmd-->
+

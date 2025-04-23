@@ -7,7 +7,7 @@ Load the original data files outputted by the bioinformatic pipeline.
 ### Sample metadata
 
 ```{r load_sample_metadata, warning=FALSE, comments="", message=FALSE, eval=FALSE}
-sample_metadata <- read_tsv("data/DMB0167_metadata.tsv.gz") %>%
+sample_metadata <- read_tsv("data/merged_metadata.tsv") %>%
     rename(sample=1)
 ```
 
@@ -98,7 +98,7 @@ genome_counts_filt <- read_counts_filt %>%
 ### Distill annotations into GIFTs 
 
 ```{r distill_annotations, warning=FALSE, comments="", message=FALSE, eval=FALSE}
-genome_gifts <- distill(genome_annotations,GIFT_db,genomecol=2,annotcol=c(9,10,19), verbosity=F)
+ genome_gifts <- distill(genome_annotations,GIFT_db,genomecol=2,annotcol=c(9,10,19), verbosity=F)
 ```
 
 ## Prepare color scheme

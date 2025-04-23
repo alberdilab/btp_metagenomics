@@ -1,0 +1,831 @@
+# Gut microbiota: Differential abundance analysis
+
+```{r load_data_mag_filtdamr_diffe, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+load("data/data.Rdata")
+load("data/ancombc_all.Rdata")
+sample_metadata <- sample_metadata %>%
+  filter(sample!="EHI02625")
+genome_counts_filt <- genome_counts_filt %>%
+  select(one_of(c("genome",sample_metadata$sample))) %>%
+  filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
+  select_if(~!all(. == 0))
+```
+
+```{r phyloseq, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+#Phyloseq object
+count_phy <- genome_counts_filt %>%
+  column_to_rownames(var="genome")%>%
+  otu_table(., taxa_are_rows=T)
+
+sample_info_tab_phy <- sample_metadata%>%
+  column_to_rownames(var="sample")%>%
+  sample_data()
+
+TAX <- genome_metadata%>%
+  column_to_rownames(var="genome")%>%
+  select(1:7)%>%
+  as.matrix()%>%
+  tax_table()
+tree <- phy_tree(genome_tree)
+
+physeq_all = phyloseq(count_phy, TAX, sample_info_tab_phy, tree)
+```
+
+## Structural zeros
+
+```{r struct_zero, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+low_samples <- sample_metadata %>% 
+  filter(environment == "low") %>%
+  dplyr::select(sample) %>%
+  pull()
+
+high_samples <- sample_metadata %>% 
+  filter(environment == "high") %>%
+  dplyr::select(sample) %>% pull()
+
+structural_zeros <- genome_counts_filt %>% 
+   rowwise() %>% #compute for each row (genome)
+   mutate(all_zeros_low = all(c_across(all_of(low_samples)) == 0)) %>% # set true if all samples in TJ1 have zeros
+   mutate(all_zeros_high = all(c_across(all_of(high_samples)) == 0)) %>% # set true if all samples in TJ2 have zeros
+   mutate(average_low = mean(c_across(all_of(low_samples)), na.rm = TRUE)) %>% # get average genome counts across TJ1
+   mutate(average_high = mean(c_across(all_of(high_samples)), na.rm = TRUE)) %>% # get average genome counts across TJ2
+   filter(all_zeros_low == TRUE || all_zeros_high==TRUE)  %>% # filter only genomes with structural zeros
+   mutate(present = case_when(
+      all_zeros_low & !all_zeros_high ~ "high",
+      !all_zeros_low & all_zeros_high ~ "low",
+      !all_zeros_low & !all_zeros_high ~ "None",
+      TRUE ~ NA_character_
+    )) %>%
+   mutate(average = ifelse(present == "low", average_low, average_high)) %>%
+   dplyr::select(genome, present, average) %>%
+   left_join(genome_metadata, by=join_by(genome==genome)) %>%
+   arrange(present,-average)
+```
+
+```{r structu_Zero_plot, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+#Get phylum colors from the EHI standard
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+#  mutate_at(vars(phylum), ~ str_replace(., "[dpcofgs]__", "")) %>%
+  right_join(structural_zeros, by=join_by(phylum == phylum)) %>%
+  dplyr::select(phylum, colors) %>%
+  mutate(colors = str_c(colors, "80"))  %>% #add 80% alpha
+  unique() %>%
+  arrange(phylum) %>%
+  dplyr::select(colors) %>%
+  pull()
+
+structural_zeros %>%
+    mutate(average = ifelse(present == "low", average * -1, average)) %>%
+  mutate(genome = factor(genome, levels = genome))%>% #convert TJ1 genome counts to negative 
+    ggplot(., aes(x=average, y=forcats::fct_reorder(genome,average), fill=phylum)) +
+  geom_col()+
+#      geom_jitter(height = 0.01, size=3) +
+      geom_vline(xintercept=0) + 
+      xlim(-max(structural_zeros$average)-3,max(structural_zeros$average)+3) +
+      scale_fill_manual(values=phylum_colors) +
+      geom_text(aes(-20, 25), label = "Only present\nin low", color="#666666") +
+      geom_text(aes(30, 25), label = "Only present\nin high", color="#666666") +
+     theme(
+          panel.background = element_blank(),
+        axis.text.y = element_text(size = 6),
+          axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"))+
+      labs(y="Mags",x="Genome counts") + 
+      guides(col=guide_legend("Phylum"))
+
+```
+
+## MAGs in different locations and shared among locations
+
+```{r chart1, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+locationcolors=c('#c4d7d1','#408892','#2d3749','#c04062','#6b3a59','#e08683')
+locationcolors=c('#c4d7d1','#408892','#c04062','#e08683')
+
+genome_counts_rel <- genome_counts %>%
+  mutate_at(vars(-genome),~./sum(.)) %>%
+  column_to_rownames(., "genome")
+
+genome_counts_rel_fil<- genome_counts_filt%>% 
+    select(one_of(c("genome",sample_metadata$sample))) %>% 
+  column_to_rownames(., "genome")
+  
+genome_counts_rel_pa=1*(genome_counts_rel_fil>0)
+#MAGrel_pa[1:6,1:6]
+table_upset_analysis_cont=t(aggregate(t(genome_counts_rel_pa),by=list(sample_metadata$river),FUN=sum)[,-1])
+colnames(table_upset_analysis_cont)=levels(as.factor(sample_metadata$river))
+table_upset_analysis=(table_upset_analysis_cont>0)*1
+table_upset_analysis=data.frame(table_upset_analysis)
+table_upset_analysis=apply(table_upset_analysis,2,as.integer)
+rownames(table_upset_analysis) <- rownames(genome_counts_rel_pa)
+
+#pdf("figures/MAG_intersection.pdf",width=8,height=6, onefile=F)
+upset(as.data.frame(table_upset_analysis),
+  keep.order = T,
+  sets = rev(c("Erlan","Harpea","Leitzaran","Goizueta")),
+  sets.bar.color= rev(locationcolors),
+  mb.ratio = c(0.55, 0.45), order.by = "freq")
+#dev.off()
+```
+
+## Enrichment analysis between high and low altitude: Ancombc2
+
+```{r zero_phylo, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+#phyloseq object considering structual zeros
+phylo_samples <- sample_metadata %>% 
+                    column_to_rownames("sample") %>% 
+                    sample_data() #convert to phyloseq sample_data object
+phylo_genome <- genome_counts_filt %>% 
+                    filter(!genome %in% structural_zeros$genome) %>% # remove structural zeros
+                    column_to_rownames("genome") %>% 
+                    mutate_all(~ replace(., . == 0, 0.00001)) %>% 
+                    otu_table(., taxa_are_rows = TRUE)
+phylo_taxonomy <- genome_metadata %>% 
+                    filter(genome %in% rownames(phylo_genome)) %>% # remove structural zeros
+                    mutate(genome2=genome) %>% #create a pseudo genome name column
+                    column_to_rownames("genome2") %>% 
+                    dplyr::select(domain,phylum,class,order,family,genus,species,genome) %>% #add an additional taxonomic level to ensure genome-level analysis (as no all genomes have species-level taxonomic assignments. Otherwise, ANCOMBC2 aggregates analyses per species)
+                    as.matrix() %>% 
+                    tax_table() #convert to phyloseq tax_table object
+
+physeq_genome_filtered <- phyloseq(phylo_genome, phylo_taxonomy, phylo_samples)
+
+```
+
+### With random effect
+#### MAG level
+
+```{r ancom_rand_pond, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+set.seed(1234) #set seed for reproducibility
+ancom_rand_output = ancombc2(data = physeq_genome_filtered, 
+                  assay_name = "counts", 
+                  tax_level = NULL, #change to agglomerate analysis to a higher taxonomic range
+                  fix_formula = "environment", #fixed variable(s)
+                  rand_formula = "(1|river)",
+                  p_adj_method = "holm", 
+                  pseudo_sens = TRUE,
+                  prv_cut =0, 
+                  lib_cut = 0, 
+                  s0_perc = 0.05,
+                  group = NULL, 
+                  struc_zero = FALSE, 
+                  neg_lb = FALSE,
+                  alpha = 0.05, 
+                  n_cl = 2, 
+                  verbose = TRUE,
+                  global = FALSE, 
+                  pairwise = FALSE, 
+                  dunnet = FALSE, 
+                  trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = lme4::lmerControl(),
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+
+```
+
+```{r ancom_rand, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+taxonomy <- data.frame(physeq_genome_filtered@tax_table) %>%
+  rownames_to_column(., "taxon") %>%
+  mutate_at(vars(order, phylum, family, genus, species), ~ str_replace(., "[dpcofgs]__", ""))%>%
+  mutate(across(c(family,genus, species), na_if, ""))%>%
+    mutate(family = coalesce(family, paste('Unclassified', order)),
+           genus = coalesce(genus, 
+                              if_else(grepl('^Unclassified', family),
+                                      family, paste('Unclassified', family))),
+           species = coalesce(species, 
+                              if_else(grepl('^Unclassified', genus),
+                                      genus, paste('Unclassified', genus))))
+
+ancombc_rand_table_mag <- ancom_rand_output$res %>%
+  dplyr::select(taxon, lfc_environmentlow, p_environmentlow) %>%
+  filter(p_environmentlow < 0.05) %>%
+  dplyr::arrange(p_environmentlow) %>%
+  merge(., taxonomy, by="taxon") %>%
+  mutate_at(vars(phylum, species), ~ str_replace(., "[dpcofgs]__", ""))%>%
+  dplyr::arrange(lfc_environmentlow)
+
+ancombc_rand_table_mag
+  
+colors_alphabetic <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+  mutate_at(vars(phylum), ~ str_replace(., "[dpcofgs]__", ""))  %>%
+  right_join(taxonomy, by=join_by(phylum == phylum)) %>%
+  dplyr::select(phylum, colors) %>%
+  mutate(colors = str_c(colors, "80"))  %>% #add 80% alpha
+	unique() %>%
+	dplyr::arrange(phylum)
+
+tax_table <- as.data.frame(unique(ancombc_rand_table_mag$phylum))
+  
+colnames(tax_table)[1] <- "phylum"
+tax_color <- merge(tax_table, colors_alphabetic, by="phylum")%>%
+	dplyr::arrange(phylum) %>%
+	dplyr::select(colors) %>%
+	pull()
+```
+```{r ancombc_rand_plot_phy, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=10, fig.width=8, fig.fullwidth=TRUE}
+ancombc_rand_table_mag%>%
+      mutate(genome=factor(genome,levels=ancombc_rand_table_mag$genome)) %>%
+ggplot(., aes(x=lfc_environmentlow, y=forcats::fct_reorder(genome,lfc_environmentlow), fill=phylum)) + #forcats::fct_rev()
+  geom_col() + 
+  scale_fill_manual(values=tax_color) + 
+  geom_hline(yintercept=0) + 
+#  coord_flip()+
+  theme(panel.background = element_blank(),
+        axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 8),
+        axis.title = element_text(size = 14, face = "bold"),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 14, face = "bold"),
+        legend.position = "right", legend.box = "vertical")+
+  xlab("log2FoldChange") + 
+  ylab("Species")+
+  guides(fill=guide_legend(title="Phylum"))
+```
+
+
+```{r ancom_rand_volcano, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+    right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    arrange(match(genome, genome_tree$tip.label)) %>%
+    select(phylum, colors) %>%
+    unique() %>%
+    arrange(phylum) %>%
+    pull(colors, name=phylum)
+
+#pdf("figures/different_species_StrucZero_new_violin.pdf",width=12, height=6)
+ancom_rand_output$res %>%
+  na.omit() %>%
+  dplyr::select(genome=taxon, lfc_environmentlow, p_environmentlow) %>%
+  left_join(genome_metadata, by = join_by(genome == genome)) %>%
+  mutate(phylum = ifelse(p_environmentlow < 0.05, phylum, NA)) %>%
+  ggplot(., aes(x = lfc_environmentlow, y = -log(p_environmentlow), color = phylum)) +
+  geom_point(size=3, show.legend = FALSE) +
+  #xlim(c(-10,4)) +
+  scale_color_manual(values = phylum_colors) +
+  labs(color = "Significant phylum", x = "Log-fold difference between sample types", y = "p-value") +
+  theme_classic()
+#dev.off()
+```
+
+##### Controling structural components in Ancombc
+```{r ancom_rand_season, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+set.seed(1234) #set seed for reproducibility
+ancom_rand_output_mag_Struc = ancombc2(data = physeq_all, 
+                  assay_name = "counts", 
+                  tax_level = NULL,
+                  fix_formula = "environment",
+                  rand_formula = "(1|river)",
+                  p_adj_method = "holm", 
+                  pseudo_sens = TRUE,
+                  prv_cut =0, 
+                  lib_cut = 0, 
+                  s0_perc = 0.05,
+                  group = "environment", 
+                  struc_zero = TRUE, 
+                  neg_lb = FALSE,
+                  alpha = 0.05, 
+                  n_cl = 2, 
+                  verbose = TRUE,
+                  global = FALSE, 
+                  pairwise = FALSE, 
+                  dunnet = FALSE, 
+                  trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = lme4::lmerControl(),
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+
+```
+
+```{r ancom_rand1, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+taxonomy <- data.frame(physeq_genome_filtered@tax_table) %>%
+  rownames_to_column(., "taxon")%>%
+  mutate_at(vars(order, phylum, family, genus, species), ~ str_replace(., "[dpcofgs]__", ""))
+
+ancombc_rand_table_mag_Struc <- ancom_rand_output_mag_Struc$res %>%
+  dplyr::select(taxon, lfc_environmentlow, p_environmentlow) %>%
+  filter(p_environmentlow < 0.05) %>%
+  dplyr::arrange(p_environmentlow) %>%
+  merge(., taxonomy, by="taxon") %>%
+  mutate_at(vars(phylum, species), ~ str_replace(., "[dpcofgs]__", ""))%>%
+  dplyr::arrange(lfc_environmentlow)
+
+ancombc_rand_table_mag_Struc
+
+colors_alphabetic <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+  mutate_at(vars(phylum), ~ str_replace(., "[dpcofgs]__", ""))  %>%
+  right_join(taxonomy, by=join_by(phylum == phylum)) %>%
+  dplyr::select(phylum, colors) %>%
+  mutate(colors = str_c(colors, "80"))  %>% #add 80% alpha
+	unique() %>%
+	dplyr::arrange(phylum)
+
+tax_table <- as.data.frame(unique(ancombc_rand_table_mag_Struc$phylum))
+  
+  
+colnames(tax_table)[1] <- "phylum"
+tax_color <- merge(tax_table, colors_alphabetic, by="phylum")%>%
+	dplyr::arrange(phylum) %>%
+	dplyr::select(colors) %>%
+	pull()
+```
+```{r ancombc_rand_plot_mag, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=10, fig.width=8, fig.fullwidth=TRUE}
+ancombc_rand_table_mag_Struc%>%
+      mutate(genome=factor(genome,levels=ancombc_rand_table_mag_Struc$genome)) %>%
+ggplot(., aes(x=lfc_environmentlow, y=forcats::fct_reorder(genome,lfc_environmentlow), fill=phylum)) + #forcats::fct_rev()
+  geom_col() + 
+  scale_fill_manual(values=tax_color) + 
+  geom_hline(yintercept=0) + 
+#  coord_flip()+
+  theme(panel.background = element_blank(),
+        axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 8),
+        axis.title = element_text(size = 14, face = "bold"),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 14, face = "bold"),
+        legend.position = "right", legend.box = "vertical")+
+  xlab("log2FoldChange") + 
+  ylab("Species")+
+  guides(fill=guide_legend(title="Phylum"))
+```
+
+```{r ancom_rand_volcano_mag, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+    right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    arrange(match(genome, genome_tree$tip.label)) %>%
+    select(phylum, colors) %>%
+    unique() %>%
+    arrange(phylum) %>%
+    pull(colors, name=phylum)
+
+#pdf("figures/different_species_StrucZero_new_violin.pdf",width=12, height=6)
+ancom_rand_output_mag_Struc$res %>%
+  na.omit() %>%
+  dplyr::select(genome=taxon, lfc_environmentlow, p_environmentlow) %>%
+  left_join(genome_metadata, by = join_by(genome == genome)) %>%
+  mutate(phylum = ifelse(p_environmentlow < 0.05, phylum, NA)) %>%
+  ggplot(., aes(x = lfc_environmentlow, y = -log(p_environmentlow), color = phylum)) +
+  geom_point(size=3, show.legend = FALSE) +
+  #xlim(c(-10,4)) +
+  scale_color_manual(values = phylum_colors) +
+  labs(color = "Significant phylum", x = "Log-fold difference between sample types", y = "p-value") +
+  theme_classic()
+#dev.off()
+```
+
+#### Phylum level
+
+```{r ancom_phylum, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+ancom_rand_output_phylum = ancombc2(data = physeq_genome_filtered, 
+                  assay_name = "counts", 
+                  tax_level = "phylum", #change to agglomerate analysis to a higher taxonomic range
+                  fix_formula = "environment", #fixed variable(s)
+                  rand_formula = "(1|river)",
+                  p_adj_method = "holm", 
+                  pseudo_sens = TRUE,
+                  prv_cut = 0, 
+                  lib_cut = 0, 
+                  s0_perc = 0.05,
+                  group = NULL, 
+                  struc_zero = FALSE, 
+                  neg_lb = FALSE,
+                  alpha = 0.05, 
+                  n_cl = 2, 
+                  verbose = TRUE,
+                  global = FALSE, 
+                  pairwise = FALSE, 
+                  dunnet = FALSE, 
+                  trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = lme4::lmerControl(),
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+```
+
+```{r ancom_rand_phylum, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+ancom_rand_output_phylum$res %>%
+  dplyr::select(taxon, lfc_environmentlow, p_environmentlow) %>%
+  filter(p_environmentlow < 0.05) %>%
+  dplyr::arrange(p_environmentlow) 
+```
+
+#### Family level
+```{r ancom_family, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+ancom_rand_output_family = ancombc2(data = physeq_genome_filtered, 
+                  assay_name = "counts", 
+                  tax_level = "family", #change to agglomerate analysis to a higher taxonomic range
+                  fix_formula = "environment", #fixed variable(s)
+                  rand_formula = "(1|river)",
+                  p_adj_method = "holm", 
+                  pseudo_sens = TRUE,
+                  prv_cut = 0, 
+                  lib_cut = 0, 
+                  s0_perc = 0.05,
+                  group = NULL, 
+                  struc_zero = FALSE, 
+                  neg_lb = FALSE,
+                  alpha = 0.05, 
+                  n_cl = 2, 
+                  verbose = TRUE,
+                  global = FALSE, 
+                  pairwise = FALSE, 
+                  dunnet = FALSE, 
+                  trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = lme4::lmerControl(),
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+```
+```{r ancom_rand_family, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+ancom_rand_output_family$res %>%
+  dplyr::select(taxon, lfc_environmentlow, p_environmentlow) %>%
+  filter(p_environmentlow < 0.05) %>%
+  dplyr::arrange(p_environmentlow) 
+```
+
+#### Genera
+```{r ancom_genera, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+ancom_rand_output_gen = ancombc2(data = physeq_genome_filtered, 
+                  assay_name = "counts", 
+                  tax_level = "genus", #change to agglomerate analysis to a higher taxonomic range
+                  fix_formula = "environment", #fixed variable(s)
+                  rand_formula = "(1|river)",
+                  p_adj_method = "holm", 
+                  pseudo_sens = TRUE,
+                  prv_cut = 0, 
+                  lib_cut = 0, 
+                  s0_perc = 0.05,
+                  group = NULL, 
+                  struc_zero = FALSE, 
+                  neg_lb = FALSE,
+                  alpha = 0.05, 
+                  n_cl = 2, 
+                  verbose = TRUE,
+                  global = FALSE, 
+                  pairwise = FALSE, 
+                  dunnet = FALSE, 
+                  trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = lme4::lmerControl(),
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+```
+
+```{r ancom_rand_genera, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+ancom_rand_output_gen$res %>%
+  dplyr::select(taxon, lfc_environmentlow, p_environmentlow) %>%
+  filter(p_environmentlow < 0.05) %>%
+  dplyr::arrange(p_environmentlow) 
+```
+
+
+
+### Without random effect
+#### MAG level
+
+```{r ancom_rand_pond2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+set.seed(1234) #set seed for reproducibility
+ancom_rand_output_norand = ancombc2(data = physeq_genome_filtered, 
+                  assay_name = "counts", 
+                  tax_level = NULL, #change to agglomerate analysis to a higher taxonomic range
+                  fix_formula = "environment", #fixed variable(s)
+ #                 rand_formula = "(1|river)",
+                  p_adj_method = "holm", 
+                  pseudo_sens = TRUE,
+                  prv_cut =0, 
+                  lib_cut = 0, 
+                  s0_perc = 0.05,
+                  group = NULL, 
+                  struc_zero = FALSE, 
+                  neg_lb = FALSE,
+                  alpha = 0.05, 
+                  n_cl = 2, 
+                  verbose = TRUE,
+                  global = FALSE, 
+                  pairwise = FALSE, 
+                  dunnet = FALSE, 
+                  trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = NULL,
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+
+```
+
+```{r ancom_rand2, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+taxonomy <- data.frame(physeq_genome_filtered@tax_table) %>%
+  rownames_to_column(., "taxon") %>%
+  mutate_at(vars(order, phylum, family, genus, species), ~ str_replace(., "[dpcofgs]__", ""))%>%
+  mutate(across(c(family,genus, species), na_if, ""))%>%
+    mutate(family = coalesce(family, paste('Unclassified', order)),
+           genus = coalesce(genus, 
+                              if_else(grepl('^Unclassified', family),
+                                      family, paste('Unclassified', family))),
+           species = coalesce(species, 
+                              if_else(grepl('^Unclassified', genus),
+                                      genus, paste('Unclassified', genus))))
+
+ancombc_rand_table_mag_norand <- ancom_rand_output_norand$res %>%
+  dplyr::select(taxon, lfc_environmentlow, p_environmentlow) %>%
+  filter(p_environmentlow < 0.05) %>%
+  dplyr::arrange(p_environmentlow) %>%
+  merge(., taxonomy, by="taxon") %>%
+  mutate_at(vars(phylum, species), ~ str_replace(., "[dpcofgs]__", ""))%>%
+  dplyr::arrange(lfc_environmentlow)
+  
+colors_alphabetic <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+  mutate_at(vars(phylum), ~ str_replace(., "[dpcofgs]__", ""))  %>%
+  right_join(taxonomy, by=join_by(phylum == phylum)) %>%
+  dplyr::select(phylum, colors) %>%
+  mutate(colors = str_c(colors, "80"))  %>% #add 80% alpha
+	unique() %>%
+	dplyr::arrange(phylum)
+
+tax_table <- as.data.frame(unique(ancombc_rand_table_mag_norand$phylum))
+  
+  
+colnames(tax_table)[1] <- "phylum"
+tax_color <- merge(tax_table, colors_alphabetic, by="phylum")%>%
+	dplyr::arrange(phylum) %>%
+	dplyr::select(colors) %>%
+	pull()
+```
+```{r ancombc_rand_plot_mag2, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=10, fig.width=8, fig.fullwidth=TRUE}
+ancombc_rand_table_mag_norand%>%
+      mutate(genome=factor(genome,levels=ancombc_rand_table_mag_norand$genome)) %>%
+ggplot(., aes(x=lfc_environmentlow, y=forcats::fct_reorder(genome,lfc_environmentlow), fill=phylum)) + #forcats::fct_rev()
+  geom_col() + 
+  scale_fill_manual(values=tax_color) + 
+  geom_hline(yintercept=0) + 
+#  coord_flip()+
+  theme(panel.background = element_blank(),
+        axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 8),
+        axis.title = element_text(size = 14, face = "bold"),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 14, face = "bold"),
+        legend.position = "right", legend.box = "vertical")+
+  xlab("log2FoldChange") + 
+  ylab("Species")+
+  guides(fill=guide_legend(title="Phylum"))
+```
+
+
+```{r ancom_rand_volcano2, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+    right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    arrange(match(genome, genome_tree$tip.label)) %>%
+    select(phylum, colors) %>%
+    unique() %>%
+    arrange(phylum) %>%
+    pull(colors, name=phylum)
+
+#pdf("figures/different_species_StrucZero_new_violin.pdf",width=12, height=6)
+ancom_rand_output_norand$res %>%
+  na.omit() %>%
+  dplyr::select(genome=taxon, lfc_environmentlow, p_environmentlow) %>%
+  left_join(genome_metadata, by = join_by(genome == genome)) %>%
+  mutate(phylum = ifelse(p_environmentlow < 0.05, phylum, NA)) %>%
+  ggplot(., aes(x = lfc_environmentlow, y = -log(p_environmentlow), color = phylum)) +
+  geom_point(size=3, show.legend = FALSE) +
+  #xlim(c(-10,4)) +
+  scale_color_manual(values = phylum_colors) +
+  labs(color = "Significant phylum", x = "Log-fold difference between sample types", y = "p-value") +
+  theme_classic()
+#dev.off()
+```
+
+##### Controling structural components in Ancombc
+```{r ancom_rand_struct12, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+ancom_rand_output_mag_Struc_norand = ancombc2(data = physeq_all, 
+                  assay_name = "counts", 
+                  tax_level = NULL, #change to agglomerate analysis to a higher taxonomic range
+                  fix_formula = "environment", #fixed variable(s)
+ #                 rand_formula = "(1|river)",
+                  p_adj_method = "holm", 
+                  pseudo_sens = TRUE,
+                  prv_cut =0, 
+                  lib_cut = 0, 
+                  s0_perc = 0.05,
+                  group = "environment", 
+                  struc_zero = TRUE, 
+                  neg_lb = FALSE,
+                  alpha = 0.05, 
+                  n_cl = 2, 
+                  verbose = TRUE,
+                  global = FALSE, 
+                  pairwise = FALSE, 
+                  dunnet = FALSE, 
+                  trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = NULL,
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+
+```
+```{r ancom_rand12, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+taxonomy <- data.frame(physeq_genome_filtered@tax_table) %>%
+  rownames_to_column(., "taxon")%>%
+  mutate_at(vars(order, phylum, family, genus, species), ~ str_replace(., "[dpcofgs]__", ""))%>%
+  mutate(across(c(family,genus, species), na_if, ""))
+
+ancombc_rand_table_mag_Struc_norand <- ancom_rand_output_mag_Struc_norand$res %>%
+  dplyr::select(taxon, lfc_environmentlow, p_environmentlow) %>%
+  filter(p_environmentlow < 0.05) %>%
+  dplyr::arrange(p_environmentlow) %>%
+  merge(., taxonomy, by="taxon") %>%
+  mutate_at(vars(phylum, species), ~ str_replace(., "[dpcofgs]__", ""))%>%
+  dplyr::arrange(lfc_environmentlow)
+  
+colors_alphabetic <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+  mutate_at(vars(phylum), ~ str_replace(., "[dpcofgs]__", ""))  %>%
+  right_join(taxonomy, by=join_by(phylum == phylum)) %>%
+  dplyr::select(phylum, colors) %>%
+  mutate(colors = str_c(colors, "80"))  %>% #add 80% alpha
+	unique() %>%
+	dplyr::arrange(phylum)
+
+tax_table <- as.data.frame(unique(ancombc_rand_table_mag_Struc_norand$phylum))
+  
+  
+colnames(tax_table)[1] <- "phylum"
+tax_color <- merge(tax_table, colors_alphabetic, by="phylum")%>%
+	dplyr::arrange(phylum) %>%
+	dplyr::select(colors) %>%
+	pull()
+```
+```{r ancombc_rand_plot_mag12, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=10, fig.width=8, fig.fullwidth=TRUE}
+ancombc_rand_table_mag_Struc_norand%>%
+      mutate(genome=factor(genome,levels=ancombc_rand_table_mag_Struc_norand$genome)) %>%
+ggplot(., aes(x=lfc_environmentlow, y=forcats::fct_reorder(genome,lfc_environmentlow), fill=phylum)) + #forcats::fct_rev()
+  geom_col() + 
+  scale_fill_manual(values=tax_color) + 
+  geom_hline(yintercept=0) + 
+#  coord_flip()+
+  theme(panel.background = element_blank(),
+        axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 8),
+        axis.title = element_text(size = 14, face = "bold"),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 14, face = "bold"),
+        legend.position = "right", legend.box = "vertical")+
+  xlab("log2FoldChange") + 
+  ylab("Species")+
+  guides(fill=guide_legend(title="Phylum"))
+```
+
+```{r ancom_rand_volcano_mag12, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+    right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    arrange(match(genome, genome_tree$tip.label)) %>%
+    select(phylum, colors) %>%
+    unique() %>%
+    arrange(phylum) %>%
+    pull(colors, name=phylum)
+
+#pdf("figures/different_species_StrucZero_new_violin.pdf",width=12, height=6)
+ancom_rand_output_mag_Struc_norand$res %>%
+  na.omit() %>%
+  dplyr::select(genome=taxon, lfc_environmentlow, p_environmentlow) %>%
+  left_join(genome_metadata, by = join_by(genome == genome)) %>%
+  mutate(phylum = ifelse(p_environmentlow < 0.05, phylum, NA)) %>%
+  ggplot(., aes(x = lfc_environmentlow, y = -log(p_environmentlow), color = phylum)) +
+  geom_point(size=3, show.legend = FALSE) +
+  #xlim(c(-10,4)) +
+  scale_color_manual(values = phylum_colors) +
+  labs(color = "Significant phylum", x = "Log-fold difference between sample types", y = "p-value") +
+  theme_classic()
+#dev.off()
+```
+
+### Phylum level
+
+```{r ancom_phylum2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+ancom_rand_output_phylum_norand = ancombc2(data = physeq_genome_filtered, 
+                  assay_name = "counts", 
+                  tax_level = "phylum", #change to agglomerate analysis to a higher taxonomic range
+                  fix_formula = "environment", #fixed variable(s)
+  #                rand_formula = "(1|river)",
+                  p_adj_method = "holm", 
+                  pseudo_sens = TRUE,
+                  prv_cut = 0, 
+                  lib_cut = 0, 
+                  s0_perc = 0.05,
+                  group = NULL, 
+                  struc_zero = FALSE, 
+                  neg_lb = FALSE,
+                  alpha = 0.05, 
+                  n_cl = 2, 
+                  verbose = TRUE,
+                  global = FALSE, 
+                  pairwise = FALSE, 
+                  dunnet = FALSE, 
+                  trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = NULL,
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+```
+
+```{r ancom_rand_phylum2, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+ancom_rand_output_phylum_norand$res %>%
+  dplyr::select(taxon, lfc_environmentlow, p_environmentlow) %>%
+  filter(p_environmentlow < 0.05) %>%
+  dplyr::arrange(p_environmentlow) 
+```
+
+### Family level
+```{r ancom_family2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+ancom_rand_output_family_norand = ancombc2(data = physeq_genome_filtered, 
+                  assay_name = "counts", 
+                  tax_level = "family", #change to agglomerate analysis to a higher taxonomic range
+                  fix_formula = "environment", #fixed variable(s)
+   #               rand_formula = "(1|river)",
+                  p_adj_method = "holm", 
+                  pseudo_sens = TRUE,
+                  prv_cut = 0, 
+                  lib_cut = 0, 
+                  s0_perc = 0.05,
+                  group = NULL, 
+                  struc_zero = FALSE, 
+                  neg_lb = FALSE,
+                  alpha = 0.05, 
+                  n_cl = 2, 
+                  verbose = TRUE,
+                  global = FALSE, 
+                  pairwise = FALSE, 
+                  dunnet = FALSE, 
+                  trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = NULL,
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+```
+```{r ancom_rand_family2, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+ancom_rand_output_family_norand$res %>%
+  dplyr::select(taxon, lfc_environmentlow, p_environmentlow) %>%
+  filter(p_environmentlow < 0.05) %>%
+  dplyr::arrange(p_environmentlow) 
+```
+
+### Genera
+```{r ancom_genera2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+ancom_rand_output_gen_norand = ancombc2(data = physeq_genome_filtered, 
+                  assay_name = "counts", 
+                  tax_level = "genus", #change to agglomerate analysis to a higher taxonomic range
+                  fix_formula = "environment", #fixed variable(s)
+ #                 rand_formula = "(1|river)",
+                  p_adj_method = "holm", 
+                  pseudo_sens = TRUE,
+                  prv_cut = 0, 
+                  lib_cut = 0, 
+                  s0_perc = 0.05,
+                  group = NULL, 
+                  struc_zero = FALSE, 
+                  neg_lb = FALSE,
+                  alpha = 0.05, 
+                  n_cl = 2, 
+                  verbose = TRUE,
+                  global = FALSE, 
+                  pairwise = FALSE, 
+                  dunnet = FALSE, 
+                  trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = NULL,
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+```
+
+```{r ancom_rand_genera2, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+ancom_rand_output_gen_norand$res %>%
+  dplyr::select(taxon, lfc_environmentlow, p_environmentlow) %>%
+  filter(p_environmentlow < 0.05) %>%
+  dplyr::arrange(p_environmentlow) 
+```
+
+```{r ancom_save, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+save(ancom_rand_output,
+     ancom_rand_output_mag_Struc,
+     ancom_rand_output_phylum,
+     ancom_rand_output_family,
+     ancom_rand_output_gen,
+     ancom_rand_output_norand,
+     ancom_rand_output_mag_Struc_norand,
+     ancom_rand_output_phylum_norand,
+     ancom_rand_output_family_norand,
+     ancom_rand_output_gen_norand,
+     file="data/ancombc_all.Rdata")
+```

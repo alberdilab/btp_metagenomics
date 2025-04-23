@@ -1,0 +1,560 @@
+"genome","domain","phylum","class","order","family","genus","species","completeness","contamination","length"
+"EHA02075_bin.12","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__RGIG7114","s__RGIG7114 sp020860205",59.97,0.75,1008252
+"EHA02075_bin.13","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__UBA1242","g__Caccovivens","s__",98.85,0.7,1256987
+"EHA02075_bin.15","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Faeciplasma","s__",100,0.89,1984790
+"EHA02075_bin.19","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__CAG-274","g__JAJQCI01","s__JAJQCI01 sp021201395",98.51,0.6,3460393
+"EHA02075_bin.1","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__Coproplasma sp021205485",80.84,0.42,1366181
+"EHA02075_bin.21","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",95.73,0,2124087
+"EHA02075_bin.27","d__Bacteria","p__Synergistota","c__Synergistia","o__Synergistales","f__Synergistaceae","g__E4-60","s__",99.73,0.49,1891239
+"EHA02075_bin.31","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",94.58,0.53,2317685
+"EHA02075_bin.38","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Agathobacter","s__",72.94,0.04,2004114
+"EHA02075_bin.41","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Eubacterium_I","s__",86.99,0.7,1713522
+"EHA02076_bin.7","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__JAJQCF01","s__JAJQCF01 sp021202845",50.58,0,874310
+"EHA02077_bin.12","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__VSOB01","s__",98.94,0.28,2773126
+"EHA02077_bin.3","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",91.85,0.21,1890963
+"EHA02078_bin.10","d__Bacteria","p__Bacillota_C","c__Negativicutes","o__Acidaminococcales","f__Acidaminococcaceae","g__Phascolarctobacterium_A","s__",99.01,0.31,2077341
+"EHA02078_bin.11","d__Bacteria","p__Synergistota","c__Synergistia","o__Synergistales","f__Dethiosulfovibrionaceae","g__Pyramidobacter","s__",98.99,0.25,2239360
+"EHA02078_bin.15","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__JAJQCF01","s__JAJQCF01 sp021202845",98.18,0.82,1975754
+"EHA02078_bin.26","d__Bacteria","p__Bacillota_A","c__Clostridia","o__TANB77","f__CAG-465","g__CAG-465","s__",95.02,0.41,1456338
+"EHA02078_bin.2","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Acutalibacteraceae","g__Eubacterium_R","s__",99.65,0.91,1906743
+"EHA02078_bin.4","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__Faecousia","s__",99.09,0.21,1949140
+"EHA02078_bin.7","d__Archaea","p__Thermoplasmatota","c__Thermoplasmata","o__Methanomassiliicoccales","f__Methanomethylophilaceae","g__UBA71","s__",89.79,0.01,1564657
+"EHA02078_bin.9","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__CAG-272","g__DTU064","s__DTU064 sp021202555",98.71,0.11,2122040
+"EHA02079_bin.10","d__Archaea","p__Thermoplasmatota","c__Thermoplasmata","o__Methanomassiliicoccales","f__Methanomethylophilaceae","g__UBA71","s__",90.02,0.01,1578954
+"EHA02079_bin.12","d__Bacteria","p__Synergistota","c__Synergistia","o__Synergistales","f__Dethiosulfovibrionaceae","g__Pyramidobacter","s__",98.02,0.18,2258901
+"EHA02079_bin.1","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__RGIG7114","s__RGIG7114 sp020860205",66.56,0.01,1156243
+"EHA02079_bin.26","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__JAJQCF01","s__JAJQCF01 sp021202845",96.98,0.8,2110741
+"EHA02079_bin.27","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Prevotella","s__",84.89,0.03,2010638
+"EHA02079_bin.36","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__Onthomonas","s__Onthomonas sp021200895",50.49,0.11,1389238
+"EHA02079_bin.37","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__JAJPXI01","s__",94.48,0.02,1751736
+"EHA02079_bin.44","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__Onthomonas","s__",56.15,0.26,1455527
+"EHA02079_bin.6","d__Bacteria","p__Bacillota","c__Bacilli","o__RFN20","f__CAG-288","g__Enterosoma","s__",92.24,0.15,1407395
+"EHA02080_bin.22","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Ventrimonas","s__",69.77,0.67,1721106
+"EHA02080_bin.3","d__Bacteria","p__Pseudomonadota","c__Gammaproteobacteria","o__Burkholderiales","f__Burkholderiaceae_A","g__Mesosutterella","s__",56.96,0.54,1095552
+"EHA02080_bin.6","d__Bacteria","p__Bacillota","c__Bacilli","o__RFN20","f__CAG-288","g__Enterosoma","s__",93.47,0.15,1355789
+"EHA02081_bin.13","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__CAG-272","g__DTU064","s__DTU064 sp021202555",99.13,0.07,1878181
+"EHA02081_bin.18","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__VSOB01","s__",58.75,0.97,1518997
+"EHA02082_bin.11","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__UBA1242","g__Caccovivens","s__",94.63,0.71,1056522
+"EHA02082_bin.13","d__Bacteria","p__Bacillota","c__Bacilli","o__RF39","f__UBA660","g__SIG200","s__",91.59,0.28,1142879
+"EHA02083_bin.5","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__UBA932","g__Cryptobacteroides","s__",98.94,0.08,2076548
+"EHA02084_bin.10","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__JAJPXI01","s__",97.84,0.02,2048079
+"EHA02084_bin.17","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__Gastranaerophilaceae","g__SIG32","s__",99.93,0.14,1609090
+"EHA02084_bin.6","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__Gastranaerophilaceae","g__UBA2883","s__UBA2883 sp021205645",96.26,0.1,1950237
+"EHA02085_bin.13","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Agathobacter","s__",77.19,0.49,1761693
+"EHA02085_bin.5","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__CAG-274","g__Gallispira","s__",93.46,0.17,2111681
+"EHA02085_bin.7","d__Bacteria","p__Bacillota","c__Bacilli","o__RFN20","f__CAG-288","g__Enterosoma","s__",91.51,0.27,1490820
+"EHA02086_bin.12","d__Bacteria","p__Actinomycetota","c__Coriobacteriia","o__Coriobacteriales","f__Eggerthellaceae","g__","s__",61.01,0.95,1142894
+"EHA02087_bin.2","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Prevotella","s__",99.41,0.6,2403609
+"EHA02087_bin.8","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__UBA932","g__Cryptobacteroides","s__",97.4,0.13,1962892
+"EHA02088_bin.13","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__UBA4292","s__",97.17,0.35,2054820
+"EHA02088_bin.17","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Coprococcus","s__",100,0.99,2341276
+"EHA02088_bin.24","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__Onthomonas","s__",72.16,0.57,1509099
+"EHA02088_bin.3","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Mediterranea","s__",90.38,0.15,2724402
+"EHA02088_bin.7","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Phocaeicola","s__",98.94,0,2628268
+"EHA02089_bin.15","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__CAG-272","g__DTU064","s__DTU064 sp021199825",92.96,0.26,2125121
+"EHA02093_bin.12","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__SIG308","s__",80.78,0.35,1647329
+"EHA02093_bin.14","d__Bacteria","p__Synergistota","c__Synergistia","o__Synergistales","f__Dethiosulfovibrionaceae","g__Pyramidobacter","s__",59.17,0.37,1503573
+"EHA02093_bin.18","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__UMGS1766","s__",74.96,0.95,1428765
+"EHA02093_bin.2","d__Bacteria","p__Synergistota","c__Synergistia","o__Synergistales","f__Synergistaceae","g__E4-60","s__",98.64,0.42,1989964
+"EHA02093_bin.5","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__JAJQCF01","s__JAJQCF01 sp021202845",73.16,0.56,1554361
+"EHA02093_bin.8","d__Bacteria","p__Bacillota","c__Bacilli","o__Erysipelotrichales","f__Coprobacillaceae","g__JAJQDJ01","s__",100,0.35,2461346
+"EHA02094_bin.17","d__Bacteria","p__Campylobacterota","c__Campylobacteria","o__Campylobacterales","f__Helicobacteraceae","g__NHYM01","s__",99.93,0.08,1603745
+"EHA02094_bin.7","d__Bacteria","p__Bacillota_C","c__Negativicutes","o__Acidaminococcales","f__Acidaminococcaceae","g__Phascolarctobacterium_A","s__",57.92,0.68,1092388
+"EHA02094_bin.9","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Gallimonas","s__",94.21,0.16,1315758
+"EHA02095_bin.13","d__Bacteria","p__Bacillota_C","c__Negativicutes","o__Acidaminococcales","f__Acidaminococcaceae","g__Phascolarctobacterium_A","s__",98.53,0.44,2121761
+"EHA02095_bin.16","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",91.37,0.45,1722086
+"EHA02095_bin.19","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Phocaeicola","s__",99.72,0.04,3201526
+"EHA02095_bin.22","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Eubacterium_I","s__",97.48,0.33,2170206
+"EHA02095_bin.29","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__RGIG6307","s__",51.89,0.14,961913
+"EHA02095_bin.5","d__Bacteria","p__Synergistota","c__Synergistia","o__Synergistales","f__Dethiosulfovibrionaceae","g__Pyramidobacter","s__",98.54,0.14,2392087
+"EHA02096_bin.10","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Acutalibacteraceae","g__Eubacterium_R","s__",86.2,0.75,1903203
+"EHA02096_bin.11","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",94.11,0.15,2070721
+"EHA02096_bin.12","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__VSOB01","s__",96.35,0.15,2733214
+"EHA02096_bin.18","d__Bacteria","p__Campylobacterota","c__Campylobacteria","o__Campylobacterales","f__Helicobacteraceae","g__NHYM01","s__",99.94,0.02,1707760
+"EHA02096_bin.19","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__UBA4292","s__",98.23,0.16,2398662
+"EHA02096_bin.20","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Prevotella","s__",96.51,0.23,2220156
+"EHA02096_bin.23","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Agathobacter","s__",99.73,0.14,2490118
+"EHA02097_bin.1","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Prevotella","s__",99.8,0.01,2578339
+"EHA02097_bin.3","d__Bacteria","p__Campylobacterota","c__Campylobacteria","o__Campylobacterales","f__Helicobacteraceae","g__NHYM01","s__",99.95,0.07,1646342
+"EHA02097_bin.4","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Faecalibacterium","s__",88.77,0.16,2581941
+"EHA02097_bin.8","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Prevotella","s__",96.37,0.02,1957630
+"EHA02098_bin.24","d__Bacteria","p__Verrucomicrobiota","c__Verrucomicrobiae","o__Opitutales","f__UBA953","g__Spyradosoma","s__",95.42,0.08,1748721
+"EHA02098_bin.2","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Prevotella","s__",98.24,0.07,1971488
+"EHA02134_bin.24","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Agathobacter","s__",96.68,0.79,2470218
+"EHA02134_bin.32","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__UBA1242","g__Caccovivens","s__",99.78,0.54,1257396
+"EHA02134_bin.3","d__Bacteria","p__Pseudomonadota","c__Gammaproteobacteria","o__Burkholderiales","f__Burkholderiaceae_A","g__Mesosutterella","s__",99.08,0.3,2138164
+"EHA02134_bin.41","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Gallimonas","s__",95.98,0.28,1758836
+"EHA02134_bin.43","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",68.32,0.25,1642461
+"EHA02139_bin.18","d__Bacteria","p__Actinomycetota","c__Coriobacteriia","o__Coriobacteriales","f__Eggerthellaceae","g__UMGS1519","s__",51.47,0.68,944860
+"EHA02139_bin.19","d__Bacteria","p__Bacillota_A","c__Clostridia","o__UBA1381","f__UBA1381","g__UBA1381","s__",80.32,0.53,2227578
+"EHA02139_bin.25","d__Bacteria","p__Desulfobacterota","c__Desulfovibrionia","o__Desulfovibrionales","f__Desulfovibrionaceae","g__Bilophila","s__",61.43,0.5,1696526
+"EHA02139_bin.27","d__Bacteria","p__Synergistota","c__Synergistia","o__Synergistales","f__Synergistaceae","g__Caccocola","s__",91.45,0.25,2332314
+"EHA02139_bin.38","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Muribaculaceae","g__RGIG4079","s__",99.81,0.08,1747180
+"EHA02139_bin.40","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",53.74,0.45,721993
+"EHA02139_bin.49","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Peptostreptococcales","f__Anaerovoracaceae","g__Alangreenwoodia","s__",59.43,0.68,1250527
+"EHA02139_bin.4","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__JAJQCF01","s__JAJQCF01 sp021202845",98.23,0.09,1970453
+"EHA02139_bin.66","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",52.5,0.29,1209256
+"EHA02139_bin.6","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__Coproplasma sp021202395",92.83,0.74,1795017
+"EHA02139_bin.73","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Choladousia","s__",97.16,0.14,3213786
+"EHA02144_bin.10","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Gallimonas","s__",94.27,0.78,1648931
+"EHA02144_bin.15","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__Gastranaerophilaceae","g__Scatousia","s__",99.88,0.16,1789878
+"EHA02144_bin.26","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Phocaeicola_A","s__",83.51,0.44,1789393
+"EHA02144_bin.28","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Gallimonas","s__",67.39,0.05,840069
+"EHA02144_bin.29","d__Bacteria","p__Pseudomonadota","c__Gammaproteobacteria","o__Burkholderiales","f__Burkholderiaceae_A","g__Sutterella","s__",96.96,0.86,2783225
+"EHA02144_bin.31","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__CAG-272","g__DTU064","s__",97.7,0,1970087
+"EHA02144_bin.35","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Acutalibacteraceae","g__","s__",99.75,0.02,2270773
+"EHA02144_bin.41","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Butyricicoccaceae","g__Butyricicoccus_A","s__",67.25,0.59,1428337
+"EHA02144_bin.42","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__","s__",56.69,0.68,859794
+"EHA02144_bin.43","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__RGIG4074","s__",54.12,0.67,897468
+"EHA02144_bin.45","d__Bacteria","p__Desulfobacterota","c__Desulfovibrionia","o__Desulfovibrionales","f__Desulfovibrionaceae","g__Desulfovibrio","s__",89.92,0.58,2541227
+"EHA02144_bin.46","d__Bacteria","p__Verrucomicrobiota","c__Verrucomicrobiae","o__Verrucomicrobiales","f__Akkermansiaceae","g__Akkermansia","s__Akkermansia sp021200315",99.89,0,2144516
+"EHA02144_bin.4","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__TWA4","s__",95.96,0.18,2777093
+"EHA02144_bin.53","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Alloprevotella","s__",96.96,0.23,2054352
+"EHA02144_bin.54","d__Bacteria","p__Bacillota_A","c__Clostridia","o__UBA1381","f__UBA1381","g__UBA1381","s__",58.92,0.69,1234645
+"EHA02144_bin.56","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",87.2,0.97,1335877
+"EHA02144_bin.58","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Agathobacter","s__",86.37,0.75,1898739
+"EHA02144_bin.5","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Fimousia","s__",100,0.61,1998553
+"EHA02144_bin.6","d__Bacteria","p__Pseudomonadota","c__Gammaproteobacteria","o__Burkholderiales","f__Burkholderiaceae","g__Oxalobacter","s__Oxalobacter sp900760095",73.83,0.98,1539673
+"EHA02144_bin.73","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Eubacterium_I","s__",72.55,0.06,1484719
+"EHA02144_bin.78","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__Onthomonas","s__",56.99,0.09,1426106
+"EHA02144_bin.85","d__Bacteria","p__Campylobacterota","c__Campylobacteria","o__Campylobacterales","f__Helicobacteraceae","g__NHYM01","s__",94.81,0.61,1511317
+"EHA02144_bin.8","d__Bacteria","p__Bacillota_C","c__Negativicutes","o__Acidaminococcales","f__Acidaminococcaceae","g__Phascolarctobacterium_A","s__",99.37,0.01,1801600
+"EHA02144_bin.96","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__UMGS1766","s__",51.88,0.29,1072857
+"EHA02149_bin.11","d__Bacteria","p__Spirochaetota","c__Spirochaetia","o__Sphaerochaetales","f__Sphaerochaetaceae","g__Bullifex","s__",99.58,0.65,2174619
+"EHA02149_bin.12","d__Bacteria","p__Verrucomicrobiota","c__Verrucomicrobiae","o__Opitutales","f__UBA953","g__Spyradosoma","s__",97.49,0.6,1849168
+"EHA02149_bin.16","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__VSOB01","s__",96.91,0.68,2768000
+"EHA02149_bin.19","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Prevotella","s__",99.51,0.07,2515952
+"EHA02149_bin.27","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__TWA4","s__",78.67,0.58,2569936
+"EHA02149_bin.29","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Mediterranea","s__",98.97,0.02,2654828
+"EHA02149_bin.2","d__Bacteria","p__Verrucomicrobiota","c__Verrucomicrobiae","o__Verrucomicrobiales","f__Akkermansiaceae","g__Akkermansia","s__",99.99,0.03,2244888
+"EHA02149_bin.32","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Eubacterium_I","s__",92.56,0.99,2118795
+"EHA02149_bin.3","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Prevotella","s__",90.85,0.42,2100935
+"EHA02149_bin.5","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Agathobacter","s__",84.57,0.28,2277607
+"EHA02149_bin.8","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__RGIG7114","s__RGIG7114 sp020860205",79.03,0.49,1384839
+"EHA02151_bin.107","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",90.91,0.63,1980400
+"EHA02151_bin.109","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__SIG308","s__",71.11,0.57,1559380
+"EHA02151_bin.11","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__RUG14156","g__","s__",57.97,0.16,1190820
+"EHA02151_bin.12","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__Gastranaerophilaceae","g__SIG32","s__",58.15,0.16,941806
+"EHA02151_bin.32","d__Bacteria","p__Synergistota","c__Synergistia","o__Synergistales","f__Synergistaceae","g__E4-60","s__",98.09,0.31,1819449
+"EHA02151_bin.34","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Phocaeicola","s__",99.96,0.13,3753927
+"EHA02151_bin.36","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Fimousia","s__",50.2,0.3,1018996
+"EHA02151_bin.42","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Tannerellaceae","g__Parabacteroides","s__",99.93,0.04,2718354
+"EHA02151_bin.44","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Gallimonas","s__",93.21,0.17,1422740
+"EHA02151_bin.45","d__Bacteria","p__Bacillota","c__Bacilli","o__Erysipelotrichales","f__Coprobacillaceae","g__","s__",54.86,0.75,1380774
+"EHA02151_bin.50","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__CAG-303","s__",52.69,0.62,1249227
+"EHA02151_bin.51","d__Bacteria","p__Pseudomonadota","c__Gammaproteobacteria","o__Burkholderiales","f__Burkholderiaceae","g__Oxalobacter","s__Oxalobacter sp900760095",99.82,0.65,2313996
+"EHA02151_bin.55","d__Bacteria","p__Desulfobacterota","c__Desulfovibrionia","o__Desulfovibrionales","f__Desulfovibrionaceae","g__Bilophila","s__",59.11,0.58,1258647
+"EHA02151_bin.63","d__Bacteria","p__Campylobacterota","c__Campylobacteria","o__Campylobacterales","f__Helicobacteraceae","g__Helicobacter_A","s__",60.78,0.22,1181336
+"EHA02151_bin.71","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__","s__",98.44,0.01,1898559
+"EHA02151_bin.72","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__RGIG6919","s__",98.18,0.76,2100778
+"EHA02151_bin.7","d__Bacteria","p__Spirochaetota","c__Spirochaetia","o__Treponematales","f__Treponemataceae","g__","s__",99.07,0.83,2169065
+"EHA02151_bin.88","d__Bacteria","p__Bacillota","c__Bacilli","o__RF39","f__UBA660","g__RUG11867","s__",93.12,0.12,1140701
+"EHA02151_bin.90","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Faeciplasma","s__",82.6,0.34,1822803
+"EHA02151_bin.97","d__Bacteria","p__Verrucomicrobiota","c__Verrucomicrobiae","o__Opitutales","f__UBA953","g__Spyradosoma","s__",98.77,0.45,1716626
+"EHA02151_bin.99","d__Bacteria","p__Spirochaetota","c__Spirochaetia","o__Sphaerochaetales","f__Sphaerochaetaceae","g__Bullifex","s__",99.5,0.94,2211252
+"EHA03536_bin.13","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__UBA1242","g__Caccovivens","s__",99.73,0.33,1177233
+"EHA03536_bin.18","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Acutalibacteraceae","g__Eubacterium_R","s__",99.62,0.12,1993596
+"EHA03536_bin.21","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__","s__",52.25,0.75,878850
+"EHA03536_bin.32","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",70.99,0.53,1191357
+"EHA03536_bin.36","d__Bacteria","p__Bacillota_A","c__Clostridia","o__UMGS1883","f__UMGS1883","g__JAFLUQ01","s__",95.95,0.86,1861503
+"EHA03536_bin.3","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",92.77,0.21,1879496
+"EHA03536_bin.45","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__","s__",96.45,0.05,1867815
+"EHA03536_bin.4","d__Archaea","p__Thermoplasmatota","c__Thermoplasmata","o__Methanomassiliicoccales","f__Methanomethylophilaceae","g__UBA71","s__",90.88,0.16,1605686
+"EHA03536_bin.51","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__UBA4292","s__",100,0.36,2448595
+"EHA03536_bin.53","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__RUG14156","g__Galligastranaerophilus_A","s__",74.35,0.99,1233582
+"EHA04634_bin.12","d__Bacteria","p__Bacillota","c__Bacilli","o__RFN20","f__CAG-288","g__Enterosoma","s__",92.85,0.14,1418132
+"EHA04634_bin.15","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__RGIG7114","s__RGIG7114 sp020860205",83.12,0.79,1358265
+"EHA04634_bin.1","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",72.32,0.49,1412140
+"EHA04634_bin.21","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",94.83,0.96,1581154
+"EHA04634_bin.22","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__CAG-272","g__DTU064","s__DTU064 sp021199825",96.81,0.04,1967128
+"EHA04634_bin.6","d__Bacteria","p__Bacillota","c__Bacilli","o__RF39","f__UBA660","g__SIG200","s__",93.55,0.69,1235823
+"EHA04634_bin.9","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Acetatifactor","s__",98.27,0.33,2310487
+"EHA04635_bin.11","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Faecalibacterium","s__",99.33,0.04,2539314
+"EHA04635_bin.20","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Faeciplasma","s__",99.41,0.1,1867473
+"EHA04636_bin.1","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__RGIG7114","s__RGIG7114 sp020860205",52.36,0.52,1029072
+"EHA04636_bin.30","d__Bacteria","p__Bacillota_A","c__Clostridia","o__TANB77","f__CAG-508","g__Scatovivens","s__",91.98,0.27,1633056
+"EHA04636_bin.33","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__COE1","s__",94.45,0.09,2068846
+"EHA04636_bin.9","d__Bacteria","p__Bacillota_A","c__Clostridia","o__TANB77","f__CAG-465","g__CAG-465","s__",91.86,0.19,1384724
+"EHA04637_bin.15","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",88.12,0.45,1703506
+"EHA04637_bin.8","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__Coproplasma sp021205485",97.3,0.74,2359610
+"EHA04638_bin.8","d__Bacteria","p__Bacillota","c__Bacilli","o__RFN20","f__CAG-288","g__Enterosoma","s__",93.41,0.14,1379848
+"EHA04638_bin.9","d__Archaea","p__Thermoplasmatota","c__Thermoplasmata","o__Methanomassiliicoccales","f__Methanomethylophilaceae","g__UBA71","s__",90.23,0.35,1535416
+"EHA04639_bin.5","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Ventrimonas","s__Ventrimonas sp021202925",97.7,0.1,2002118
+"EHA04640_bin.13","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__UBA1242","g__Caccovivens","s__",98.87,0.88,1132826
+"EHA04640_bin.15","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__Faecousia","s__",98.23,0.12,2379479
+"EHA04640_bin.21","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__UBA4292","s__",96.93,0.03,2426368
+"EHA04640_bin.31","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Eubacterium_I","s__",55.8,0.78,1405483
+"EHA04640_bin.8","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Faeciplasma","s__",100,0.58,2057567
+"EHA04641_bin.16","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Faeciplasma","s__",100,0.37,2050818
+"EHA04641_bin.25","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Agathobacter","s__",78.88,0.63,2328427
+"EHA04641_bin.26","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Ventrimonas","s__Ventrimonas sp021202925",94.12,0.24,2441974
+"EHA04641_bin.6","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Ruminococcus_C","s__",91.65,0.13,1389695
+"EHA04642_bin.16","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__JAJQCF01","s__JAJQCF01 sp021202845",91.28,0.7,1562788
+"EHA04642_bin.2","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__RUG14156","g__Galligastranaerophilus_A","s__",97.95,0.54,1798767
+"EHA04642_bin.42","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__SIG308","s__",66.06,0.92,1319432
+"EHA04642_bin.5","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Agathobacter","s__",88.53,0.91,2707771
+"EHA04643_bin.10","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__COE1","s__",96.99,0.63,2705497
+"EHA04643_bin.12","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__UBA2882","s__UBA2882 sp900542015",98.91,0.09,3013059
+"EHA04643_bin.14","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__CAG-353","s__CAG-353 sp001941135",99.92,0.26,2377922
+"EHA04643_bin.18","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Acetatifactor","s__",100,0,3625338
+"EHA04643_bin.28","d__Archaea","p__Thermoplasmatota","c__Thermoplasmata","o__Methanomassiliicoccales","f__Methanomethylophilaceae","g__UBA71","s__",93.57,0.18,1403205
+"EHA04643_bin.9","d__Bacteria","p__Bacillota","c__Bacilli","o__RFN20","f__CAG-288","g__Enterosoma","s__",96.58,0.32,1880449
+"EHA04644_bin.1","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__Limivicinus","s__",96.04,0.14,2547040
+"EHA04644_bin.20","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__CAG-95","s__",99.91,0.07,3024324
+"EHA04644_bin.21","d__Bacteria","p__Pseudomonadota","c__Gammaproteobacteria","o__Enterobacterales","f__Enterobacteriaceae","g__Escherichia","s__Escherichia coli",91.97,0.02,3274432
+"EHA04644_bin.27","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Acetatifactor","s__",76.17,0.36,1520898
+"EHA04644_bin.29","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__CAG-74","g__Limiplasma","s__Limiplasma sp900550955",80.44,0.2,2734222
+"EHA04644_bin.7","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Faecalibacterium","s__",99.91,0.76,3175983
+"EHA04645_bin.10","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",96.33,0.23,1865816
+"EHA04645_bin.12","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__JAJQCF01","s__JAJQCF01 sp021202845",98.27,0,2048942
+"EHA04646_bin.11","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Prevotella","s__",82.26,0.11,2964459
+"EHA04646_bin.12","d__Bacteria","p__Bacillota","c__Bacilli","o__RF39","f__UBA660","g__SIG200","s__",92.49,0.31,1216045
+"EHA04646_bin.15","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__RGIG8745","s__RGIG8745 sp021204165",92.2,0.11,3229470
+"EHA04646_bin.19","d__Archaea","p__Thermoplasmatota","c__Thermoplasmata","o__Methanomassiliicoccales","f__Methanomethylophilaceae","g__UBA71","s__",90.63,0.27,1906624
+"EHA04646_bin.26","d__Bacteria","p__Bacillota_A","c__Clostridia","o__TANB77","f__CAG-508","g__CAG-793","s__",79.72,0.54,1066363
+"EHA04647_bin.15","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",96.55,0.97,2135908
+"EHA04647_bin.17","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__","s__",96.94,0.15,2202874
+"EHA04647_bin.19","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Coprococcus","s__",55.01,0.9,1025095
+"EHA04647_bin.23","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__CAG-272","g__DTU064","s__DTU064 sp021202555",98.99,0.01,2095130
+"EHA04647_bin.30","d__Bacteria","p__Actinomycetota","c__Coriobacteriia","o__Coriobacteriales","f__QAMH01","g__CACZQA01","s__",65,0.22,855351
+"EHA04647_bin.31","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__UBA1242","g__Caccovivens","s__",96.61,0.57,1314740
+"EHA04647_bin.3","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__Faecousia","s__",98.4,0.21,2227965
+"EHA04647_bin.5","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__CAJOIG01","s__CAJOIG01 sp021203045",89.42,0.98,1977380
+"EHA04648_bin.13","d__Bacteria","p__Bacillota","c__Bacilli","o__RFN20","f__CAG-288","g__Enterosoma","s__",94.07,0.13,1307345
+"EHA04648_bin.14","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Faecalibacterium","s__",62.56,0.64,1710416
+"EHA04648_bin.15","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__Gastranaerophilaceae","g__Avigastranaerophilus","s__",89.55,0.61,1932678
+"EHA04648_bin.1","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",87.33,0.23,1911115
+"EHA04648_bin.25","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__Onthomonas","s__Onthomonas sp021205455",98.3,0.04,2526710
+"EHA04648_bin.26","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__Onthomonas","s__",88.52,0.85,1868179
+"EHA04648_bin.3","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Faeciplasma","s__",100,0.71,2258653
+"EHA04648_bin.9","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Agathobacter","s__",98.04,0.13,2685787
+"EHA04649_bin.10","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Gallimonas","s__",96.15,0.15,1604498
+"EHA04649_bin.16","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__CAG-272","g__DTU064","s__DTU064 sp021202555",54.17,0.01,969038
+"EHA04649_bin.25","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__UBA4292","s__",98.58,0.03,2636150
+"EHA04649_bin.27","d__Bacteria","p__Bacillota","c__Bacilli","o__RF39","f__UBA660","g__CAG-433","s__",94.19,0.22,987538
+"EHA04650_bin.1","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Monoglobales","f__Monoglobaceae","g__Monoglobus","s__",99.11,0.25,2247473
+"EHA04650_bin.41","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__RGIG6307","s__RGIG6307 sp021205565",78.71,0.58,2104286
+"EHA04651_bin.17","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__Coproplasma sp021202395",96.37,0.5,1723277
+"EHA04651_bin.18","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__RUG14156","g__Galligastranaerophilus_A","s__",98.91,0.63,1870624
+"EHA04651_bin.24","d__Bacteria","p__Bacillota","c__Bacilli","o__RFN20","f__CAG-288","g__Enterosoma","s__",93.44,0.5,1418399
+"EHA04651_bin.28","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__RGIG6307","s__",53.74,0.13,1143747
+"EHA04651_bin.2","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__JAJQCF01","s__JAJQCF01 sp021202845",51.78,0,980367
+"EHA04651_bin.31","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Choladousia","s__",61.27,0.03,806955
+"EHA04651_bin.5","d__Bacteria","p__Bacillota_C","c__Negativicutes","o__Acidaminococcales","f__Acidaminococcaceae","g__Phascolarctobacterium_A","s__",100,0.24,1546295
+"EHA04651_bin.8","d__Bacteria","p__Bacillota","c__Bacilli","o__RF39","f__UBA660","g__SIG200","s__",99.72,0.53,3098498
+"EHA04653_bin.11","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Coprococcus","s__",96.92,0.52,2191268
+"EHA04653_bin.12","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__JAJPXI01","s__",95.93,0.04,1861623
+"EHA04653_bin.21","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__UBA4292","s__",99.39,0.03,2586815
+"EHA04653_bin.4","d__Bacteria","p__Bacillota_A","c__Clostridia","o__UMGS1883","f__UMGS1883","g__JAJQCX01","s__",72.21,0.74,1416662
+"EHA04653_bin.5","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__COE1","s__",99.31,0.09,2892630
+"EHA04654_bin.6","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__CAG-274","g__HGM11788","s__",98.66,0.06,2446014
+"EHA04655_bin.13","d__Archaea","p__Thermoplasmatota","c__Thermoplasmata","o__Methanomassiliicoccales","f__Methanomethylophilaceae","g__UBA71","s__",95.52,0.33,2236807
+"EHA04655_bin.14","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__SIG308","s__",88.74,0.46,1547772
+"EHA04655_bin.19","d__Bacteria","p__Bacillota","c__Bacilli","o__Erysipelotrichales","f__Coprobacillaceae","g__JAJQDJ01","s__",97.82,0.5,2193277
+"EHA04655_bin.26","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__UBA1242","g__Caccovivens","s__",87.66,0.39,2038589
+"EHA04655_bin.34","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Ventrimonas","s__Ventrimonas sp021202655",82.17,0.98,1640545
+"EHA04655_bin.40","d__Bacteria","p__Bacillota","c__Bacilli","o__RF39","f__UBA660","g__SIG200","s__",97.11,0.06,2492009
+"EHA04656_bin.13","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Ruminococcus_D","s__",99.9,0.04,2037068
+"EHA04656_bin.33","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__UBA3282","s__UBA3282 sp021199255",95.59,0.71,1897820
+"EHA04656_bin.37","d__Bacteria","p__Bacillota_A","c__Clostridia","o__TANB77","f__CAG-508","g__CAG-273","s__",86.61,0.09,930461
+"EHA04656_bin.3","d__Archaea","p__Thermoplasmatota","c__Thermoplasmata","o__Methanomassiliicoccales","f__Methanomethylophilaceae","g__UBA71","s__",97.04,0.04,2115695
+"EHA04656_bin.40","d__Bacteria","p__Bacillota","c__Bacilli","o__RF39","f__UBA660","g__RUG11198","s__",74.42,0.55,1166213
+"EHA04656_bin.4","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__JAJQCF01","s__JAJQCF01 sp021202845",83.95,0.82,1570420
+"EHA04656_bin.7","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Acetatifactor","s__",98.87,0.34,1903735
+"EHA04657_bin.1","d__Bacteria","p__Bacillota","c__Bacilli","o__RFN20","f__CAG-449","g__UBA3210","s__UBA3210 sp900755065",95.14,0.99,1845182
+"EHA04657_bin.32","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Agathobacter","s__",98.62,0.47,3344035
+"EHA04657_bin.36","d__Bacteria","p__Bacillota_A","c__Clostridia","o__TANB77","f__CAG-508","g__Scatovivens","s__",94.86,0.47,1650723
+"EHA04658_bin.13","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Faeciplasma","s__",95.37,0.44,1976151
+"EHA04658_bin.1","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__Coproplasma sp021202395",91.87,0.07,1721366
+"EHA04658_bin.22","d__Bacteria","p__Bacillota","c__Bacilli","o__Erysipelotrichales","f__Coprobacillaceae","g__JAJQDJ01","s__",60.52,0.21,1192543
+"EHA04658_bin.28","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__JAJQCF01","s__JAJQCF01 sp021202845",93.53,0.78,2395888
+"EHA04658_bin.29","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Eubacterium_G","s__",98.54,0.72,1742781
+"EHA04658_bin.40","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",97.93,0.67,1822219
+"EHA04658_bin.6","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Faeciplasma","s__",100,0.47,1992911
+"EHA04659_bin.1","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__Faecousia","s__Faecousia sp021200975",98.42,0.13,1839932
+"EHA04659_bin.22","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__UBA4292","s__",92.19,0.05,2268545
+"EHA04659_bin.2","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Acetatifactor","s__",92.51,0.17,1582339
+"EHA04660_bin.10","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Muribaculaceae","g__CAG-485","s__",53.06,0.65,1410209
+"EHA04660_bin.11","d__Bacteria","p__Campylobacterota","c__Campylobacteria","o__Campylobacterales","f__Helicobacteraceae","g__Helicobacter_D","s__",100,0,1881980
+"EHA04660_bin.19","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Paludibacteraceae","g__RF16","s__",87.72,0.21,1797460
+"EHA04660_bin.1","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Faeciplasma","s__",100,0.69,2057808
+"EHA04660_bin.22","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Coprococcus","s__",77.32,0.95,1728880
+"EHA04660_bin.23","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__CAG-95","s__",81.27,0.06,2437590
+"EHA04660_bin.24","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Prevotella","s__",85.6,0.42,2591803
+"EHA04660_bin.2","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",97.48,0.74,1738979
+"EHA04660_bin.4","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",96.86,0.62,1995823
+"EHA04660_bin.5","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Rikenellaceae","g__RGIG9113","s__RGIG9113 sp017935625",97.68,0.24,2456269
+"EHA04660_bin.9","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Paludibacteraceae","g__UBA1754","s__",99,0.09,1794032
+"EHA04661_bin.11","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__Gastranaerophilaceae","g__Zag111","s__Zag111 sp001899395",99.96,0.14,2042357
+"EHA04661_bin.12","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__Faecousia","s__",57.84,0.93,1397178
+"EHA04661_bin.9","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Muribaculaceae","g__JAJPXC01","s__",99.8,0.03,3044598
+"EHA04662_bin.17","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Phocaeicola","s__",99.28,0.01,2529232
+"EHA04662_bin.20","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Prevotella","s__",99.49,0.03,2616627
+"EHA04662_bin.22","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",73.33,0.98,1477841
+"EHA04662_bin.6","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__UBA4292","s__",99.18,0,2088821
+"EHA04663_bin.18","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",96.33,0.81,1842218
+"EHA04663_bin.22","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",96.53,0.62,1773255
+"EHA04663_bin.24","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Faeciplasma","s__",100,0.9,2067877
+"EHA04663_bin.28","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__Onthomonas","s__Onthomonas sp021201185",96.48,0.67,2142547
+"EHA04663_bin.2","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__Coproplasma sp021205485",95.33,0.47,1805487
+"EHA04663_bin.30","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__RGIG6307","s__",62.97,0.42,1678226
+"EHA04664_bin.16","d__Bacteria","p__Bacillota_A","c__Clostridia","o__TANB77","f__CAG-465","g__CAG-465","s__",100,0.54,1789270
+"EHA04664_bin.19","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",93.98,0.46,1498546
+"EHA04664_bin.20","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__RGIG7114","s__RGIG7114 sp020860205",99.46,0,2176627
+"EHA04664_bin.25","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",76.31,0,1037877
+"EHA04664_bin.28","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",61.11,0.02,1196154
+"EHA04664_bin.3","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__CAG-353","s__CAG-353 sp001941135",99.83,0.16,2225556
+"EHA04664_bin.6","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__JAJQCF01","s__JAJQCF01 sp021202845",68.45,0.56,1212189
+"EHA04665_bin.11","d__Bacteria","p__Pseudomonadota","c__Gammaproteobacteria","o__Burkholderiales","f__Burkholderiaceae_A","g__JAJPXW01","s__",63.65,0.66,1459986
+"EHA04665_bin.13","d__Bacteria","p__Bacillota","c__Bacilli","o__RFN20","f__CAG-288","g__Enterosoma","s__",93.61,0.18,1344252
+"EHA04665_bin.20","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Eubacterium_F","s__",98.32,0,2125831
+"EHA04665_bin.23","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__UBA4292","s__",99.64,0.02,2498829
+"EHA04665_bin.25","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Faeciplasma","s__",98.63,0.46,1929045
+"EHA04665_bin.29","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",97.01,0.85,1771759
+"EHA04665_bin.34","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__Onthomonas","s__Onthomonas sp021205375",88.97,0.78,1671355
+"EHA04665_bin.36","d__Bacteria","p__Actinomycetota","c__Coriobacteriia","o__Coriobacteriales","f__QAMH01","g__CACZQA01","s__",99.45,0.29,1954422
+"EHA04666_bin.11","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__Faecousia","s__",51.03,0.51,1046915
+"EHA04666_bin.17","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",96.23,0.17,2209466
+"EHA04666_bin.22","d__Bacteria","p__Actinomycetota","c__Coriobacteriia","o__Coriobacteriales","f__Eggerthellaceae","g__UMGS1519","s__",99.46,0.27,1683899
+"EHA04667_bin.13","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__Gastranaerophilaceae","g__Avigastranaerophilus","s__",94.97,0.06,2127617
+"EHA04667_bin.17","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__SIG308","s__",89.72,0.26,2540747
+"EHA04667_bin.19","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__","s__",98.21,0.03,2039699
+"EHA04667_bin.1","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Prevotella","s__",99.44,0.07,2112337
+"EHA04667_bin.21","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",93.84,0.62,2202194
+"EHA04667_bin.27","d__Bacteria","p__Desulfobacterota","c__Desulfovibrionia","o__Desulfovibrionales","f__Desulfovibrionaceae","g__Desulfovibrio","s__",99.84,0.14,1600861
+"EHA04667_bin.28","d__Bacteria","p__Bacillota_A","c__Clostridia","o__TANB77","f__CAG-508","g__CAG-269","s__",93.95,0.23,2259760
+"EHA04667_bin.2","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__UBA4292","s__",100,0.52,2973314
+"EHA04668_bin.19","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Faeciplasma","s__",97.7,0.53,2434598
+"EHA04668_bin.7","d__Bacteria","p__Bacillota_A","c__Clostridia","o__UMGS1883","f__UMGS1883","g__JAJQCX01","s__",98.17,0.06,2068708
+"EHA04669_bin.17","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Ruminococcus","s__Ruminococcus sp021200415",89.64,0.6,1604367
+"EHA04669_bin.1","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Rikenellaceae","g__Alistipes","s__Alistipes sp900761235",93.36,0.46,2243212
+"EHA04669_bin.24","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__RUG14156","g__Galligastranaerophilus_A","s__",88.78,0.91,2678901
+"EHA04669_bin.40","d__Bacteria","p__Bacillota_A","c__Clostridia","o__UBA1381","f__UBA1381","g__UBA4716","s__",94.21,0.44,1886963
+"EHA04670_bin.10","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__JAJQCF01","s__JAJQCF01 sp021202845",69.67,0.1,1509130
+"EHA04671_bin.26","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__CAG-353","s__CAG-353 sp001941135",99.27,0.47,2478015
+"EHA04672_bin.23","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__UBA1242","g__Caccovivens","s__",98.32,0.25,1182822
+"EHA04672_bin.29","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__UBA4292","s__",99.91,0.03,2582017
+"EHA04673_bin.12","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Faeciplasma","s__",100,0.94,2147220
+"EHA04673_bin.23","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Agathobacter","s__",88.16,0.15,2515113
+"EHA04673_bin.28","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",81.94,0.48,1806477
+"EHA04673_bin.7","d__Bacteria","p__Pseudomonadota","c__Gammaproteobacteria","o__Enterobacterales","f__Enterobacteriaceae","g__Escherichia","s__Escherichia coli",100,0.49,4689338
+"EHA04673_bin.9","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__RUG14156","g__RUG14156","s__",99.21,0.89,1773528
+"EHA04674_bin.13","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Faecalibacterium","s__",90.92,0.97,2516949
+"EHA04674_bin.20","d__Bacteria","p__Pseudomonadota","c__Gammaproteobacteria","o__Burkholderiales","f__Burkholderiaceae_A","g__Sutterella","s__",99.02,0.4,2787084
+"EHA04674_bin.27","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__UBA4292","s__",98.64,0.14,2427972
+"EHA04674_bin.29","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__SIG308","s__",92.69,0.46,2820596
+"EHA04674_bin.3","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",91.01,0.49,1851496
+"EHA04674_bin.4","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Agathobacter","s__",99.46,0.5,2730500
+"EHA04675_bin.42","d__Archaea","p__Methanobacteriota","c__Methanobacteria","o__Methanobacteriales","f__Methanobacteriaceae","g__Methanosphaera","s__",95.91,0.15,2048872
+"EHA04675_bin.7","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__Faecousia","s__",93.25,0.06,2740933
+"EHA04675_bin.8","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__UBA1242","g__RGIG1681","s__",89.85,0.23,2069215
+"EHA04676_bin.12","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",85.85,0.11,2207397
+"EHA04676_bin.15","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__JAJQCF01","s__JAJQCF01 sp021202845",97.94,0.3,1892880
+"EHA04676_bin.16","d__Bacteria","p__Bacillota","c__Bacilli","o__RF39","f__UBA660","g__Coprosoma","s__",99.29,0.49,2234626
+"EHA04676_bin.23","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Monoglobales","f__Monoglobaceae","g__Monoglobus","s__",82.93,0.21,999203
+"EHA04676_bin.25","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__RGIG6307","s__",95.11,0.62,2471537
+"EHA04676_bin.31","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__JAJQBJ01","s__JAJQBJ01 sp021203345",60.64,0.3,1253476
+"EHA04676_bin.33","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Eubacterium_I","s__Eubacterium_I sp021205085",63.62,0.41,1400524
+"EHA04677_bin.16","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Muribaculaceae","g__CAG-873","s__",99.99,0.11,3476958
+"EHA04677_bin.31","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__SIG308","s__",84.23,0.04,1953409
+"EHA04677_bin.3","d__Bacteria","p__Bacillota_A","c__Clostridia","o__TANB77","f__CAG-465","g__CAG-465","s__",95.42,0.1,1353818
+"EHA04677_bin.4","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Faecalibacterium","s__",76.14,0.31,1475571
+"EHA04677_bin.5","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Agathobacter","s__",98.44,0.04,2021137
+"EHA04677_bin.7","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__UBA4292","s__",92.91,0.02,2142574
+"EHA04678_bin.13","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__Gastranaerophilaceae","g__CALUTH01","s__",99.91,0.53,1882765
+"EHA04678_bin.6","d__Bacteria","p__Bacillota_A","c__Clostridia","o__UBA1381","f__UBA1381","g__","s__",59.66,0.32,1427976
+"EHA04765_bin.11","d__Bacteria","p__Spirochaetota","c__Spirochaetia","o__Sphaerochaetales","f__Sphaerochaetaceae","g__Bullifex","s__",98.62,0.49,2209790
+"EHA04765_bin.16","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__UBA932","g__Cryptobacteroides","s__",97.76,0.15,1993807
+"EHA04765_bin.28","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",81.51,0.02,2394310
+"EHA04765_bin.8","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Acutalibacteraceae","g__Ruminococcus_E","s__",99.5,0.62,2333286
+"EHA04766_bin.21","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__JAJQCF01","s__JAJQCF01 sp021202845",98.28,0,2037785
+"EHA04766_bin.30","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__JAJQBJ01","s__",89.57,0.36,1778872
+"EHA04766_bin.5","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__COE1","s__",97.82,0.46,1824044
+"EHA04766_bin.7","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Coprococcus","s__",99.08,0.65,2214323
+"EHA04767_bin.12","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Faeciplasma","s__",99.82,0.25,1949877
+"EHA04767_bin.1","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Prevotella","s__",99.17,0.2,2416052
+"EHA04768_bin.102","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Butyribacter","s__",95.32,0.11,2817600
+"EHA04768_bin.105","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Faeciplasma","s__",56.07,0.57,1359886
+"EHA04768_bin.109","d__Bacteria","p__Bacillota","c__Bacilli","o__RF39","f__UBA660","g__RUG11198","s__",66.09,0.37,961134
+"EHA04768_bin.112","d__Bacteria","p__Bacillota_A","c__Clostridia","o__TANB77","f__CAG-508","g__CAG-269","s__",66.27,0.55,1040739
+"EHA04768_bin.13","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Phocaeicola_A","s__Phocaeicola_A sp900765575",99.55,0.09,4170035
+"EHA04768_bin.1","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__UBA1242","g__Caccovivens","s__",95.64,0.54,933492
+"EHA04768_bin.35","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__CAG-274","g__HGM11788","s__",98.61,0,1997766
+"EHA04768_bin.38","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__UBA4292","s__",94.81,0.74,2966606
+"EHA04768_bin.40","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Acetatifactor","s__",57.49,0.13,2878920
+"EHA04768_bin.47","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__CAG-170","s__",94.5,0.42,1600814
+"EHA04768_bin.50","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__UBA1242","g__","s__",99.82,0.67,4199332
+"EHA04768_bin.54","d__Bacteria","p__Bacillota","c__Bacilli","o__Erysipelotrichales","f__Coprobacillaceae","g__JAJQDJ01","s__",92.03,0.17,1388151
+"EHA04768_bin.55","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Rikenellaceae","g__Alistipes","s__",99.19,0.39,1885094
+"EHA04768_bin.58","d__Bacteria","p__Synergistota","c__Synergistia","o__Synergistales","f__Dethiosulfovibrionaceae","g__Pyramidobacter","s__",99.82,0.2,4715838
+"EHA04768_bin.59","d__Bacteria","p__Bacillota_A","c__Clostridia","o__TANB77","f__CAG-508","g__Scatovivens","s__",96.29,0.4,1653754
+"EHA04768_bin.67","d__Bacteria","p__Pseudomonadota","c__Alphaproteobacteria","o__RF32","f__UBA3637","g__UBA7488","s__",99.95,0.3,3058218
+"EHA04768_bin.69","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",52.45,0.84,702630
+"EHA04768_bin.71","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Ruminococcus","s__Ruminococcus sp021200415",99.76,0.04,2994349
+"EHA04768_bin.73","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",73.02,0.28,1096884
+"EHA04768_bin.74","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",91.74,0.54,6008454
+"EHA04768_bin.80","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",91.03,0.56,1902546
+"EHA04768_bin.88","d__Bacteria","p__Bacillota_A","c__Clostridia","o__TANB77","f__CAG-508","g__CAKPSH01","s__",97.18,0.4,2175875
+"EHA04768_bin.89","d__Bacteria","p__Bacillota_A","c__Clostridia","o__TANB77","f__CAG-508","g__UMGS1933","s__",97.22,0.04,2130105
+"EHA04768_bin.8","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__CAG-272","g__CAKSQF01","s__",93.96,0.97,1733505
+"EHA04772_bin.112","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Butyribacter","s__",97.73,0.23,2351668
+"EHA04772_bin.114","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",57.25,0.61,1053004
+"EHA04772_bin.130","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__RGIG6307","s__",59.3,0.62,1405269
+"EHA04772_bin.15","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Muribaculaceae","g__Paramuribaculum","s__Paramuribaculum sp020859845",99.98,0.27,2961750
+"EHA04772_bin.19","d__Bacteria","p__Pseudomonadota","c__Gammaproteobacteria","o__Burkholderiales","f__Burkholderiaceae_A","g__Sutterella","s__",60.55,0.91,1360515
+"EHA04772_bin.30","d__Bacteria","p__Campylobacterota","c__Campylobacteria","o__Campylobacterales","f__Helicobacteraceae","g__NHYM01","s__",99.79,0.05,1605326
+"EHA04772_bin.31","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__CAG-274","g__","s__",98.44,0.36,2755314
+"EHA04772_bin.3","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__Gastranaerophilaceae","g__Avigastranaerophilus","s__",86.57,0.9,1654166
+"EHA04772_bin.5","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__UBA1242","g__Caccovivens","s__",52.32,0.54,704599
+"EHA04772_bin.70","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__CAG-274","g__","s__",96.87,0.08,2237590
+"EHA04772_bin.9","d__Bacteria","p__Actinomycetota","c__Coriobacteriia","o__Coriobacteriales","f__QAMH01","g__","s__",99.31,0.55,1828456
+"EHA04776_bin.17","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__JAJQCF01","s__JAJQCF01 sp021202845",93.25,0.69,2106384
+"EHA04776_bin.18","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Monoglobales","f__Monoglobaceae","g__Monoglobus","s__",50.48,0.04,1104613
+"EHA04776_bin.20","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__JAJPXI01","s__",100,0.14,1897859
+"EHA04776_bin.2","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__UBA1242","g__Caccovivens","s__",100,0.5,1092818
+"EHA04776_bin.55","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Ruminococcus","s__Ruminococcus sp021200415",81.75,0.63,1686931
+"EHA04776_bin.61","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__Gastranaerophilaceae","g__Avigastranaerophilus","s__",89.39,0.25,1390280
+"EHA04776_bin.67","d__Bacteria","p__Actinomycetota","c__Coriobacteriia","o__Coriobacteriales","f__Eggerthellaceae","g__CAJFUR01","s__",57.94,0.22,677568
+"EHA04776_bin.69","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__","s__",99.4,0.56,2190184
+"EHA04776_bin.82","d__Bacteria","p__Campylobacterota","c__Campylobacteria","o__Campylobacterales","f__Helicobacteraceae","g__NHYM01","s__",99.46,0.67,1552087
+"EHA04776_bin.83","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Ventrimonas","s__",96.49,0.07,1535017
+"EHA04776_bin.90","d__Bacteria","p__Bacillota_A","c__Clostridia","o__TANB77","f__CAG-508","g__Scatovivens","s__",84.91,0.16,2631216
+"EHA04776_bin.92","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__RGIG6307","s__RGIG6307 sp021205565",92.83,0.45,2436462
+"EHA04776_bin.94","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__RGIG6307","s__",69.81,0.8,1554501
+"EHA04781_bin.10","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Eubacterium_S","s__",97.35,0.11,2459324
+"EHA04781_bin.23","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__COE1","s__",100,0.34,2883227
+"EHA04781_bin.27","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__Faecousia","s__",97.9,0,1485932
+"EHA04781_bin.32","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__Faecousia","s__",98.5,0.32,2216143
+"EHA04781_bin.35","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__CAG-274","g__","s__",85.14,0.8,1598637
+"EHA04781_bin.40","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__JAJQBJ01","s__JAJQBJ01 sp021203345",93.06,0.55,1718682
+"EHA04781_bin.43","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__UBA1242","g__Caccovivens","s__",60.07,0.88,1810635
+"EHA04781_bin.56","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Monoglobales","f__","g__","s__",91.13,0.49,1323656
+"EHA04781_bin.57","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__UBA1242","g__RGIG1681","s__",65.83,0.28,1067729
+"EHA04781_bin.60","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__RGIG6307","s__",100,0.52,3843442
+"EHA04781_bin.75","d__Bacteria","p__Bacillota_A","c__Clostridia","o__UBA1381","f__UBA1381","g__JALEPO01","s__JALEPO01 sp020860985",97.68,0.32,1372021
+"EHA04781_bin.76","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",93.66,0.73,2247043
+"EHA04781_bin.78","d__Bacteria","p__Bacillota","c__Bacilli","o__RF39","f__UBA660","g__RUG11867","s__",86.39,0.95,2357390
+"EHA04781_bin.79","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__","s__",88.21,0.4,1098753
+"EHA04781_bin.80","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__UMGS1766","s__",89.6,0.44,2317957
+"EHA04781_bin.95","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Blautia_A","s__Blautia_A sp021203365",71.62,0.62,1575795
+"EHA04784_bin.100","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Ruminococcus","s__Ruminococcus sp021200415",99.48,0.65,3141932
+"EHA04784_bin.106","d__Bacteria","p__Bacillota_A","c__Clostridia","o__UBA1381","f__UBA1381","g__12844","s__",98.7,0.67,2281306
+"EHA04784_bin.11","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Anaerobutyricum","s__",81.83,0.11,1717240
+"EHA04784_bin.143","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Agathobacter","s__",100,0.76,4451629
+"EHA04784_bin.148","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__RGIG6307","s__",53.52,0.52,1350670
+"EHA04784_bin.20","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Acutalibacteraceae","g__Ruminococcus_E","s__Ruminococcus_E sp021202245",94.05,0,1474875
+"EHA04784_bin.25","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__COE1","s__",97.77,0.51,2676163
+"EHA04784_bin.26","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Coprococcus","s__",96.3,0.43,1277852
+"EHA04784_bin.28","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__SIG308","s__",63.66,0.92,1449211
+"EHA04784_bin.32","d__Bacteria","p__Pseudomonadota","c__Gammaproteobacteria","o__Burkholderiales","f__Burkholderiaceae","g__Oxalobacter","s__Oxalobacter sp900760095",84.12,0.14,2007031
+"EHA04784_bin.33","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__UBA4292","s__",98.76,0.07,2945851
+"EHA04784_bin.34","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__JALFVM01","s__",65.96,0.85,1524373
+"EHA04784_bin.47","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__COE1","s__COE1 sp021202335",99.96,0.28,3098895
+"EHA04784_bin.55","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Agathobacter","s__",100,0.62,2266616
+"EHA04784_bin.59","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__UBA1242","g__Caccovivens","s__",98.62,0.02,2265788
+"EHA04784_bin.5","d__Bacteria","p__Bacillota_A","c__Clostridia","o__UBA1381","f__UBA1381","g__Ornithomonoglobus","s__",93.34,0.43,1823157
+"EHA04784_bin.61","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",99.6,0.68,1568936
+"EHA04784_bin.67","d__Bacteria","p__Bacillota_A","c__Clostridia","o__TANB77","f__CAG-508","g__CAG-793","s__",99.88,0.28,5036726
+"EHA04784_bin.74","d__Bacteria","p__Bacillota_A","c__Clostridia","o__UBA1381","f__UBA1381","g__","s__",99.99,0.33,4232030
+"EHA04784_bin.75","d__Bacteria","p__Bacillota","c__Bacilli","o__RF39","f__UBA660","g__Coprosoma","s__",93.11,0.42,2022154
+"EHA04784_bin.7","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__Faecousia","s__",95.82,0.25,2612715
+"EHA04784_bin.87","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__Onthomonas","s__Onthomonas sp021201185",99.16,0.64,2164801
+"EHA04784_bin.88","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__Onthomonas","s__",97.79,0.05,2047294
+"EHA04784_bin.90","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",87.42,0.11,1326913
+"EHA04789_bin.102","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Agathobacter","s__",54.94,0.56,1240730
+"EHA04789_bin.17","d__Bacteria","p__Actinomycetota","c__Coriobacteriia","o__Coriobacteriales","f__Eggerthellaceae","g__UMGS1519","s__",51.45,0.28,846251
+"EHA04789_bin.1","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__UBA1242","g__Caccovivens","s__",96.81,0.4,1189636
+"EHA04789_bin.29","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Eubacterium_I","s__",89.32,0.72,2391450
+"EHA04789_bin.31","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Faeciplasma","s__",68.86,0.62,1692163
+"EHA04789_bin.33","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",57.99,0.16,1073399
+"EHA04789_bin.36","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",69.08,0.25,1207872
+"EHA04789_bin.44","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__JAJPXI01","s__JAJPXI01 sp021205585",64.73,0.49,1245553
+"EHA04789_bin.46","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__RGIG7114","s__RGIG7114 sp020860205",98.7,0.01,2151017
+"EHA04789_bin.49","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Agathobacter","s__",89.15,0.5,2562047
+"EHA04789_bin.57","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Agathobacter","s__",88.87,0.16,1498488
+"EHA04789_bin.5","d__Bacteria","p__Bacillota_A","c__Clostridia","o__UBA1381","f__UBA1381","g__UBA1381","s__",88.21,0.57,2191725
+"EHA04789_bin.60","d__Bacteria","p__Pseudomonadota","c__Gammaproteobacteria","o__Burkholderiales","f__Burkholderiaceae_A","g__Sutterella","s__",92.96,0.77,1269219
+"EHA04789_bin.64","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",88.14,0.64,2214477
+"EHA04789_bin.65","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Acutalibacteraceae","g__UBA1081","s__",77.43,0.49,1714479
+"EHA04789_bin.71","d__Bacteria","p__Bacillota_A","c__Clostridia","o__TANB77","f__CAG-508","g__Scatovivens","s__",53.96,0.63,1210075
+"EHA04789_bin.90","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Ventrimonas","s__",98.41,0.31,2542047
+"EHA04794_bin.14","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Agathobacter","s__",96.34,0.84,1934515
+"EHA04794_bin.16","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__JAJQCF01","s__JAJQCF01 sp021202845",97.76,0.8,1997334
+"EHA04794_bin.25","d__Bacteria","p__Bacillota","c__Bacilli","o__Erysipelotrichales","f__Coprobacillaceae","g__JAJQDJ01","s__",100,0.41,2395518
+"EHA04794_bin.27","d__Archaea","p__Thermoplasmatota","c__Thermoplasmata","o__Methanomassiliicoccales","f__Methanomethylophilaceae","g__UBA71","s__",97.98,0.05,1528038
+"EHA04794_bin.29","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__Gastranaerophilaceae","g__Avigastranaerophilus","s__Avigastranaerophilus sp021199975",99.12,0.44,2121694
+"EHA04794_bin.31","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__CAG-274","g__JAJQCI01","s__",95.97,0.01,2134586
+"EHA04794_bin.34","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Ventrimonas","s__",97.9,0.61,2714134
+"EHA04794_bin.37","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Choladousia","s__Choladousia sp020860715",93.42,0.47,1720668
+"EHA04794_bin.40","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Choladousia","s__",96.54,0.16,2196387
+"EHA04794_bin.43","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__Gastranaerophilaceae","g__Avigastranaerophilus","s__",67.3,0.31,1999530
+"EHA04794_bin.8","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__SIG308","s__",98.54,0.1,2077110
+"EHA04796_bin.104","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Muribaculaceae","g__Paramuribaculum","s__Paramuribaculum sp900759835",82.14,0.67,2638683
+"EHA04796_bin.114","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",51.81,0.38,911549
+"EHA04796_bin.12","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Oscillospiraceae","g__JAJQCF01","s__JAJQCF01 sp021202845",56.12,0.17,1031249
+"EHA04796_bin.19","d__Bacteria","p__Bacillota","c__Bacilli","o__RFN20","f__CAG-288","g__Enterosoma","s__",89.93,0.61,1531202
+"EHA04796_bin.28","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Acetatifactor","s__",97.87,0.04,2518034
+"EHA04796_bin.58","d__Bacteria","p__Bacillota_A","c__Clostridia","o__TANB77","f__CAG-508","g__JAAWPK01","s__",97.91,0.9,2021042
+"EHA04796_bin.60","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__CAG-274","g__","s__",99.77,0.16,2827445
+"EHA04796_bin.77","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__RGIG6307","s__",71.05,0.9,1600829
+"EHA04796_bin.96","d__Bacteria","p__Pseudomonadota","c__Gammaproteobacteria","o__Burkholderiales","f__Burkholderiaceae_A","g__Sutterella","s__",97.18,0.87,2180519
+"EHA04796_bin.98","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Agathobacter","s__",96.16,0.07,1591721
+"EHA04800_bin.10","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__Gastranaerophilaceae","g__Scatousia","s__",99.94,0.44,2137206
+"EHA04800_bin.16","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Bacteroides","s__",94.49,0.47,6511543
+"EHA04800_bin.20","d__Archaea","p__Thermoplasmatota","c__Thermoplasmata","o__Methanomassiliicoccales","f__Methanomethylophilaceae","g__UBA71","s__",98.22,0.43,1901388
+"EHA04800_bin.22","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Agathobacter","s__",96.59,0.16,2209818
+"EHA04800_bin.33","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Ventrimonas","s__Ventrimonas sp021202925",100,0.67,2157762
+"EHA04800_bin.40","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__UBA4292","s__",98.27,0.16,1818576
+"EHA04800_bin.44","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__Gastranaerophilaceae","g__CAG-196","s__",99.95,0.19,1922986
+"EHA04800_bin.50","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Ventrimonas","s__",88.21,0.4,2334074
+"EHA04800_bin.7","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Butyribacter","s__",96.56,0.87,2313534
+"EHA04804_bin.15","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__COE1","s__",98.67,0.25,2451444
+"EHA04804_bin.16","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Bacteroides","s__",99.32,0.15,5016936
+"EHA04804_bin.18","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__Gastranaerophilaceae","g__UBA2883","s__UBA2883 sp021205645",89.31,0.58,1421769
+"EHA04804_bin.20","d__Bacteria","p__Bacillota_A","c__Clostridia","o__UBA1381","f__UBA1381","g__","s__",84.04,0.42,2386661
+"EHA04804_bin.24","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",93.34,0.06,2408338
+"EHA04804_bin.27","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__SIG308","s__",96.46,0.89,1737645
+"EHA04804_bin.2","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__SIG308","s__",99.31,0.6,3783492
+"EHA04804_bin.30","d__Bacteria","p__Actinomycetota","c__Coriobacteriia","o__Coriobacteriales","f__QAMH01","g__","s__",100,0.16,3253872
+"EHA04804_bin.34","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__RUG14156","g__RUG14156","s__",97.35,0.5,1688825
+"EHA04804_bin.41","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Mediterranea","s__",97.5,0.04,2152505
+"EHA04804_bin.42","d__Bacteria","p__Bacillota_A","c__Clostridia","o__TANB77","f__CAG-508","g__Scatovivens","s__",89.05,0.15,2359265
+"EHA04804_bin.47","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__RGIG5612","s__",99.77,0.18,2085918
+"EHA04804_bin.48","d__Bacteria","p__Actinomycetota","c__Coriobacteriia","o__Coriobacteriales","f__QAMH01","g__CACZQA01","s__",99.21,0,1620606
+"EHA04804_bin.4","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__RUG14156","g__Galligastranaerophilus_A","s__",99.01,0.39,3270502
+"EHA04804_bin.50","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Gallimonas","s__",77.02,0.24,1534730
+"EHA04804_bin.56","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__RUG14156","g__Galligastranaerophilus_A","s__",99.38,0.17,4521413
+"EHA04804_bin.64","d__Bacteria","p__Bacillota_A","c__Clostridia","o__UMGS1883","f__UMGS1883","g__JAJQCX01","s__",94.38,0,1703259
+"EHA04804_bin.6","d__Bacteria","p__Campylobacterota","c__Campylobacteria","o__Campylobacterales","f__Helicobacteraceae","g__NHYM01","s__",84.99,0.71,1554663
+"EHA04804_bin.71","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__Gastranaerophilaceae","g__Avigastranaerophilus","s__",98.08,0.41,1865001
+"EHA04804_bin.74","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__SIG308","s__",92.13,0.42,2102218
+"EHA04804_bin.79","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__Gastranaerophilaceae","g__Avigastranaerophilus","s__",65.87,0.87,1238815
+"EHA04804_bin.91","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__Gastranaerophilaceae","g__Avigastranaerophilus","s__Avigastranaerophilus sp021201175",71.54,0.55,1176346
+"EHA04808_bin.18","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Ventrimonas","s__",66.24,0.47,1784775
+"EHA04808_bin.22","d__Bacteria","p__Bacillota_B","c__Peptococcia","o__Peptococcales","f__Peptococcaceae","g__UBA7185","s__",72.68,0.76,1540784
+"EHA04808_bin.23","d__Bacteria","p__Campylobacterota","c__Campylobacteria","o__Campylobacterales","f__Campylobacteraceae","g__Campylobacter_D","s__Campylobacter_D sp008633915",55.52,0.48,890428
+"EHA04808_bin.30","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__Acetatifactor","s__Acetatifactor sp021200695",99.6,0.03,2348434
+"EHA04808_bin.32","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",79.55,0.98,1432896
+"EHA04808_bin.34","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__Ruminococcus","s__Ruminococcus sp021200415",76.61,0.15,1387512
+"EHA04808_bin.4","d__Bacteria","p__Pseudomonadota","c__Gammaproteobacteria","o__Burkholderiales","f__Burkholderiaceae","g__Oxalobacter","s__Oxalobacter sp900760095",50.57,0,909304
+"EHA04808_bin.50","d__Bacteria","p__Pseudomonadota","c__Alphaproteobacteria","o__RF32","f__UBA3637","g__UBA7488","s__",50.62,0.06,754973
+"EHA04808_bin.61","d__Bacteria","p__Pseudomonadota","c__Alphaproteobacteria","o__RF32","f__CAG-239","g__JAFUYI01","s__",100,0.2,1543215
+"EHA04808_bin.6","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__UBA1242","g__CAKVOD01","s__",93.31,0.42,1026413
+"EHA04808_bin.70","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__CAG-115","s__",94.41,0.14,1964591
+"EHA04808_bin.72","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__UMGS363","s__UMGS363 sp021199335",96.39,0.06,2018972
+"EHA04808_bin.80","d__Bacteria","p__Bacillota_A","c__Clostridia","o__TANB77","f__CAG-508","g__","s__",89.73,0.12,1352783
+"EHA04808_bin.81","d__Bacteria","p__Bacillota_A","c__Clostridia","o__TANB77","f__CAG-508","g__Scatovivens","s__",94.78,0.45,1009464
+"EHA04808_bin.9","d__Bacteria","p__Bacillota_A","c__Clostridia","o__TANB77","f__CAG-465","g__CAG-465","s__",99.51,0.11,2271361
+"EHA04812_bin.15","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Phocaeicola","s__Phocaeicola dorei",96.2,0.14,5074468
+"EHA04812_bin.19","d__Bacteria","p__Pseudomonadota","c__Alphaproteobacteria","o__RF32","f__CAG-239","g__CAG-267","s__",100,0.26,1763614
+"EHA04812_bin.41","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Rikenellaceae","g__Alistipes","s__Alistipes senegalensis",99.97,0.55,3797101
+"EHA04812_bin.46","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__UBA4372","s__",87.96,0.23,1444275
+"EHA04812_bin.48","d__Bacteria","p__Cyanobacteriota","c__Vampirovibrionia","o__Gastranaerophilales","f__RUG14156","g__Galligastranaerophilus_A","s__",88.86,0.4,1935552
+"EHA04812_bin.49","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Monoglobales","f__Monoglobaceae","g__Monoglobus","s__",73.61,0.63,1438412
+"EHA04812_bin.53","d__Bacteria","p__Bacteroidota","c__Bacteroidia","o__Bacteroidales","f__Bacteroidaceae","g__Bacteroides","s__",96.8,0.72,2925850
+"EHA04812_bin.56","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Lachnospirales","f__Lachnospiraceae","g__","s__",97.89,0.82,1290145
+"EHA04812_bin.58","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Oscillospirales","f__Ruminococcaceae","g__UMGS1601","s__UMGS1601 sp021199305",98.74,0.33,2015750
+"EHA04812_bin.60","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",98.43,0.38,1830087
+"EHA04812_bin.63","d__Bacteria","p__Synergistota","c__Synergistia","o__Synergistales","f__Dethiosulfovibrionaceae","g__Pyramidobacter","s__",99.32,0.02,2103952
+"EHA04812_bin.64","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__",98.16,0.03,2307599
+"EHA04812_bin.70","d__Bacteria","p__Bacillota_A","c__Clostridia","o__Christensenellales","f__Borkfalkiaceae","g__Coproplasma","s__Coproplasma sp021202395",54.4,0.29,1051420
