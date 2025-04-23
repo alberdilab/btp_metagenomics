@@ -22,9 +22,9 @@ sequence_fractions <- read_counts %>%
   group_by(sample) %>%
   summarise(mags = sum(value)) %>%
 	left_join(sample_metadata, by = join_by(sample == sample)) %>%
-	select(sample,mags,metagenomic_bases,host_bases,bases_lost_fastp_percent) %>%
+	select(sample,mags,metagenomic_bases,host_bases,bases_lost_fastp_percent_flat) %>%
 	mutate(mags_bases = mags*146) %>%
-	mutate(lowqual_bases = ((metagenomic_bases+host_bases)/(1-bases_lost_fastp_percent))-(metagenomic_bases+host_bases)) %>%
+	mutate(lowqual_bases = ((metagenomic_bases+host_bases)/(1-bases_lost_fastp_percent_flat))-(metagenomic_bases+host_bases)) %>%
 	mutate(unmapped_bases = metagenomic_bases - mags_bases) %>%
 	mutate(unmapped_bases = ifelse(unmapped_bases < 0, 0, unmapped_bases)) %>%
 	select(sample, lowqual_bases, host_bases, unmapped_bases, mags_bases)
@@ -34,11 +34,18 @@ sequence_fractions %>%
   rename("Sample"=1, "Low quality"=2, "Mapped to host"=3, "Unmapped"=4, "Mapped to MAGs"=5) %>%
   tt()
 
+#mean
 sequence_fractions %>%
   mutate_at(vars(-sample), ~./1000000000) %>%
   rename("Sample"=1, "Low quality"=2, "Mapped to host"=3, "Unmapped"=4, "Mapped to MAGs"=5) %>%
   summarise(across(where(is.numeric), mean, na.rm = TRUE)) %>%
   tt()
+#SD
+sequence_fractions %>%
+  mutate_at(vars(-sample), ~./1000000000) %>%
+  rename("Sample"=1, "Low quality"=2, "Mapped to host"=3, "Unmapped"=4, "Mapped to MAGs"=5) %>%
+  summarise(across(where(is.numeric), sd, na.rm = TRUE)) %>% 
+  # tt()
 
 ```
 
