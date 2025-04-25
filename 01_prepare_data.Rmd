@@ -51,7 +51,7 @@ genome_tree <- keep.tip(genome_tree, tip=genome_metadata$genome) # keep only MAG
 
 Downloading individual annotation files from ERDA using information in Airtable and writing them to a single compressed table takes a while. The following chunk only needs to be run once, to generate the ***genome_annotations*** table that is saved in the data directory. Note that the airtable connection requires a personal access token. 
 
-```{r download_genome_annotations, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+#```{r download_genome_annotations, warning=FALSE, comments="", message=FALSE, eval=FALSE}
 airtable("MAGs", "appWbHBNLE6iAsMRV") %>% #get base ID from Airtable browser URL
   read_airtable(., fields = c("ID","mag_name","number_genes","anno_url"), id_to_col = TRUE) %>% #get 3 columns from MAGs table
   filter(mag_name %in% paste0(genome_metadata$genome,".fa")) %>% #filter by MAG name
@@ -61,7 +61,7 @@ airtable("MAGs", "appWbHBNLE6iAsMRV") %>% #get base ID from Airtable browser URL
   read_tsv() %>% #load all tables
   rename(gene=1, genome=2, contig=3) %>% #rename first 3 columns
   write_tsv(file="data/genome_annotations.tsv.xz") #write to overall compressed file
-```
+#```
 
 ```{r load_genome_annotations, warning=FALSE, comments="", message=FALSE, eval=FALSE}
 genome_annotations <- read_tsv("data/genome_annotations.tsv.xz") %>%
