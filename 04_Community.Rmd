@@ -115,10 +115,9 @@ phylum_summary %>%
 ```{r phyla_nat, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 
 Temperate_woodland_samples <- sample_metadata %>% 
-  filter(broad.scale.environmental.context=="1000221 - Temperate woodland") %>% 
-  dplyr::select() %>% 
-  pull(sample)
-
+  filter(broad_environment=="1000221 - Temperate woodland") %>% 
+  dplyr::select(sample) %>% 
+  pull()
 
 Temperate_woodland_genomes <- genome_counts_filt %>% 
   column_to_rownames("genome") %>% 
@@ -145,7 +144,7 @@ genome_metadata %>%
 ```{r phyla_cap, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 
 xeric_shrubland_samples <- sample_metadata %>% 
-  filter(broad.scale.environmental.context=="xeric_shrubland") %>% 
+  filter(broad_environment=="1000218 - Xeric shrubland") %>% 
   dplyr::select(sample) %>% 
   pull()
 
@@ -193,7 +192,7 @@ phylum_summary %>%
 ```{r phyla_cap, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 
 mixed_forest_samples <- sample_metadata %>% 
-  filter(broad.scale.environmental.context=="1000198 - Mixed forest") %>% 
+  filter(broad_environment=="1000198 - Mixed forest") %>% 
   dplyr::select(sample) %>% 
   pull()
 
@@ -219,8 +218,8 @@ genome_metadata %>%
 **Bacteria phyla in individuals from cropland**
 ```{r phyla_cap, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 
-Cropland_samples <- sample_metadata %>% 
-  filter(broad.scale.environmental.context=="1000245 - Cropland") %>% 
+cropland_samples <- sample_metadata %>% 
+  filter(broad_environment=="1000245 - Cropland") %>% 
   dplyr::select(sample) %>% 
   pull()
 
