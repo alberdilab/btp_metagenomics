@@ -2,9 +2,7 @@
 
 ```{r load_data_mag_filtdamr_diffe, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 load("data/data.Rdata")
-load("data/ancombc_all.Rdata")
-sample_metadata <- sample_metadata %>%
-  filter(sample!="EHI02625")
+
 genome_counts_filt <- genome_counts_filt %>%
   select(one_of(c("genome",sample_metadata$sample))) %>%
   filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
@@ -34,45 +32,109 @@ physeq_all = phyloseq(count_phy, TAX, sample_info_tab_phy, tree)
 ## Structural zeros
 
 ```{r struct_zero, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-low_samples <- sample_metadata %>% 
-  filter(environment == "low") %>%
+Xeric_shrubland_samples <- sample_metadata %>% 
+  filter(broad_environment == "1000218 - Xeric shrubland") %>%
   dplyr::select(sample) %>%
   pull()
 
-high_samples <- sample_metadata %>% 
-  filter(environment == "high") %>%
+Cropland_samples <- sample_metadata %>% 
+  filter(broad_environment == "1000245 - Cropland") %>%
   dplyr::select(sample) %>% pull()
+
+Mixed_forest_samples <- sample_metadata %>% 
+  filter(broad_environment == "1000198 - Mixed forest") %>%
+  dplyr::select(sample) %>% pull()
+
+Temperate_woodland_samples <- sample_metadata %>% 
+  filter(broad_environment == "1000221 - Temperate woodland") %>%
+  dplyr::select(sample) %>% pull()
+
+existing_samples <- colnames(genome_counts_filt)
+
+Xeric_shrubland_samples <- Xeric_shrubland_samples[Xeric_shrubland_samples %in% existing_samples]
+Cropland_samples <- Cropland_samples[Cropland_samples %in% existing_samples]
+Mixed_forest_samples <- Mixed_forest_samples[Mixed_forest_samples %in% existing_samples]
+Temperate_woodland_samples <- Temperate_woodland_samples[Temperate_woodland_samples %in% existing_samples]
+
+
 
 structural_zeros <- genome_counts_filt %>% 
    rowwise() %>% #compute for each row (genome)
-   mutate(all_zeros_low = all(c_across(all_of(low_samples)) == 0)) %>% # set true if all samples in TJ1 have zeros
-   mutate(all_zeros_high = all(c_across(all_of(high_samples)) == 0)) %>% # set true if all samples in TJ2 have zeros
-   mutate(average_low = mean(c_across(all_of(low_samples)), na.rm = TRUE)) %>% # get average genome counts across TJ1
-   mutate(average_high = mean(c_across(all_of(high_samples)), na.rm = TRUE)) %>% # get average genome counts across TJ2
-   filter(all_zeros_low == TRUE || all_zeros_high==TRUE)  %>% # filter only genomes with structural zeros
+   mutate(all_zeros_Xeric_shrubland = all(c_across(all_of(Xeric_shrubland_samples)) == 0)) %>% # set true if all samples in TJ1 have zeros
+   mutate(all_zeros_Cropland = all(c_across(all_of(Cropland_samples)) == 0)) %>% # set true if all samples in TJ2 have zeros
+   mutate(all_zeros_Mixed_forest = all(c_across(all_of(Mixed_forest_samples)) == 0)) %>%
+   mutate(all_zeros_Temperate_woodland = all(c_across(all_of(Temperate_woodland_samples)) == 0)) %>%
+   mutate(average_xeric_shrubland = mean(c_across(all_of(Xeric_shrubland_samples)), na.rm = TRUE)) %>% # get average genome counts across TJ1
+   mutate(average_Cropland = mean(c_across(all_of(Cropland_samples)), na.rm = TRUE)) %>% # get average genome counts across TJ2
+   mutate(average_Mixed_forest = mean(c_across(all_of(Mixed_forest_samples)), na.rm = TRUE)) %>% # get average genome counts across TJ2
+   mutate(average_Temperate_woodland = mean(c_across(all_of(Temperate_woodland_samples)), na.rm = TRUE)) %>% # get average genome counts across TJ2
+  
+   filter(all_zeros_Xeric_shrubland == TRUE || all_zeros_Cropland==TRUE || all_zeros_Mixed_forest==TRUE || all_zeros_Temperate_woodland==TRUE )  %>% # filter only genomes with structural zeros
    mutate(present = case_when(
-      all_zeros_low & !all_zeros_high ~ "high",
-      !all_zeros_low & all_zeros_high ~ "low",
-      !all_zeros_low & !all_zeros_high ~ "None",
+      all_zeros_Xeric_shrubland & !all_zeros_Cropland & !all_zeros_Mixed_forest & !all_zeros_Temperate_woodland ~ "1000218 - Xeric shrubland",
+      all_zeros_Xeric_shrubland & !all_zeros_Cropland & !all_zeros_Mixed_forest & !all_zeros_Temperate_woodland ~ "1000245 - Cropland",
+      all_zeros_Xeric_shrubland & !all_zeros_Cropland & !all_zeros_Mixed_forest & !all_zeros_Temperate_woodland ~ "1000198 - Mixed forest",
+      all_zeros_Xeric_shrubland & !all_zeros_Cropland & !all_zeros_Mixed_forest & !all_zeros_Temperate_woodland ~ "1000221 - Temperate woodland",
       TRUE ~ NA_character_
     )) %>%
-   mutate(average = ifelse(present == "low", average_low, average_high)) %>%
-   dplyr::select(genome, present, average) %>%
-   left_join(genome_metadata, by=join_by(genome==genome)) %>%
-   arrange(present,-average)
+  mutate(average = case_when(
+  present == "1000218 - Xeric shrubland" ~ average_xeric_shrubland,
+  present == "1000245 - Cropland" ~ average_Cropland,
+  present == "1000198 - Mixed forest" ~ average_Mixed_forest,
+  present == "1000221 - Temperate woodland" ~ average_Temperate_woodland,
+  TRUE ~ NA_real_
+))
+
 ```
 
 ```{r structu_Zero_plot, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-#Get phylum colors from the EHI standard
-phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
-#  mutate_at(vars(phylum), ~ str_replace(., "[dpcofgs]__", "")) %>%
-  right_join(structural_zeros, by=join_by(phylum == phylum)) %>%
-  dplyr::select(phylum, colors) %>%
-  mutate(colors = str_c(colors, "80"))  %>% #add 80% alpha
-  unique() %>%
-  arrange(phylum) %>%
-  dplyr::select(colors) %>%
-  pull()
+# 1. Assign quadrant coordinates
+structural_zeros <- structural_zeros %>%
+  mutate(
+    x_sign = case_when(
+      present == "1000218 - Xeric shrubland" ~ -1,  # left
+      present == "1000245 - Cropland" ~ 1,          # right
+      present == "1000198 - Mixed forest" ~ -1,     # left
+      present == "1000221 - Temperate woodland" ~ 1, # right
+      TRUE ~ 0
+    ),
+    y_sign = case_when(
+      present == "1000218 - Xeric shrubland" ~ 1,    # up
+      present == "1000245 - Cropland" ~ 1,           # up
+      present == "1000198 - Mixed forest" ~ -1,      # down
+      present == "1000221 - Temperate woodland" ~ -1, # down
+      TRUE ~ 0
+    ),
+    x_coord = average * x_sign,
+    y_coord = average * y_sign
+  )
+
+# 2. Plot with clean professional ggplot2 theme
+ggplot(structural_zeros, aes(x = x_coord, y = y_coord, label = genome, color = phylum)) +
+  geom_point(size = 3, alpha = 0.8) +
+  geom_text(aes(label = genome), hjust = 0.5, vjust = -1, size = 2.5, show.legend = FALSE) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray50", size = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", size = 0.5) +
+  scale_color_manual(values = phylum_colors) +
+  coord_fixed() + # makes X and Y scale the same
+  theme_minimal(base_size = 14) +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_blank(),
+    axis.line = element_line(size = 0.6, color = "black"),
+    axis.text = element_text(color = "black"),
+    axis.title = element_text(face = "bold"),
+    legend.position = "right",
+    legend.title = element_text(face = "bold"),
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 16)
+  ) +
+  labs(
+    title = "4-Way Biome Comparison of Structural Zeros",
+    x = "Biome separation (X axis)",
+    y = "Biome separation (Y axis)",
+    color = "Phylum"
+  )
+
 
 structural_zeros %>%
     mutate(average = ifelse(present == "low", average * -1, average)) %>%

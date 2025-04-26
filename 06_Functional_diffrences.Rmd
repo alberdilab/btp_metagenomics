@@ -3,33 +3,26 @@
 ```{r load_data_beta}
 load("data/data.Rdata")
 #load("data/beta_all.Rdata")
-load("data/beta_EHI02625.Rdata")
-sample_metadata<- sample_metadata %>% filter(sample!="EHI02625")
-#load("data/beta_EHI02625_EHI02632.Rdata")
-#sample_metadata<- sample_metadata %>% filter(!sample %in% c("EHI02625", "EHI02632"))
 
-treatment_colors <- c("#429ef5","#f56042")
+treatment_colors <- c("#f56042","#429ef5", "#42f58d", "#b142f5", "#f5e642")
 ```
 
 
-***EHI02625 sample has been removed because otherwise the permutest analysis was significant***
+***beta_div***
 ```{r beta_div, comment="", message=FALSE, warning=FALSE, eval=FALSE}
 beta_q0n <- genome_counts_filt %>%
-  select(-EHI02625) %>% 
   column_to_rownames(., "genome") %>%
   filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
   select_if(~!all(. == 0)) %>%
   hillpair(., q = 0)
 
 beta_q1n <- genome_counts_filt %>%
-  select(-EHI02625) %>%
   column_to_rownames(., "genome") %>%
   filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
   select_if(~!all(. == 0)) %>%
   hillpair(., q = 1)
 
 genome_counts_filt_beta <- genome_counts_filt %>%
-  select(-EHI02625) %>%
   column_to_rownames(., "genome") %>%
   filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
   select_if(~!all(. == 0))%>%
@@ -37,25 +30,46 @@ genome_counts_filt_beta <- genome_counts_filt %>%
 
 genome_tree <- keep.tip(genome_tree, tip=genome_counts_filt_beta$genome)
 beta_q1p <- genome_counts_filt %>%
-  select(-EHI02625) %>%
   column_to_rownames(., "genome") %>%
   filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
   select_if(~!all(. == 0)) %>%
   hillpair(., q = 1, tree = genome_tree)
+```
 
-genome_gifts1 <- genome_gifts[genome_counts_filt_beta$genome,]
+```{r beta_div2, comment="", message=FALSE, warning=FALSE, eval=FALSE}
+
+# 1. Nur Genome nehmen, die auch in genome_gifts vorkommen
+valid_genomes <- genome_counts_filt_beta$genome[genome_counts_filt_beta$genome %in% rownames(genome_gifts)]
+
+# 2. genome_gifts auf diese Genome filtern
+genome_gifts1 <- genome_gifts[valid_genomes, ]
 genome_gifts1 <- genome_gifts1[, colSums(genome_gifts1 != 0) > 0]
 
+# 3. Funktionale Distanzmatrix berechnen
 dist <- genome_gifts1 %>%
   to.elements(., GIFT_db) %>%
   traits2dist(., method = "gower")
 
-beta_q1f <- genome_counts_filt %>%
-  select(-EHI02625) %>%
-  column_to_rownames(., "genome") %>%
-  filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
-  select_if(~!all(. == 0)) %>%
-  hillpair(., q = 1, dist = dist)
+# 4. Genome bestimmen, die sowohl in genome_counts_filt_beta als auch in dist existieren
+common_genomes <- intersect(
+  genome_counts_filt_beta$genome,
+  rownames(dist)
+)
+
+# 5. genome_counts_filt auf die gemeinsamen Genome filtern und sortieren
+genome_counts_filt_matched <- genome_counts_filt %>%
+  column_to_rownames("genome") %>%
+  filter(rownames(.) %in% common_genomes) %>%
+  select_if(~!all(. == 0))  # optional: leere Spalten raus
+
+# 6. dist Matrix auf gemeinsame Genome beschränken und sortieren
+dist_matched <- dist[common_genomes, common_genomes]
+
+# 7. Jetzt korrekt hillpair aufrufen
+beta_q1f <- genome_counts_filt_matched %>%
+  hillpair(q = 1, dist = dist_matched)
+
+
 ```
 
 ```{r save_beta, comment="", message=FALSE,echo=FALSE,warning=FALSE, eval=FALSE}
@@ -63,7 +77,7 @@ save(beta_q0n,
      beta_q1n, 
      beta_q1p, 
      beta_q1f, 
-     file = "data/beta_EHI02625_EHI02632.Rdata")
+     file = "data/data.Rdata")
 ```
 
 ```{r}
@@ -71,54 +85,101 @@ set.seed(2024)
 ```
 
 ### Permanova
-```{r permanova, comment="", message=FALSE, warning=FALSE}
-#Richness
-betadisper(beta_q0n$S, sample_metadata$environment) %>% permutest(.) 
-adonis2(beta_q0n$S ~ environment+environment:river,
-        by="terms", 
-        data = sample_metadata %>% arrange(match(sample,labels(beta_q0n$S))), 
-        permutations = 999) %>%
-        broom::tidy() %>%
-        tt()
+
+```{r Funktion für PERMANOVA Analysen, comment="", message=FALSE, warning=FALSE}
+run_permanova <- function(beta_matrix, metadata, sample_col = "sample", group_col, group_vars, pairwise = FALSE) {
+  
+  # 1. Sample Labels aus der Beta-Matrix
+  sample_labels <- labels(beta_matrix$S)
+  
+  # 2. Metadata filtern und sortieren
+  metadata_matched <- metadata %>%
+    filter(!!sym(sample_col) %in% sample_labels) %>%
+    arrange(match(!!sym(sample_col), sample_labels))
+  
+  # 3. Betadisper und Permutest
+  cat("\n===== Beta Dispersion Test =====\n")
+  dispersion_result <- betadisper(beta_matrix$S, metadata_matched[[group_col]])
+  print(permutest(dispersion_result))
+  
+  # 4. Dynamische Formel bauen
+  formula_str <- paste0("beta_matrix$S ~ ", paste(group_vars, collapse = " + "))
+  cat("\n===== PERMANOVA Test (adonis2) =====\n")
+  permanova_result <- adonis2(as.formula(formula_str),
+                              data = metadata_matched,
+                              permutations = 999,
+                              by = "terms")
+  print(broom::tidy(permanova_result))
+  
+  # 5. (Optional) Pairwise Adonis
+  if (pairwise) {
+    cat("\n===== Pairwise PERMANOVA =====\n")
+    print(pairwise.adonis(beta_matrix$S, metadata_matched[[group_col]], perm = 999))
+  }
+  
+  # 6. Outputs zurückgeben
+  return(list(
+    dispersion = dispersion_result,
+    permanova = permanova_result
+  ))
+}
+
 ```
+
+# Richness
 
 ```{r permanova_neutral, comment="", message=FALSE, warning=FALSE}
+
+run_permanova(
+  beta_matrix = beta_q0n,
+  metadata = sample_metadata,
+  sample_col = "sample",
+  group_col = "broad_environment",
+  group_vars = c("broad_environment", "broad_environment:sex"),
+  pairwise = FALSE
+)
+
+```
+
 #Neutral diversity
-betadisper(beta_q1n$S, sample_metadata$environment) %>% permutest(.) 
-adonis2(beta_q1n$S ~ environment+environment:river,
-        by="terms",
-        data = sample_metadata %>% arrange(match(sample,labels(beta_q1n$S))), 
-        permutations = 999) %>%
-        broom::tidy() %>%
-        tt()
+
+```{r permanova_neutral, comment="", message=FALSE, warning=FALSE}
+run_permanova(
+  beta_matrix = beta_q1n,
+  metadata = sample_metadata,
+  sample_col = "sample",
+  group_col = "sex",
+  group_vars = c("broad_environment", "broad_environment:sex"),
+  pairwise = TRUE
+)
 ```
-```{r pairwise_neutral, comment="", message=FALSE, warning=FALSE}
-pairwise.adonis(beta_q1n$S, sample_metadata$river, perm = 999)
-```
+
+# Phylogenetic diversity (beta_q1p)
 
 ```{r permanova_phylo, comment="", message=FALSE, warning=FALSE}
-#Phylogenetic diversity
-betadisper(beta_q1p$S, sample_metadata$environment) %>% permutest(.) 
-adonis2(beta_q1p$S ~ environment+environment:river,
-        by="terms",
-        data = sample_metadata %>% arrange(match(sample,labels(beta_q1p$S))), 
-        permutations = 999) %>%
-        broom::tidy() %>%
-        tt()
+
+run_permanova(
+  beta_matrix = beta_q1p,
+  metadata = sample_metadata,
+  sample_col = "sample",
+  group_col = "broad_environment",
+  group_vars = c("broad_environment", "broad_environment:sex"),
+  pairwise = FALSE  # no pairwise comparisons here
+)
 ```
 
+# Functional diversity (beta_q1f)
+
 ```{r permanova_func, comment="", message=FALSE, warning=FALSE}
-#Functional diversity
-betadisper(beta_q1f$S, sample_metadata$environment) %>% permutest(.) 
-adonis2(beta_q1f$S ~ environment+environment:river,
-        by="terms", 
-        data = sample_metadata %>% arrange(match(sample,labels(beta_q1f$S))), 
-        permutations = 999) %>%
-        broom::tidy() %>%
-        tt()
-```
-```{r pairwise_func, comment="", message=FALSE, warning=FALSE}
-pairwise.adonis(beta_q1f$S, sample_metadata$river, perm = 999)
+
+run_permanova(
+  beta_matrix = beta_q1f,
+  metadata = sample_metadata,
+  sample_col = "sample",
+  group_col = "broad_environment",
+  group_vars = c("broad_environment", "broad_environment:sex"),
+  pairwise = TRUE  
+)
 ```
 
 ### NMDS
@@ -129,11 +190,11 @@ beta_q0n$S %>%
   vegan::scores() %>%
   as_tibble(., rownames = "sample") %>%
   dplyr::left_join(sample_metadata, by = join_by(sample == sample)) %>%
-  group_by(environment) %>%
+  group_by(broad_environment) %>%
   mutate(x_cen = mean(NMDS1, na.rm = TRUE)) %>%
   mutate(y_cen = mean(NMDS2, na.rm = TRUE)) %>%
   ungroup() %>%
-  ggplot(aes(x = NMDS1, y = NMDS2, color = environment, shape = as.factor(river))) +
+  ggplot(aes(x = NMDS1, y = NMDS2, color = broad_environment, shape = as.factor(sex))) +
   geom_point(size = 4) +
   scale_color_manual(values = treatment_colors,labels=c("high" = "High-altitude", "low" = "Low-altitude")) +
   geom_segment(aes(x = x_cen, y = y_cen, xend = NMDS1, yend = NMDS2), alpha = 0.9, show.legend = FALSE) +
@@ -146,7 +207,7 @@ beta_q0n$S %>%
     legend.title = element_text(size = 12),
     legend.position = "right", legend.box = "vertical"
     ) +
-    labs(color="Altitude", shape="River")+geom_text_repel(aes(label = sample), size=3)
+    labs(color="Environmental context", shape="sex")+geom_text_repel(aes(label = sample), size=3)
 
 ```
 
@@ -159,11 +220,11 @@ beta_q1n$S %>%
   vegan::scores() %>%
   as_tibble(., rownames = "sample") %>%
   dplyr::left_join(sample_metadata, by = join_by(sample == sample)) %>%
-  group_by(environment) %>%
+  group_by(broad_environment) %>%
   mutate(x_cen = mean(NMDS1, na.rm = TRUE)) %>%
   mutate(y_cen = mean(NMDS2, na.rm = TRUE)) %>%
   ungroup() %>%
-  ggplot(aes(x = NMDS1, y = NMDS2, color = environment, shape = as.factor(river))) +
+  ggplot(aes(x = NMDS1, y = NMDS2, color = broad_environment, shape = as.factor(sex))) +
   geom_point(size = 4) +
   scale_color_manual(values = treatment_colors,labels=c("high" = "High-altitude", "low" = "Low-altitude")) +
   geom_segment(aes(x = x_cen, y = y_cen, xend = NMDS1, yend = NMDS2), alpha = 0.9, show.legend = FALSE) +
@@ -176,7 +237,7 @@ beta_q1n$S %>%
     legend.title = element_text(size = 12),
     legend.position = "right", legend.box = "vertical"
     ) +
-    labs(color="Altitude", shape="River")
+    labs(color="Evironmental context", shape="sex")
 ```
 
 #### Phylogenetic diversity
@@ -187,11 +248,11 @@ beta_q1p$S %>%
   vegan::scores() %>%
   as_tibble(., rownames = "sample") %>%
   dplyr::left_join(sample_metadata, by = join_by(sample == sample)) %>%
-  group_by(environment) %>%
+  group_by(broad_environment) %>%
   mutate(x_cen = mean(NMDS1, na.rm = TRUE)) %>%
   mutate(y_cen = mean(NMDS2, na.rm = TRUE)) %>%
   ungroup() %>%
-  ggplot(aes(x = NMDS1, y = NMDS2, color = environment, shape = as.factor(river))) +
+  ggplot(aes(x = NMDS1, y = NMDS2, color = broad_environment, shape = as.factor(sex))) +
   geom_point(size = 4) +
   scale_color_manual(values = treatment_colors,labels=c("high" = "High-altitude", "low" = "Low-altitude")) +
   geom_segment(aes(x = x_cen, y = y_cen, xend = NMDS1, yend = NMDS2), alpha = 0.9, show.legend = FALSE) +
@@ -204,7 +265,7 @@ beta_q1p$S %>%
     legend.title = element_text(size = 12),
     legend.position = "right", legend.box = "vertical"
     ) +
-    labs(color="Altitude", shape="River")+geom_text_repel(aes(label = sample), size=3)
+    labs(color="environment context", shape="sex")+geom_text_repel(aes(label = sample), size=3)
 ```
 
 
@@ -216,11 +277,11 @@ beta_q1f$S %>%
   vegan::scores() %>%
   as_tibble(., rownames = "sample") %>%
   dplyr::left_join(sample_metadata, by = join_by(sample == sample)) %>%
-  group_by(environment) %>%
+  group_by(broad_environment) %>%
   mutate(x_cen = mean(NMDS1, na.rm = TRUE)) %>%
   mutate(y_cen = mean(NMDS2, na.rm = TRUE)) %>%
   ungroup() %>%
-  ggplot(aes(x = NMDS1, y = NMDS2, color = environment, shape = as.factor(river))) +
+  ggplot(aes(x = NMDS1, y = NMDS2, color = broad_environment, shape = as.factor(sex))) +
   geom_point(size = 4) +
   scale_color_manual(values = treatment_colors,labels=c("high" = "High-altitude", "low" = "Low-altitude")) +
   geom_segment(aes(x = x_cen, y = y_cen, xend = NMDS1, yend = NMDS2), alpha = 0.9, show.legend = FALSE) +
@@ -233,5 +294,5 @@ beta_q1f$S %>%
     legend.title = element_text(size = 12),
     legend.position = "right", legend.box = "vertical"
     ) +
-    labs(color="Altitude", shape="River")+geom_text_repel(aes(label = sample), size=3)
+    labs(color="environment context", shape="sex")+geom_text_repel(aes(label = sample), size=3)
 ```
