@@ -72,7 +72,7 @@ phylum_summary <- genome_counts_filt %>%
   pivot_longer(-genome, names_to = "sample", values_to = "count") %>%
   left_join(sample_metadata, by = join_by(sample == sample)) %>%
   left_join(genome_metadata, by = join_by(genome == genome)) %>%
-  group_by(sample,phylum) %>%
+  group_by(sample,phylum,broad_environment, sex) %>%
   summarise(relabun=sum(count))
 ```
 
@@ -109,6 +109,61 @@ phylum_summary %>%
         theme_minimal() + 
         labs(y="phylum", x="Relative abundance", color="Phylum")
 ```
+**Bacteria phyla in individuals from females**
+
+```{r phyla_nat_female, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+
+female_sample <- sample_metadata %>% 
+  filter(sex=="Female") %>% 
+  dplyr::select(sample) %>% 
+  pull()
+
+female_genomes <- genome_counts_filt %>% 
+  column_to_rownames("genome") %>% 
+  select(all_of(female_sample)) %>%
+  as.data.frame() %>%
+  filter(rowSums(across(where(is.numeric)))!=0)%>% 
+  rownames_to_column("genome")%>% 
+  dplyr::select(genome) %>% 
+  pull()
+
+genome_metadata %>% 
+  filter(genome %in% female_genomes) %>% 
+  filter(domain == "d__Bacteria")%>%
+  dplyr::select(phylum) %>%
+  unique() %>%
+  pull() %>%
+  length() %>% 
+  cat()
+```
+
+```{r phyla_nat_male, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+
+male_sample <- sample_metadata %>% 
+  filter(sex=="Male") %>% 
+  dplyr::select(sample) %>% 
+  pull()
+
+male_genomes <- genome_counts_filt %>% 
+  column_to_rownames("genome") %>% 
+  select(all_of(male_sample)) %>%
+  as.data.frame() %>%
+  filter(rowSums(across(where(is.numeric)))!=0)%>% 
+  rownames_to_column("genome")%>% 
+  dplyr::select(genome) %>% 
+  pull()
+
+genome_metadata %>% 
+  filter(genome %in% male_genomes) %>% 
+  filter(domain == "d__Bacteria")%>%
+  dplyr::select(phylum) %>%
+  unique() %>%
+  pull() %>%
+  length() %>% 
+  cat()
+```
+
+
 
 **Bacteria phyla in individuals from Temperate woodland**
 
@@ -141,7 +196,7 @@ genome_metadata %>%
 
 **Bacteria phyla in individuals from Xeric shrubland**
 
-```{r phyla_cap, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+```{r phyla_cap_xeric, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 
 xeric_shrubland_samples <- sample_metadata %>% 
   filter(broad_environment=="1000218 - Xeric shrubland") %>% 
@@ -166,30 +221,8 @@ genome_metadata %>%
   length() %>% 
   cat()
 ```
-```{r taxonomy_phylum_summary_river, warning=FALSE, comments="", message=FALSE}
-phylum_summary %>%
-    group_by(phylum) %>%
-    summarise(total_mean=mean(relabun*100, na.rm=T),
-              total_sd=sd(relabun*100, na.rm=T),
-              le_mean=mean(relabun[river=="Leitzaran"]*100, na.rm=T),
-             le_sd=sd(relabun[river=="Leitzaran"]*100, na.rm=T),
-              ha_mean=mean(relabun[river=="Harpea"]*100, na.rm=T),
-              ha_sd=sd(relabun[river=="Harpea"]*100, na.rm=T),
-              er_mean=mean(relabun[river=="Erlan"]*100, na.rm=T),
-              er_sd=sd(relabun[river=="Erlan"]*100, na.rm=T),
-              go_mean=mean(relabun[river=="Goizueta"]*100, na.rm=T),
-              go_sd=sd(relabun[river=="Goizueta"]*100, na.rm=T)) %>%
-    mutate(Total=str_c(round(total_mean,3),"±",round(total_sd,3)),
-           Leitzaran=str_c(round(le_mean,3),"±",round(le_sd,3)),
-           Harpea=str_c(round(ha_mean,3),"±",round(ha_sd,3)),
-           Erlan=str_c(round(er_mean,3),"±",round(er_sd,3)),
-           Goizueta=str_c(round(go_mean,3),"±",round(go_sd,3))) %>% 
-    arrange(-total_mean) %>% 
-    dplyr::select(phylum,Total,Leitzaran,Goizueta,Harpea,Erlan)
-```
-
 **Bacteria phyla in individuals from mixed_forest**
-```{r phyla_cap, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+```{r phyla_cap_forest, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 
 mixed_forest_samples <- sample_metadata %>% 
   filter(broad_environment=="1000198 - Mixed forest") %>% 
@@ -216,7 +249,7 @@ genome_metadata %>%
 ```
 
 **Bacteria phyla in individuals from cropland**
-```{r phyla_cap, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+```{r phyla_cap_cropland, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 
 cropland_samples <- sample_metadata %>% 
   filter(broad_environment=="1000245 - Cropland") %>% 
@@ -241,28 +274,91 @@ genome_metadata %>%
   length() %>% 
   cat()
 ```
+
+```{r taxonomy_phylum_summary_broad_environment, warning=FALSE, comments="", message=FALSE}
+phylum_summary %>%
+  group_by(phylum) %>%
+  summarise(
+    total_mean = mean(relabun * 100, na.rm = TRUE),
+    total_sd = sd(relabun * 100, na.rm = TRUE),
+    le_mean = mean(ifelse(broad_environment == "1000245 - Cropland", relabun * 100, NA), na.rm = TRUE),
+    le_sd = sd(ifelse(broad_environment == "1000245 - Cropland", relabun * 100, NA), na.rm = TRUE),
+    ha_mean = mean(ifelse(broad_environment == "1000198 - Mixed forest", relabun * 100, NA), na.rm = TRUE),
+    ha_sd = sd(ifelse(broad_environment == "1000198 - Mixed forest", relabun * 100, NA), na.rm = TRUE),
+    er_mean = mean(ifelse(broad_environment == "1000218 - Xeric shrubland", relabun * 100, NA), na.rm = TRUE),
+    er_sd = sd(ifelse(broad_environment == "1000218 - Xeric shrubland", relabun * 100, NA), na.rm = TRUE),
+    go_mean = mean(ifelse(broad_environment == "1000221 - Temperate woodland", relabun * 100, NA), na.rm = TRUE),
+    go_sd = sd(ifelse(broad_environment == "1000221 - Temperate woodland", relabun * 100, NA), na.rm = TRUE)
+  ) %>%
+  mutate(
+    Total = str_c(round(total_mean, 3), "±", round(total_sd, 3)),
+    Cropland = str_c(round(le_mean, 3), "±", round(le_sd, 3)),
+    Mixed_forest = str_c(round(ha_mean, 3), "±", round(ha_sd, 3)),
+    Xeric_shrubland = str_c(round(er_mean, 3), "±", round(er_sd, 3)),
+    Temperate_woodland = str_c(round(go_mean, 3), "±", round(go_sd, 3))
+  ) %>%
+  arrange(-total_mean) %>%
+  select(phylum, Total, Cropland, Temperate_woodland, Mixed_forest, Xeric_shrubland)
+
+```
+```{r taxonomy_phylum_summary_sex, warning=FALSE, comments="", message=FALSE}
+phylum_summary %>%
+  group_by(phylum) %>%
+  summarise(
+    total_mean = mean(relabun * 100, na.rm = TRUE),
+    total_sd = sd(relabun * 100, na.rm = TRUE),
+    le_mean = mean(ifelse(sex == "Female", relabun * 100, NA), na.rm = TRUE),
+    le_sd = sd(ifelse(sex == "Female", relabun * 100, NA), na.rm = TRUE),
+    ha_mean = mean(ifelse( sex== "Male", relabun * 100, NA), na.rm = TRUE),
+    ha_sd = sd(ifelse(sex == "Male", relabun * 100, NA), na.rm = TRUE)
+  ) %>%
+  mutate(
+    Total = str_c(round(total_mean, 3), "±", round(total_sd, 3)),
+    Female = str_c(round(le_mean, 3), "±", round(le_sd, 3)),
+    Male = str_c(round(ha_mean, 3), "±", round(ha_sd, 3))
+  ) %>%
+  arrange(-total_mean) %>%
+  select(phylum, Total, Female, Male)
+
+```
+
 #### Family level
 
-***Percentange of families in each group***
+***Percentange of families in each group of environment***
 
 ```{r taxonomy_family_summary, warning=FALSE, comments="", message=FALSE}
 family_summary <- genome_counts_filt %>%
   mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
   pivot_longer(-genome, names_to = "sample", values_to = "count") %>% #reduce to minimum number of columns
   left_join(sample_metadata, by = join_by(sample == sample)) %>% #append sample metadata
-  left_join(., genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata
-  group_by(sample,family) %>%
+  left_join(genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata
+  group_by(sample,family, broad_environment, sex) %>%
   summarise(relabun=sum(count))
 ```
 
-```{r taxonomy_family_summary_origin, warning=FALSE, comments="", message=FALSE}
+```{r taxonomy_family_summary_origin_environment, warning=FALSE, comments="", message=FALSE}
 family_summary %>%
     group_by(family) %>%
-    summarise(total_mean=mean(relabun*100, na.rm=T),
-              total_sd=sd(relabun*100, na.rm=T))
-    mutate(Total=str_c(round(total_mean,3),"±",round(total_sd,3))) %>% 
-    arrange(-total_mean) %>% 
-    dplyr::select(family,Total)
+    summarise(
+    total_mean = mean(relabun * 100, na.rm = TRUE),
+    total_sd = sd(relabun * 100, na.rm = TRUE),
+    le_mean = mean(ifelse(broad_environment == "1000245 - Cropland", relabun * 100, NA), na.rm = TRUE),
+    le_sd = sd(ifelse(broad_environment == "1000245 - Cropland", relabun * 100, NA), na.rm = TRUE),
+    ha_mean = mean(ifelse(broad_environment == "1000198 - Mixed forest", relabun * 100, NA), na.rm = TRUE),
+    ha_sd = sd(ifelse(broad_environment == "1000198 - Mixed forest", relabun * 100, NA), na.rm = TRUE),
+    er_mean = mean(ifelse(broad_environment == "1000218 - Xeric shrubland", relabun * 100, NA), na.rm = TRUE),
+    er_sd = sd(ifelse(broad_environment == "1000218 - Xeric shrubland", relabun * 100, NA), na.rm = TRUE),
+    go_mean = mean(ifelse(broad_environment == "1000221 - Temperate woodland", relabun * 100, NA), na.rm = TRUE),
+    go_sd = sd(ifelse(broad_environment == "1000221 - Temperate woodland", relabun * 100, NA), na.rm = TRUE)
+  ) %>%
+  mutate(
+    Total = str_c(round(total_mean, 3), "±", round(total_sd, 3)),
+    Cropland = str_c(round(le_mean, 3), "±", round(le_sd, 3)),
+    Mixed_forest = str_c(round(ha_mean, 3), "±", round(ha_sd, 3)),
+    Xeric_shrubland = str_c(round(er_mean, 3), "±", round(er_sd, 3)),
+    Temperate_woodland = str_c(round(go_mean, 3), "±", round(go_sd, 3))
+  ) %>%
+    dplyr::select(family,Total,Cropland, Temperate_woodland, Mixed_forest, Xeric_shrubland)
 ```
 
 ```{r taxonomy_jitterplot_family, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
@@ -282,44 +378,107 @@ family_summary %>%
     ggplot(aes(x=relabun, y=family, group=family, color=phylum)) +
         scale_color_manual(values=phylum_colors[-8]) +
         geom_jitter(alpha=0.5) + 
-        facet_grid(.~environment)+
+        facet_grid(.~broad_environment)+
         theme_minimal() + 
         labs(y="Family", x="Relative abundance", color="Phylum")
 
 ```
 
-```{r taxonomy_family_summary_river, warning=FALSE, comments="", message=FALSE}
+```{r taxonomy_family_summary_broad_environment, warning=FALSE, comments="", message=FALSE}
 family_summary %>%
     group_by(family) %>%
     summarise(total_mean=mean(relabun*100, na.rm=T),
               total_sd=sd(relabun*100, na.rm=T),
-              le_mean=mean(relabun[river=="Leitzaran"]*100, na.rm=T),
-             le_sd=sd(relabun[river=="Leitzaran"]*100, na.rm=T),
-              ha_mean=mean(relabun[river=="Harpea"]*100, na.rm=T),
-              ha_sd=sd(relabun[river=="Harpea"]*100, na.rm=T),
-              er_mean=mean(relabun[river=="Erlan"]*100, na.rm=T),
-              er_sd=sd(relabun[river=="Erlan"]*100, na.rm=T),
-              go_mean=mean(relabun[river=="Goizueta"]*100, na.rm=T),
-              go_sd=sd(relabun[river=="Goizueta"]*100, na.rm=T)) %>%
+              le_mean=mean(relabun[broad_environment=="1000245 - Cropland"]*100, na.rm=T),
+             le_sd=sd(relabun[broad_environment=="1000245 - Cropland"]*100, na.rm=T),
+              ha_mean=mean(relabun[broad_environment=="1000198 - Mixed forest"]*100, na.rm=T),
+              ha_sd=sd(relabun[broad_environment=="1000198 - Mixed forest"]*100, na.rm=T),
+              er_mean=mean(relabun[broad_environment=="1000218 - Xeric shrubland"]*100, na.rm=T),
+              er_sd=sd(relabun[broad_environment=="1000218 - Xeric shrubland"]*100, na.rm=T),
+              go_mean=mean(relabun[broad_environment=="1000221 - Temperate woodland"]*100, na.rm=T),
+              go_sd=sd(relabun[broad_environment=="1000221 - Temperate woodland"]*100, na.rm=T)) %>%
     mutate(Total=str_c(round(total_mean,3),"±",round(total_sd,3)),
-           Leitzaran=str_c(round(le_mean,3),"±",round(le_sd,3)),
-           Harpea=str_c(round(ha_mean,3),"±",round(ha_sd,3)),
-           Erlan=str_c(round(er_mean,3),"±",round(er_sd,3)),
-           Goizueta=str_c(round(go_mean,3),"±",round(go_sd,3))) %>% 
+          Cropland=str_c(round(le_mean,3),"±",round(le_sd,3)),
+          Mixed_forest=str_c(round(ha_mean,3),"±",round(ha_sd,3)),
+          Xeric_shrubland=str_c(round(er_mean,3),"±",round(er_sd,3)),
+          Temperate_woodland=str_c(round(go_mean,3),"±",round(go_sd,3))) %>% 
     arrange(-total_mean) %>% 
-    dplyr::select(family,Total,Leitzaran,Goizueta,Harpea,Erlan)
+    dplyr::select(family,Total,Cropland,Temperate_woodland, Mixed_forest,Xeric_shrubland)
+```
+***Family summary grouped by sex***
+
+```{r taxonomy_family_summary_origin_sex, warning=FALSE, comments="", message=FALSE}
+family_summary %>%
+    group_by(family) %>%
+   summarise(
+    total_mean = mean(relabun * 100, na.rm = TRUE),
+    total_sd = sd(relabun * 100, na.rm = TRUE),
+    le_mean = mean(ifelse(sex == "Female", relabun * 100, NA), na.rm = TRUE),
+    le_sd = sd(ifelse(sex == "Female", relabun * 100, NA), na.rm = TRUE),
+    ha_mean = mean(ifelse( sex== "Male", relabun * 100, NA), na.rm = TRUE),
+    ha_sd = sd(ifelse(sex == "Male", relabun * 100, NA), na.rm = TRUE)
+  ) %>%
+  mutate(
+    Total = str_c(round(total_mean, 3), "±", round(total_sd, 3)),
+    Female = str_c(round(le_mean, 3), "±", round(le_sd, 3)),
+    Male = str_c(round(ha_mean, 3), "±", round(ha_sd, 3))
+  ) %>%
+  arrange(-total_mean) %>%
+  select(family, Total, Female, Male)
+```
+```{r taxonomy_jitterplot_family_sex, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+family_arrange <- family_summary %>%
+    group_by(family) %>%
+    summarise(mean=sum(relabun)) %>%
+    arrange(-mean) %>%
+    select(family) %>%
+    pull()
+
+# Per environment
+family_summary %>%
+    left_join(genome_metadata %>% select(family,phylum) %>% unique(),by=join_by(family==family)) %>%
+    filter(family %in% family_arrange[1:20]) %>%
+    mutate(family=factor(family,levels=rev(family_arrange[1:20]))) %>%
+    filter(relabun > 0) %>%
+    ggplot(aes(x=relabun, y=family, group=family, color=phylum)) +
+        scale_color_manual(values=phylum_colors[-8]) +
+        geom_jitter(alpha=0.5) + 
+        facet_grid(.~sex)+
+        theme_minimal() + 
+        labs(y="Family", x="Relative abundance", color="Phylum")
+
 ```
 
+```{r taxonomy_family_summary_sex, warning=FALSE, comments="", message=FALSE}
+family_summary %>%
+    group_by(family) %>%
+    summarise(
+    total_mean = mean(relabun * 100, na.rm = TRUE),
+    total_sd = sd(relabun * 100, na.rm = TRUE),
+    le_mean = mean(ifelse(sex == "Female", relabun * 100, NA), na.rm = TRUE),
+    le_sd = sd(ifelse(sex == "Female", relabun * 100, NA), na.rm = TRUE),
+    ha_mean = mean(ifelse( sex== "Male", relabun * 100, NA), na.rm = TRUE),
+    ha_sd = sd(ifelse(sex == "Male", relabun * 100, NA), na.rm = TRUE)
+  ) %>%
+  mutate(
+    Total = str_c(round(total_mean, 3), "±", round(total_sd, 3)),
+    Female = str_c(round(le_mean, 3), "±", round(le_sd, 3)),
+    Male = str_c(round(ha_mean, 3), "±", round(ha_sd, 3))
+  ) %>%
+  arrange(-total_mean) %>%
+    dplyr::select(family,Total,Female, Male)
+```
 #### Genus level
 
-*** Percetange of genera in each group***
+*** Percetange of genera in each group of environment***
+
 ```{r taxonomy_genus_summary, warning=FALSE, comments="", message=FALSE}
 genus_summary <- genome_counts_filt %>%
   mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
   pivot_longer(-genome, names_to = "sample", values_to = "count") %>% #reduce to minimum number of columns
   left_join(sample_metadata, by = join_by(sample == sample)) %>% #append sample metadata
   left_join(genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata
-  group_by(sample,phylum,genus, environment) %>%
+  group_by(sample,phylum,genus,broad_environment) %>%
   summarise(relabun=sum(count)) 
 # %>%
 #   filter(genus != "g__") %>%
@@ -329,15 +488,21 @@ genus_summary %>%
     group_by(genus) %>%
     summarise(total_mean=mean(relabun*100, na.rm=T),
               total_sd=sd(relabun*100, na.rm=T),
-              High_mean=mean(relabun[environment=="high"]*100, na.rm=T),
-             High_sd=sd(relabun[environment=="high"]*100, na.rm=T),
-              Low_mean=mean(relabun[environment=="low"]*100, na.rm=T),
-              Low_sd=sd(relabun[environment=="low"]*100, na.rm=T)) %>%
+              le_mean=mean(relabun[broad_environment=="1000245 - Cropland"]*100, na.rm=T),
+             le_sd=sd(relabun[broad_environment=="1000245 - Cropland"]*100, na.rm=T),
+              ha_mean=mean(relabun[broad_environment=="1000198 - Mixed forest"]*100, na.rm=T),
+              ha_sd=sd(relabun[broad_environment=="1000198 - Mixed forest"]*100, na.rm=T),
+              er_mean=mean(relabun[broad_environment=="1000218 - Xeric shrubland"]*100, na.rm=T),
+              er_sd=sd(relabun[broad_environment=="1000218 - Xeric shrubland"]*100, na.rm=T),
+              go_mean=mean(relabun[broad_environment=="1000221 - Temperate woodland"]*100, na.rm=T),
+              go_sd=sd(relabun[broad_environment=="1000221 - Temperate woodland"]*100, na.rm=T)) %>%
     mutate(Total=str_c(round(total_mean,3),"±",round(total_sd,3)),
-           High=str_c(round(High_mean,3),"±",round(High_sd,3)),
-           Low=str_c(round(Low_mean,3),"±",round(Low_sd,3))) %>% 
+          Cropland=str_c(round(le_mean,3),"±",round(le_sd,3)),
+          Mixed_forest=str_c(round(ha_mean,3),"±",round(ha_sd,3)),
+          Xeric_shrubland=str_c(round(er_mean,3),"±",round(er_sd,3)),
+          Temperate_woodland=str_c(round(go_mean,3),"±",round(go_sd,3))) %>% 
     arrange(-total_mean) %>% 
-    dplyr::select(genus,Total,High,Low) 
+    dplyr::select(genus,Total, Cropland,Temperate_woodland, Mixed_forest,Xeric_shrubland) 
 ```
 
 ```{r taxonomy_jitterplot_genus, fig.height=14, fig.width=10, fig.fullwidth=TRUE}
@@ -352,12 +517,60 @@ genus_summary %>%
   ggplot(aes(x=relabun, y=genus, group=genus, color=phylum)) +
   scale_color_manual(values=phylum_colors) +
   geom_jitter(alpha=0.5) + 
-  facet_grid(.~environment)+
+  facet_grid(.~broad_environment)+
   theme_minimal() + 
   theme(axis.text.y = element_text(size=6))+
   labs(y="Family", x="Relative abundance", color="Phylum")
 
 ```
+*** Percetange of genera in each group of sex***
+
+```{r taxonomy_genus_summary_sex, warning=FALSE, comments="", message=FALSE}
+genus_summary <- genome_counts_filt %>%
+  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
+  pivot_longer(-genome, names_to = "sample", values_to = "count") %>% #reduce to minimum number of columns
+  left_join(sample_metadata, by = join_by(sample == sample)) %>% #append sample metadata
+  left_join(genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata
+  group_by(sample,phylum,genus,sex) %>%
+  summarise(relabun=sum(count)) 
+# %>%
+#   filter(genus != "g__") %>%
+#   mutate(genus= sub("^g__", "", genus))
+
+genus_summary %>%
+    group_by(genus) %>%
+    summarise(total_mean=mean(relabun*100, na.rm=T),
+              total_sd=sd(relabun*100, na.rm=T),
+              le_mean=mean(relabun[sex=="Female"]*100, na.rm=T),
+             le_sd=sd(relabun[sex=="Female"]*100, na.rm=T),
+              ha_mean=mean(relabun[sex=="Male"]*100, na.rm=T),
+              ha_sd=sd(relabun[sex=="Male"]*100, na.rm=T)) %>%
+    mutate(Total=str_c(round(total_mean,3),"±",round(total_sd,3)),
+          Female=str_c(round(le_mean,3),"±",round(le_sd,3)),
+          Male=str_c(round(ha_mean,3),"±",round(ha_sd,3))) %>% 
+    arrange(-total_mean) %>% 
+    dplyr::select(genus,Total,Male,Female) 
+```
+
+```{r taxonomy_jitterplot_genus_sex, fig.height=14, fig.width=10, fig.fullwidth=TRUE}
+genus_summary_sort <- genus_summary %>%
+    group_by(genus) %>%
+    summarise(mean=mean(relabun, na.rm=T),sd=sd(relabun, na.rm=T)) %>%
+    arrange(-mean) 
+
+genus_summary %>%
+  mutate(genus=factor(genus, levels=rev(genus_summary_sort %>% pull(genus)))) %>%
+  filter(relabun > 0) %>%
+  ggplot(aes(x=relabun, y=genus, group=genus, color=phylum)) +
+  scale_color_manual(values=phylum_colors) +
+  geom_jitter(alpha=0.5) + 
+  facet_grid(.~sex)+
+  theme_minimal() + 
+  theme(axis.text.y = element_text(size=6))+
+  labs(y="Family", x="Relative abundance", color="Phylum")
+
+```
+
 **Number of MAGs without genera-level annotation**
 ```{r nongenera_gut, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 genome_metadata %>%

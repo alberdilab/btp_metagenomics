@@ -1,4 +1,14 @@
 delete_merged_file: true
+
 language:
   ui:
     chapter_name: "Chapter "
+
+rmd_files: [
+  "index.Rmd",
+  "01_prepare_data.Rmd",
+  "02_data_statistics.Rmd",
+  "03_MAGs_Catalouge.Rmd",
+  "04_Community.Rmd",
+  "05_Differential_abundance.Rmd"
+]
