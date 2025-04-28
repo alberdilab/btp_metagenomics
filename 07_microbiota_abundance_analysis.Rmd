@@ -172,8 +172,8 @@ genome_counts_rel_fil<- genome_counts_filt%>%
   
 genome_counts_rel_pa=1*(genome_counts_rel_fil>0)
 #MAGrel_pa[1:6,1:6]
-table_upset_analysis_cont=t(aggregate(t(genome_counts_rel_pa),by=list(sample_metadata$river),FUN=sum)[,-1])
-colnames(table_upset_analysis_cont)=levels(as.factor(sample_metadata$river))
+table_upset_analysis_cont=t(aggregate(t(genome_counts_rel_pa),by=list(sample_metadata$sex),FUN=sum)[,-1])
+colnames(table_upset_analysis_cont)=levels(as.factor(sample_metadata$sex))
 table_upset_analysis=(table_upset_analysis_cont>0)*1
 table_upset_analysis=data.frame(table_upset_analysis)
 table_upset_analysis=apply(table_upset_analysis,2,as.integer)
@@ -220,8 +220,8 @@ set.seed(1234) #set seed for reproducibility
 ancom_rand_output = ancombc2(data = physeq_genome_filtered, 
                   assay_name = "counts", 
                   tax_level = NULL, #change to agglomerate analysis to a higher taxonomic range
-                  fix_formula = "environment", #fixed variable(s)
-                  rand_formula = "(1|river)",
+                  fix_formula = "sex", #fixed variable(s)
+                  rand_formula = "(1|broad_environment)",
                   p_adj_method = "holm", 
                   pseudo_sens = TRUE,
                   prv_cut =0, 
@@ -336,14 +336,14 @@ set.seed(1234) #set seed for reproducibility
 ancom_rand_output_mag_Struc = ancombc2(data = physeq_all, 
                   assay_name = "counts", 
                   tax_level = NULL,
-                  fix_formula = "environment",
-                  rand_formula = "(1|river)",
+                  fix_formula = "sex",
+                  rand_formula = "(1|broad_environment)",
                   p_adj_method = "holm", 
                   pseudo_sens = TRUE,
                   prv_cut =0, 
                   lib_cut = 0, 
                   s0_perc = 0.05,
-                  group = "environment", 
+                  group = "sex", 
                   struc_zero = TRUE, 
                   neg_lb = FALSE,
                   alpha = 0.05, 
@@ -444,8 +444,8 @@ ancom_rand_output_mag_Struc$res %>%
 ancom_rand_output_phylum = ancombc2(data = physeq_genome_filtered, 
                   assay_name = "counts", 
                   tax_level = "phylum", #change to agglomerate analysis to a higher taxonomic range
-                  fix_formula = "environment", #fixed variable(s)
-                  rand_formula = "(1|river)",
+                  fix_formula = "sex", #fixed variable(s)
+                  rand_formula = "(1|broad_environment)",
                   p_adj_method = "holm", 
                   pseudo_sens = TRUE,
                   prv_cut = 0, 
@@ -480,8 +480,8 @@ ancom_rand_output_phylum$res %>%
 ancom_rand_output_family = ancombc2(data = physeq_genome_filtered, 
                   assay_name = "counts", 
                   tax_level = "family", #change to agglomerate analysis to a higher taxonomic range
-                  fix_formula = "environment", #fixed variable(s)
-                  rand_formula = "(1|river)",
+                  fix_formula = "sex", #fixed variable(s)
+                  rand_formula = "(1|broad_environment)",
                   p_adj_method = "holm", 
                   pseudo_sens = TRUE,
                   prv_cut = 0, 
@@ -515,8 +515,8 @@ ancom_rand_output_family$res %>%
 ancom_rand_output_gen = ancombc2(data = physeq_genome_filtered, 
                   assay_name = "counts", 
                   tax_level = "genus", #change to agglomerate analysis to a higher taxonomic range
-                  fix_formula = "environment", #fixed variable(s)
-                  rand_formula = "(1|river)",
+                  fix_formula = "sex", #fixed variable(s)
+                  rand_formula = "(1|broad_environment)",
                   p_adj_method = "holm", 
                   pseudo_sens = TRUE,
                   prv_cut = 0, 
@@ -556,8 +556,8 @@ set.seed(1234) #set seed for reproducibility
 ancom_rand_output_norand = ancombc2(data = physeq_genome_filtered, 
                   assay_name = "counts", 
                   tax_level = NULL, #change to agglomerate analysis to a higher taxonomic range
-                  fix_formula = "environment", #fixed variable(s)
- #                 rand_formula = "(1|river)",
+                  fix_formula = "sex", #fixed variable(s)
+ #                 rand_formula = "(1|broad_environment)",
                   p_adj_method = "holm", 
                   pseudo_sens = TRUE,
                   prv_cut =0, 
@@ -670,14 +670,14 @@ ancom_rand_output_norand$res %>%
 ancom_rand_output_mag_Struc_norand = ancombc2(data = physeq_all, 
                   assay_name = "counts", 
                   tax_level = NULL, #change to agglomerate analysis to a higher taxonomic range
-                  fix_formula = "environment", #fixed variable(s)
- #                 rand_formula = "(1|river)",
+                  fix_formula = "sex", #fixed variable(s)
+ #                 rand_formula = "(1|broad_environment)",
                   p_adj_method = "holm", 
                   pseudo_sens = TRUE,
                   prv_cut =0, 
                   lib_cut = 0, 
                   s0_perc = 0.05,
-                  group = "environment", 
+                  group = "sex", 
                   struc_zero = TRUE, 
                   neg_lb = FALSE,
                   alpha = 0.05, 
@@ -776,8 +776,8 @@ ancom_rand_output_mag_Struc_norand$res %>%
 ancom_rand_output_phylum_norand = ancombc2(data = physeq_genome_filtered, 
                   assay_name = "counts", 
                   tax_level = "phylum", #change to agglomerate analysis to a higher taxonomic range
-                  fix_formula = "environment", #fixed variable(s)
-  #                rand_formula = "(1|river)",
+                  fix_formula = "sex", #fixed variable(s)
+  #                rand_formula = "(1|broad_environment)",
                   p_adj_method = "holm", 
                   pseudo_sens = TRUE,
                   prv_cut = 0, 
@@ -812,8 +812,8 @@ ancom_rand_output_phylum_norand$res %>%
 ancom_rand_output_family_norand = ancombc2(data = physeq_genome_filtered, 
                   assay_name = "counts", 
                   tax_level = "family", #change to agglomerate analysis to a higher taxonomic range
-                  fix_formula = "environment", #fixed variable(s)
-   #               rand_formula = "(1|river)",
+                  fix_formula = "sex", #fixed variable(s)
+   #               rand_formula = "(1|broad_environment)",
                   p_adj_method = "holm", 
                   pseudo_sens = TRUE,
                   prv_cut = 0, 
@@ -847,8 +847,8 @@ ancom_rand_output_family_norand$res %>%
 ancom_rand_output_gen_norand = ancombc2(data = physeq_genome_filtered, 
                   assay_name = "counts", 
                   tax_level = "genus", #change to agglomerate analysis to a higher taxonomic range
-                  fix_formula = "environment", #fixed variable(s)
- #                 rand_formula = "(1|river)",
+                  fix_formula = "sex", #fixed variable(s)
+ #                 rand_formula = "(1|broad_environment)",
                   p_adj_method = "holm", 
                   pseudo_sens = TRUE,
                   prv_cut = 0, 

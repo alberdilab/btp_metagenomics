@@ -7,10 +7,14 @@ load("data/data.Rdata")
 treatment_colors <- c("#f56042","#429ef5", "#42f58d", "#b142f5", "#f5e642")
 ```
 
+```{r filter_NAs}
+sample_metadata_without_NA <- sample_metadata %>%
+  filter(!is.na(broad_environment))
+```
 
 ***beta_div***
 ```{r beta_div, comment="", message=FALSE, warning=FALSE, eval=FALSE}
-beta_q0n <- genome_counts_filt %>%
+beta_q0n <- genome_counts_filt %>% #Artenreichhaltigkeit / Presence-Absence
   column_to_rownames(., "genome") %>%
   filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
   select_if(~!all(. == 0)) %>%
@@ -80,29 +84,43 @@ save(beta_q0n,
      file = "data/data.Rdata")
 ```
 
-```{r}
+
+```{r seed, comment="", message=FALSE,echo=FALSE,warning=FALSE, eval=FALSE}
+
 set.seed(2024)
 ```
 
 ### Permanova
 
 ```{r Funktion für PERMANOVA Analysen, comment="", message=FALSE, warning=FALSE}
-run_permanova <- function(beta_matrix, metadata, sample_col = "sample", group_col, group_vars, pairwise = FALSE) {
+run_permanova_safe <- function(beta_matrix, metadata, sample_col = "sample", group_col, group_vars, pairwise = FALSE) {
   
-  # 1. Sample Labels aus der Beta-Matrix
+  # 1. Sample labels from Beta-Matrix
   sample_labels <- labels(beta_matrix$S)
   
-  # 2. Metadata filtern und sortieren
+  # 2. Metadata filtered and sorted
   metadata_matched <- metadata %>%
     filter(!!sym(sample_col) %in% sample_labels) %>%
     arrange(match(!!sym(sample_col), sample_labels))
   
-  # 3. Betadisper und Permutest
+  # 3. Synchronize beta_matrix$S to metadata
+  common_samples <- intersect(sample_labels, metadata_matched[[sample_col]])
+  beta_matrix$S <- beta_matrix$S[common_samples, common_samples]
+  metadata_matched <- metadata_matched %>%
+    filter(!!sym(sample_col) %in% common_samples) %>%
+    arrange(match(!!sym(sample_col), common_samples))
+  
+  # 4. Remove samples with NA in group_col
+  valid_idx <- !is.na(metadata_matched[[group_col]])
+  beta_matrix$S <- beta_matrix$S[valid_idx, valid_idx]
+  metadata_matched <- metadata_matched[valid_idx, ]
+  
+  # 5. Betadisper and Permutest
   cat("\n===== Beta Dispersion Test =====\n")
   dispersion_result <- betadisper(beta_matrix$S, metadata_matched[[group_col]])
   print(permutest(dispersion_result))
   
-  # 4. Dynamische Formel bauen
+  # 6. Dynamic formula building
   formula_str <- paste0("beta_matrix$S ~ ", paste(group_vars, collapse = " + "))
   cat("\n===== PERMANOVA Test (adonis2) =====\n")
   permanova_result <- adonis2(as.formula(formula_str),
@@ -111,28 +129,27 @@ run_permanova <- function(beta_matrix, metadata, sample_col = "sample", group_co
                               by = "terms")
   print(broom::tidy(permanova_result))
   
-  # 5. (Optional) Pairwise Adonis
+  # 7. (Optional) Pairwise Adonis
   if (pairwise) {
     cat("\n===== Pairwise PERMANOVA =====\n")
     print(pairwise.adonis(beta_matrix$S, metadata_matched[[group_col]], perm = 999))
   }
   
-  # 6. Outputs zurückgeben
+  # 8. Return outputs
   return(list(
     dispersion = dispersion_result,
     permanova = permanova_result
   ))
 }
-
 ```
 
 # Richness
 
-```{r permanova_neutral, comment="", message=FALSE, warning=FALSE}
+```{r permanova_richness, comment="", message=FALSE, warning=FALSE}
 
 run_permanova(
   beta_matrix = beta_q0n,
-  metadata = sample_metadata,
+  metadata = sample_metadata_without_NA,
   sample_col = "sample",
   group_col = "broad_environment",
   group_vars = c("broad_environment", "broad_environment:sex"),
@@ -146,11 +163,11 @@ run_permanova(
 ```{r permanova_neutral, comment="", message=FALSE, warning=FALSE}
 run_permanova(
   beta_matrix = beta_q1n,
-  metadata = sample_metadata,
+  metadata = sample_metadata_without_NA,
   sample_col = "sample",
-  group_col = "sex",
+  group_col = "broad_environment",
   group_vars = c("broad_environment", "broad_environment:sex"),
-  pairwise = TRUE
+  pairwise = FALSE #Pairwise must be done still
 )
 ```
 
@@ -160,7 +177,7 @@ run_permanova(
 
 run_permanova(
   beta_matrix = beta_q1p,
-  metadata = sample_metadata,
+  metadata = sample_metadata_without_NA,
   sample_col = "sample",
   group_col = "broad_environment",
   group_vars = c("broad_environment", "broad_environment:sex"),
@@ -174,11 +191,11 @@ run_permanova(
 
 run_permanova(
   beta_matrix = beta_q1f,
-  metadata = sample_metadata,
+  metadata = sample_metadata_without_NA,
   sample_col = "sample",
   group_col = "broad_environment",
   group_vars = c("broad_environment", "broad_environment:sex"),
-  pairwise = TRUE  
+  pairwise = FALSE # Pairwise must be done still   
 )
 ```
 
@@ -294,5 +311,5 @@ beta_q1f$S %>%
     legend.title = element_text(size = 12),
     legend.position = "right", legend.box = "vertical"
     ) +
-    labs(color="environment context", shape="sex")+geom_text_repel(aes(label = sample), size=3)
+    labs(color="broad_environment", shape="sex")+geom_text_repel(aes(label = sample), size=3)
 ```
