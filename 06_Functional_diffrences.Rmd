@@ -14,62 +14,63 @@ sample_metadata_without_NA <- sample_metadata %>%
 
 ***beta_div***
 ```{r beta_div, comment="", message=FALSE, warning=FALSE, eval=FALSE}
-beta_q0n <- genome_counts_filt %>% #Artenreichhaltigkeit / Presence-Absence
+#Presence/Absence
+beta_q0n <- genome_counts_filt %>% 
   column_to_rownames(., "genome") %>%
   filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
   select_if(~!all(. == 0)) %>%
   hillpair(., q = 0)
-
+#Abundance-sensitive
 beta_q1n <- genome_counts_filt %>%
   column_to_rownames(., "genome") %>%
   filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
   select_if(~!all(. == 0)) %>%
   hillpair(., q = 1)
-
+#Abundance + Phylogeny
 genome_counts_filt_beta <- genome_counts_filt %>%
-  column_to_rownames(., "genome") %>%
+  column_to_rownames(., "genome") %>% 
   filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
   select_if(~!all(. == 0))%>%
   rownames_to_column(., "genome")
-
+#Abundance + Trait Distance
 genome_tree <- keep.tip(genome_tree, tip=genome_counts_filt_beta$genome)
-beta_q1p <- genome_counts_filt %>%
+beta_q1p <- genome_counts_filt %>%  
   column_to_rownames(., "genome") %>%
   filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
   select_if(~!all(. == 0)) %>%
   hillpair(., q = 1, tree = genome_tree)
 ```
 
-```{r beta_div2, comment="", message=FALSE, warning=FALSE, eval=FALSE}
+```{r beta_div2, comment="", message=FALSE, warning=FALSE, eval=TRUE}
 
-# 1. Nur Genome nehmen, die auch in genome_gifts vorkommen
+# 1. Only use genomes that also occur in genome_gifts
 valid_genomes <- genome_counts_filt_beta$genome[genome_counts_filt_beta$genome %in% rownames(genome_gifts)]
 
-# 2. genome_gifts auf diese Genome filtern
+# 2. filter genome_gifts on these genomes
 genome_gifts1 <- genome_gifts[valid_genomes, ]
 genome_gifts1 <- genome_gifts1[, colSums(genome_gifts1 != 0) > 0]
 
-# 3. Funktionale Distanzmatrix berechnen
+# 3. Calculate functional distance matrix
 dist <- genome_gifts1 %>%
   to.elements(., GIFT_db) %>%
   traits2dist(., method = "gower")
 
-# 4. Genome bestimmen, die sowohl in genome_counts_filt_beta als auch in dist existieren
+# 4. Determine genomes that exist in both genome_counts_filt_beta and dist
 common_genomes <- intersect(
   genome_counts_filt_beta$genome,
   rownames(dist)
 )
 
-# 5. genome_counts_filt auf die gemeinsamen Genome filtern und sortieren
+# 5. genome_counts_filt to filter and sort the shared genomes
 genome_counts_filt_matched <- genome_counts_filt %>%
   column_to_rownames("genome") %>%
   filter(rownames(.) %in% common_genomes) %>%
   select_if(~!all(. == 0))  # optional: leere Spalten raus
 
-# 6. dist Matrix auf gemeinsame Genome beschränken und sortieren
+# 6. Limit and sort dist matrix to common genomes
 dist_matched <- dist[common_genomes, common_genomes]
 
-# 7. Jetzt korrekt hillpair aufrufen
+
 beta_q1f <- genome_counts_filt_matched %>%
   hillpair(q = 1, dist = dist_matched)
 
@@ -93,7 +94,7 @@ set.seed(2024)
 ### Permanova
 
 ```{r Funktion für PERMANOVA Analysen, comment="", message=FALSE, warning=FALSE}
-run_permanova_safe <- function(beta_matrix, metadata, sample_col = "sample", group_col, group_vars, pairwise = FALSE) {
+run_permanova <- function(beta_matrix, metadata, sample_col = "sample", group_col, group_vars, pairwise = FALSE) {
   
   # 1. Sample labels from Beta-Matrix
   sample_labels <- labels(beta_matrix$S)
@@ -148,11 +149,11 @@ run_permanova_safe <- function(beta_matrix, metadata, sample_col = "sample", gro
 ```{r permanova_richness, comment="", message=FALSE, warning=FALSE}
 
 run_permanova(
-  beta_matrix = beta_q0n,
+  beta_matrix = beta_q0n$S,
   metadata = sample_metadata_without_NA,
   sample_col = "sample",
   group_col = "broad_environment",
-  group_vars = c("broad_environment", "broad_environment:sex"),
+  group_vars = c("broad_environment","sex", "broad_environment:sex"),
   pairwise = FALSE
 )
 
@@ -166,8 +167,8 @@ run_permanova(
   metadata = sample_metadata_without_NA,
   sample_col = "sample",
   group_col = "broad_environment",
-  group_vars = c("broad_environment", "broad_environment:sex"),
-  pairwise = FALSE #Pairwise must be done still
+  group_vars = c("broad_environment","sex", "broad_environment:sex"),
+  pairwise = TRUE
 )
 ```
 
@@ -180,7 +181,7 @@ run_permanova(
   metadata = sample_metadata_without_NA,
   sample_col = "sample",
   group_col = "broad_environment",
-  group_vars = c("broad_environment", "broad_environment:sex"),
+  group_vars = c("broad_environment","sex", "broad_environment:sex"),
   pairwise = FALSE  # no pairwise comparisons here
 )
 ```
@@ -194,8 +195,8 @@ run_permanova(
   metadata = sample_metadata_without_NA,
   sample_col = "sample",
   group_col = "broad_environment",
-  group_vars = c("broad_environment", "broad_environment:sex"),
-  pairwise = FALSE # Pairwise must be done still   
+  group_vars = c("broad_environment","sex", "broad_environment:sex"),
+  pairwise = TRUE  
 )
 ```
 
