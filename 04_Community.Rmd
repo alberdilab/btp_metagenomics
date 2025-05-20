@@ -1,3 +1,4 @@
+
 # Community composition
 
 ## Gut microbiota
@@ -301,6 +302,7 @@ phylum_summary %>%
   select(phylum, Total, Cropland, Temperate_woodland, Mixed_forest, Xeric_shrubland)
 
 ```
+
 ```{r taxonomy_phylum_summary_sex, warning=FALSE, comments="", message=FALSE}
 phylum_summary %>%
   group_by(phylum) %>%
@@ -610,6 +612,7 @@ genome_metadata %>%
   summarize(Mag_nospecies = n())
 
 ```
+
 ```{r nonspe_phylum, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 total_mag_phylum <- genome_metadata %>%
   group_by(phylum) %>%
