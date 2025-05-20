@@ -1,14 +1,17 @@
 delete_merged_file: true
 
+book_filename: "Microbiome_Study"
 language:
   ui:
     chapter_name: "Chapter "
-
-rmd_files: [
-  "index.Rmd",
-  "01_prepare_data.Rmd",
-  "02_data_statistics.Rmd",
-  "03_MAGs_Catalouge.Rmd",
-  "04_Community.Rmd",
-  "05_Differential_abundance.Rmd"
-]
+rmd_files:
+  - index.Rmd
+  - 01_prepare_data.Rmd
+  - 02_data_statistics.Rmd
+  - 03_MAGs_Catalouge.Rmd
+  - 04_Community.Rmd
+  - 05_Differential_abundance.Rmd
+  - 06_Functional_diffrences.Rmd
+  - 07_microbiota_abundance_analysis_sex.Rmd
+  - 08_microbiota_functional_analysis.Rmd
+  - 09_Enviroment_types.Rmd
