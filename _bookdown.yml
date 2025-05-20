@@ -1,6 +1,4 @@
 delete_merged_file: true
-
-book_filename: "Microbiome_Study"
 language:
   ui:
     chapter_name: "Chapter "
