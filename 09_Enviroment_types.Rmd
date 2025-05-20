@@ -11,6 +11,8 @@ library(terra)
 library(exactextractr)
 ```
 
+
+
 # 1. sample points
 ```{r sample_points, warning=FALSE, comments="", message=FALSE}
 sample_points <- read.csv("sample_points.csv")

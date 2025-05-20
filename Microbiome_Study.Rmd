@@ -3428,3 +3428,479 @@ print(plt)
 
 <!--chapter:end:08_microbiota_functional_analysis.Rmd-->
 
+<<<<<<< HEAD
+=======
+#Enviromentypes
+
+##Landcover percentage
+
+# Load libraries
+
+# required libraries
+```{r load_libraries_enviroment, warning=FALSE, comments="", message=FALSE}      
+library(sf)
+library(terra)
+library(exactextractr)
+```
+
+
+# 1. sample points
+```{r sample_points, warning=FALSE, comments="", message=FALSE}
+sample_points <- read.csv("sample_points.csv")
+points_sf <- st_as_sf(sample_points, coords = c("longitude", "latitude"), crs = 4326)
+points_proj <- st_transform(points_sf, 28355)  # GDA94 / MGA Zone 55 — meters
+```
+# 2. 150-meter buffer zones
+```{r buffer_zones, warning=FALSE, comment="", message=FALSE, eval=FALSE}
+   buffers <- st_buffer(points_proj, dist = 150)
+
+landcover <- rast("Merged.tif")  # adjust if name differs
+landcover <- project(landcover, "EPSG:28355")  # match CRS to buffer layer
+
+extracted <- exact_extract(landcover, buffers)
+
+summary_list <- lapply(seq_along(extracted), function(i) {
+  df <- extracted[[i]]
+  agg <- aggregate(df$coverage_fraction, by = list(class = round(df$value)), sum)
+  colnames(agg) <- c("land_cover_class", "fraction")
+  agg$percent <- round(100 * agg$fraction / sum(agg$fraction), 2)
+  agg$id <- sample_points$id[i]
+  agg
+})
+```
+
+
+# 3. Combine buffer summaries with landcover classes
+```{r buffer_table, warning=FALSE, comments="", message=FALSE}
+result_df <- do.call(rbind, summary_list)
+
+# Load legend CSV
+legend <- read.csv("C:\\Users\\Lukas\\Documents\\GitHub\\btp_metagenomics\\Full_Legend_with_Simplified_Labels.csv")
+groupinglabels <- read.csv("C:/Users/Lukas/Documents/GitHub/btp_metagenomics/Detailed_Land_Cover_Groupings.csv")
+
+
+
+result_df <- result_df %>%
+  left_join(legend[, c("land_cover_class", "land_cover_description")], by = "land_cover_class")
+
+result_df <- result_df %>%
+  left_join(groupinglabels[, c("land_cover_description", "detailed_category_group")], by = "land_cover_description")
+
+
+```
+
+#4 Production of contious variabels  (TODO : Check for the NAs in the landcover - where do they come from)
+```{r continous variables, warning=FALSE, comments="", message=FALSE}
+
+# Remove rows with missing land_cover_description
+result_df_clean <- result_df %>%
+  filter(!is.na(land_cover_description))
+
+# Pivot to wide format using full land cover descriptions
+landcover_wide <- result_df_clean %>%
+  pivot_wider(
+    id_cols = id,
+    names_from = land_cover_description,
+    values_from = percent,
+    values_fill = list(percent = 0)
+  )
+
+# Make sure all percent columns are numeric
+landcover_wide <- landcover_wide %>%
+  mutate(across(-id, ~ as.numeric(unlist(.))))
+
+# Create continuous summary variables per buffer
+landcover_wide <- landcover_wide %>%
+  mutate(
+    Cultivated_Total          = rowSums(select(., starts_with("Cultivated"))),
+    Native_Terrestrial_Total  = rowSums(select(., starts_with("Natural Terrestrial Vegetated"))),
+    Native_Aquatic_Total      = rowSums(select(., starts_with("Natural Aquatic Vegetated"))),
+    Water      = rowSums(select(., starts_with("Water"))),
+    Bare_Urban                = rowSums(select(., starts_with("Natural Surface")), na.rm = TRUE)
+  )
+
+```
+
+#5 Visualisation
+```{r stackedbarplot, warning=FALSE, comments="", message=FALSE}
+
+# Set order of categories
+result_df$detailed_category_group <- factor(
+  result_df$detailed_category_group,
+  levels = c(
+    "Cultivated Vegetation - Woody",
+    "Cultivated Vegetation - Herbaceous",
+    "Natural Vegetation - Woody",
+    "Natural Vegetation - Herbaceous",
+    "Natural Vegetation - General",
+    "Natural Vegetation - Sparse",
+    "Bare Surface",
+    "Urban/Artificial",
+    "Aquatic Vegetation",
+    "Water",
+    "Other"
+  )
+)
+
+# Define colors (same order as above)
+group_colors <- c(
+  "Cultivated Vegetation - Woody"      = "#6a51a3",
+  "Cultivated Vegetation - Herbaceous" = "#9e9ac8",
+
+  "Natural Vegetation - Woody"         = "#006400",
+  "Natural Vegetation - Herbaceous"    = "#1b9e77",
+  "Natural Vegetation - Sparse"        = "#e6c229",  
+  "Natural Vegetation - General"       = "#b2df8a",
+
+  "Aquatic Vegetation"                 = "#41b6c4",
+  "Bare Surface"                       = "#e6ab02",
+  "Urban/Artificial"                   = "#757575",
+  "Water"                              = "#1f78b4",
+  "Other"                              = "#cccccc"
+)
+
+
+
+
+
+# Generate the plot
+p <- ggplot(result_df, aes(x = id, y = percent, fill = detailed_category_group)) +
+  geom_bar(stat = "identity", position = "stack", width = 0.8) +
+  scale_fill_manual(values = group_colors, na.value = "gray90") +
+  labs(
+    title = "Land Cover Composition per Sample",
+    x = "Sample ID",
+    y = "Land Cover (%)",
+    fill = "Land Cover Category"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+    legend.title = element_text(face = "bold"),
+    legend.text = element_text(size = 10),
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+    panel.grid.major.x = element_blank()
+  )
+
+print(p)
+
+# Save high-res output
+ggsave("land_cover_composition_per_sample.png", p, width = 12, height = 6, dpi = 300)
+
+```
+#Merging Metadata with Landcover
+
+
+
+# Join with landcover data by sample ID
+```{r fusing, warning=FALSE, comments="", message=FALSE}
+NaturalvsCultivated <- left_join(sample_metadata, landcover_wide, by = c("sample" = "id"))
+```
+
+
+```{r Cultivated_diversity, warning=FALSE, comments="", message=FALSE}
+ggplot(NaturalvsCultivated, aes(x = Cultivated_Total, y = diversity)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(title = "Microbiome Diversity vs. Cultivated Land")
+```
+
+```{r Native_diversity, warning=FALSE, comments="", message=FALSE}
+ggplot(NaturalvsCultivated, aes(x = Native_Terrestrial_Total, y = diversity)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(title = "Microbiome Diversity vs. Native_Land")
+```
+
+```{r Cultivated_diversity2, warning=FALSE, comments="", message=FALSE}
+ggplot(NaturalvsCultivated, aes(x = Bare_Urban, y = diversity)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(title = "Microbiome Diversity vs. Urban_Land")
+```
+
+```{r model_diversitys, warning=FALSE, comments="", message=FALSE}
+lm_mod <- lm(diversity ~ Cultivated_Total + Native_Terrestrial_Total + Bare_Urban, data = NaturalvsCultivated)
+summary(lm_mod)
+
+
+
+ggplot(NaturalvsCultivated, aes(x = broad_environment, y = diversity)) +
+  geom_boxplot() +
+  theme_minimal()
+```
+
+```{r model_diversitys_2, warning=FALSE, comments="", message=FALSE}
+NaturalvsCultivated$native_group <- cut(
+  NaturalvsCultivated$Native_Terrestrial_Total,
+  breaks = c(-1, 25, 75, 100),
+  labels = c("Low", "Medium", "High")
+)
+
+ggplot(NaturalvsCultivated, aes(x = native_group, y = diversity)) +
+  geom_boxplot(fill = "#1b9e77") +
+  theme_minimal() +
+  labs(title = "Diversity by Native Vegetation Group", x = "Native Cover Group", y = "Diversity")
+
+aov_model <- aov(diversity ~ native_group, data = NaturalvsCultivated)
+summary(aov_model)
+```
+
+```{r model_diversitys_3, warning=FALSE, comments="", message=FALSE}
+NaturalvsCultivated$native_group <- cut(
+  NaturalvsCultivated$Cultivated_Total,
+  breaks = c(-1, 25, 75, 100),
+  labels = c("Low", "Medium", "High")
+)
+
+ggplot(NaturalvsCultivated, aes(x = native_group, y = diversity)) +
+  geom_boxplot(fill = "#1b9e77") +
+  theme_minimal() +
+  labs(title = "Diversity by Native Vegetation Group", x = "Native Cover Group", y = "Diversity")
+
+aov_model <- aov(diversity ~ native_group, data = NaturalvsCultivated)
+summary(aov_model)
+```
+
+```{r continous_enviroment, warning=FALSE, comments="", message=FALSE}
+# Select only percent cover columns
+landcover_numeric <- landcover_wide %>%
+  select(Cultivated_Total, Native_Terrestrial_Total, Native_Aquatic_Total, Bare_Urban, Water) %>%
+  na.omit()  # Ensure no NAs
+
+# Standardize (mean = 0, sd = 1) before PCA
+landcover_scaled <- scale(landcover_numeric)
+
+# Run PCA
+pca_result <- prcomp(landcover_scaled)
+
+# Inspect variance explained
+summary(pca_result)
+
+# Add first PC (environmental gradient) to landcover data
+landcover_wide$EnvGradient_PC1 <- pca_result$x[, 1]
+```
+
+```{r continous_enviroment_2, warning=FALSE, comments="", message=FALSE}
+
+# Merge PCA-derived gradient to microbiome data
+NaturalvsCultivated <- left_join(sample_metadata, landcover_wide, by = c("sample" = "id"))
+
+
+ggplot(NaturalvsCultivated, aes(x = EnvGradient_PC1, y = diversity)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(title = "Microbiome Diversity vs. Environmental Gradient (PC1)",
+       x = "Environmental Gradient (PC1)",
+       y = "Diversity") +
+  theme_minimal()
+```
+```{r continous_woody_herbacous, warning=FALSE, comments="", message=FALSE}
+
+# === 1. Define column groups ===
+
+# Columns that represent woody vegetation cover
+woody_cols <- c(
+  "Natural Terrestrial Vegetated: Woody Closed (> 65 %)",
+  "Natural Terrestrial Vegetated: Woody Open (40 to 65 %)",
+  "Natural Terrestrial Vegetated: Woody Sparse (4 to 15 %)",
+  "Natural Terrestrial Vegetated: Woody Scattered (1 to 4 %)"
+)
+
+# Columns that represent herbaceous vegetation cover
+herbaceous_cols <- c(
+  "Natural Terrestrial Vegetated: Herbaceous Closed (> 65 %)",
+  "Natural Terrestrial Vegetated: Herbaceous Open (40 to 65 %)",
+  "Natural Terrestrial Vegetated: Herbaceous Open (15 to 40 %)",
+  "Natural Terrestrial Vegetated: Herbaceous Sparse (4 to 15 %)",
+  "Natural Terrestrial Vegetated: Herbaceous Scattered (1 to 4 %)"
+)
+
+# === 2. Create gradients with PCA ===
+
+# Scale and run PCA for woody
+woody_pca <- prcomp(landcover_wide[, woody_cols], center = TRUE, scale. = TRUE)
+landcover_wide$Woody_Gradient_PC1 <- woody_pca$x[, 1]
+
+# Scale and run PCA for herbaceous
+herb_pca <- prcomp(landcover_wide[, herbaceous_cols], center = TRUE, scale. = TRUE)
+landcover_wide$Herbaceous_Gradient_PC1 <- herb_pca$x[, 1]
+
+# === 3. View summary or write out ===
+summary(woody_pca)
+summary(herb_pca)
+
+# Optional: write to CSV for merging later
+write.csv(landcover_wide[, c("id", "Woody_Gradient_PC1", "Herbaceous_Gradient_PC1")],
+          "environmental_gradients.csv", row.names = FALSE)
+```
+
+
+```{r weigthed_cover, warning=FALSE, comments="", message=FALSE}
+
+# Add estimated % cover per class
+landcover_wide_weighted <- landcover_wide %>%
+  mutate(
+    Woody_Cover = 
+      `Natural Terrestrial Vegetated: Woody Closed (> 65 %)`       * 0.85 +
+      `Natural Terrestrial Vegetated: Woody Open (40 to 65 %)`     * 0.525 +
+      `Natural Terrestrial Vegetated: Woody Sparse (4 to 15 %)`    * 0.095 +
+      `Natural Terrestrial Vegetated: Woody Scattered (1 to 4 %)`  * 0.025,
+
+    Herbaceous_Cover = 
+      `Natural Terrestrial Vegetated: Herbaceous Closed (> 65 %)`       * 0.85 +
+      `Natural Terrestrial Vegetated: Herbaceous Open (40 to 65 %)`     * 0.525 +
+      `Natural Terrestrial Vegetated: Herbaceous Open (15 to 40 %)`     * 0.275 +
+      `Natural Terrestrial Vegetated: Herbaceous Sparse (4 to 15 %)`    * 0.095 +
+      `Natural Terrestrial Vegetated: Herbaceous Scattered (1 to 4 %)`  * 0.025
+  )
+
+
+```
+
+```{r true_cover_fuse, warning=FALSE, comments="", message=FALSE}
+weigthed_continues <-left_join(sample_metadata, landcover_wide_weighted, by = c("sample" = "id"))
+```
+                                 
+```{r true_cover_woddy, warning=FALSE, comments="", message=FALSE}                                 
+ggplot(weigthed_continues, aes(x = Woody_Cover, y = diversity)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(x = "Estimated Woody Cover (%)", y = "Microbiome Diversity")
+```
+```{r true%_cover_c_woody, warning=FALSE, comments="", message=FALSE, eval = FALSE}                                 
+ggplot(weigthed_continues, aes(x = Woody_Cover, y = C)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(x = "Estimated Woody Cover (%)", y = "Microbiome Diversity")
+```
+
+```{r true%_cover_herbaceous, warning=FALSE, comments="", message=FALSE}                                 
+ggplot(weigthed_continues, aes(x = Herbaceous_Cover, y = diversity)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(x = "Estimated Herbaceous Cover (%)", y = "Microbiome Diversity")
+```
+
+```{r true%_cover_c_herbaceous, warning=FALSE, comments="", message=FALSE}                                 
+ggplot(weigthed_continues, aes(x = Herbaceous_Cover, y = C)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(x = "Estimated Herbaceous Cover (%)", y = "Microbiome Diversity")
+```
+
+
+```{r true%_cover_div, warning=FALSE, comments="", message=FALSE}  
+
+weigthed_continues$Total_Veg_Cover <- weigthed_continues$Woody_Cover + weigthed_continues$Herbaceous_Cover
+
+ggplot(weigthed_continues, aes(x = Total_Veg_Cover, y = diversity)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(x = "Total Vegetative Cover (%)", y = "Microbiome Diversity") +
+  theme_minimal()
+```
+
+```{r true%_cover_c, warning=FALSE, comments="", message=FALSE}  
+
+ggplot(weigthed_continues, aes(x = Total_Veg_Cover, y = C)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(x = "Total Vegetative Cover (%)", y = "Microbiome Diversity") +
+  theme_minimal()
+```
+
+```{r true%_cover_regression_div, warning=FALSE, comments="", message=FALSE}  
+model <- lm(diversity ~ Woody_Cover + Herbaceous_Cover, data = weigthed_continues)
+summary(model)
+```
+
+```{r true%_cover_regression_c, warning=FALSE, comments="", message=FALSE}  
+model <- lm(C ~ Woody_Cover + Herbaceous_Cover, data = weigthed_continues)
+summary(model)
+```
+```{r genom_count_vegcover, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+# Prep genome counts
+genome_counts_filt <- genome_counts_filt[genome_counts_filt$genome %in% rownames(genome_gifts),] 
+rownames(genome_counts_filt) <- NULL
+```
+
+```{r gift2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+# Aggregate GIFTs
+GIFTs_elements <- to.elements(genome_gifts, GIFT_db)
+GIFTs_elements_filtered <- GIFTs_elements[rownames(GIFTs_elements) %in% genome_counts_filt$genome, ] %>% 
+  select_if(~ !is.numeric(.) || sum(.) != 0)
+
+GIFTs_functions <- to.functions(GIFTs_elements_filtered, GIFT_db)
+GIFTs_domains   <- to.domains(GIFTs_functions, GIFT_db)
+
+# Community-weighted GIFTs
+genome_counts_row <- genome_counts_filt %>%
+  mutate_at(vars(-genome), ~ ./sum(.)) %>% 
+  column_to_rownames("genome")
+
+GIFTs_elements_community   <- to.community(GIFTs_elements_filtered, genome_counts_row, GIFT_db)
+GIFTs_functions_community  <- to.community(GIFTs_functions, genome_counts_row, GIFT_db)
+GIFTs_domains_community    <- to.community(GIFTs_domains, genome_counts_row, GIFT_db)
+```
+
+## Functional variation by Vegetational Gradient
+
+```{r linear_models_gradient, echo=TRUE, results=TRUE, warning=FALSE, message=FALSE, eval = FALSE}
+# Linear models per function using Total_Veg_Cover as predictor
+lm_results <- apply(GIFTs_functions_community, 1, function(func) {
+  summary(lm(func ~ sample_metadata$Total_Veg_Cover))$coefficients[2, ]
+})
+
+# Structure results
+lm_df <- as.data.frame(t(lm_results))
+colnames(lm_df) <- c("Estimate", "StdError", "t_value", "p_value")
+
+# Sort by significance
+lm_df <- lm_df %>% arrange(p_value)
+
+# View top hits
+head(lm_df)
+```
+
+```{r visualize_significant_functions, echo=TRUE, warning=FALSE, message=FALSE, eval = FALSE}
+# Plot top functions
+library(ggplot2)
+lm_df$Function <- rownames(lm_df)
+top_hits <- lm_df %>% filter(p_value < 0.05) %>% head(10)
+
+ggplot(top_hits, aes(x = reorder(Function, Estimate), y = Estimate)) +
+  geom_col(fill = "#6a51a3") +
+  coord_flip() +
+  labs(title = "Top Functional Shifts by Vegetation Gradient",
+       x = "Functional Category", y = "Effect Size (Estimate)") +
+  theme_minimal()
+```
+
+```{r heatmap_significant_functions, echo=TRUE, warning=FALSE, message=FALSE, eval = FALSE}
+# Heatmap of significant functions
+library(pheatmap)
+
+sig_functions <- rownames(lm_df)[lm_df$p_value < 0.05]
+heat_data <- GIFTs_functions_community[sig_functions, ]
+
+# Scale across samples for visualization
+heat_data_scaled <- t(scale(t(heat_data)))
+
+pheatmap(heat_data_scaled,
+         main = "Heatmap of Significant Functional Shifts",
+         cluster_rows = TRUE,
+         cluster_cols = TRUE,
+         fontsize_row = 8,
+         fontsize_col = 6)
+```
+
+
+```{r ancom_save2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+save(weigthed_continues, Total_Veg_Cover, landcover_wide_weighted
+     file="data/vegcover.Rdata")
+```
+
+<!--chapter:end:09_Enviroment_types.Rmd-->
+
+>>>>>>> a7c96fe6d635888e560eb275d130bc59f8aba232
