@@ -145,14 +145,14 @@ GIFTs_domains_community %>%
 element_gift <- GIFTs_elements_community %>% 
   as.data.frame() %>% 
   rownames_to_column(., "sample") %>% 
-  left_join(., sample_metadata[c(1,13)], by=join_by("sample"=="sample"))
+  left_join(sample_metadata %>% select(sample,sex, broad_environment), by=join_by("sample"=="sample"))
 ```
 
-```{r commun_wilcox_elem, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+```{r commun_wilcox_elem, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
 uniqueGIFT_db<- unique(GIFT_db[c(2,4,5,6)]) %>% unite("Function",Function:Element, sep= "_", remove=FALSE)
 
 significant_elements <- element_gift %>%
-    pivot_longer(-c(sample,sex), names_to = "trait", values_to = "value") %>%
+    pivot_longer(-c(sample,sex, broad_environment), names_to = "trait", values_to = "value") %>%
     group_by(trait) %>%
     summarise(p_value = wilcox.test(value ~ sex)$p.value) %>%
     mutate(p_adjust=p.adjust(p_value, method="BH")) %>%
@@ -171,13 +171,14 @@ element_gift_filt <- subset(element_gift_t, trait %in% significant_elements$trai
   t() %>%
   row_to_names(row_number = 1) %>%
   as.data.frame() %>%
-  mutate_if(is.character, as.numeric)  %>%
-  rownames_to_column(., "sample")%>% 
-  left_join(., sample_metadata[c(1,13)], by = join_by(sample == sample))
+  mutate_if(is.character, as.numeric) %>%
+  rownames_to_column(., "sample") %>%
+  left_join(sample_metadata %>% select(sample, sex, broad_environment), by = join_by(sample == sample)) %>%
+  filter(!is.na(sex)) 
 
 element_gift_filt %>%
-  select(-sample)%>%
-  group_by(sex)  %>%
+  select(-c(sample,broad_environment))%>%
+  group_by(sex) %>%
   summarise(across(everything(), mean))%>%
    t() %>%
   row_to_names(row_number = 1) %>%
@@ -195,15 +196,16 @@ difference_table <- element_gift_filt %>%
   as.data.frame() %>%
   mutate_if(is.character, as.numeric) %>%
   rownames_to_column(., "Elements") %>%
-  left_join(.,uniqueGIFT_db[c(1,3,4)],by = join_by(Elements == Code_element)) %>% 
+    left_join(.,uniqueGIFT_db[c(1,3,4)],by = join_by(Elements == Code_element)) %>% 
   arrange(Function) %>% 
   mutate(Difference=Female-Male)%>% 
   mutate(group_color = ifelse(Difference <0, "Male","Female")) 
+
 ```
 
 ```{r log_fold_calc, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 means_gift <- element_gift_filt %>% 
-  select(-sex) %>% 
+  select(-c(sex,broad_environment)) %>% 
   pivot_longer(!sample, names_to = "elements", values_to = "abundance") %>% 
   left_join(sample_metadata, by=join_by(sample==sample)) %>% 
   group_by(sex, elements) %>%
@@ -216,9 +218,9 @@ log_fold <- means_gift %>%
     )
 ```
 
-```{r elements_plot, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+```{r elements_plot, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
 element_gift_names <- element_gift_filt%>%
-  select(-sex)%>%
+  select(-c(sex,broad_environment)) %>%
    t() %>%
   row_to_names(row_number = 1) %>%
   as.data.frame() %>%
@@ -232,10 +234,11 @@ element_gift_names <- element_gift_filt%>%
   as.data.frame() %>%
   mutate_if(is.character, as.numeric)  %>%
   rownames_to_column(., "sample")%>% 
-  left_join(., sample_metadata[c(1,13)], by = join_by(sample == sample))
+  left_join(sample_metadata %>% select(sample,sex,broad_environment), by = join_by(sample == sample))
 
 
-colNames <- names(element_gift_names)[2:29]
+
+colNames <- names(element_gift_names %>% select(-c(sample,sex,broad_environment)))
 for(i in colNames){
   plt <- ggplot(element_gift_names, aes(x=sex, y=.data[[i]], color = sex, fill=sex)) +
     geom_boxplot(alpha = 0.2, outlier.shape = NA, width = 0.3, show.legend = FALSE) +
@@ -251,7 +254,7 @@ for(i in colNames){
 print(plt)
 }
 ```
-```{r commun_wilcox_elem_plot, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=6, fig.width=12, fig.fullwidth=TRUE, eval=FALSE}
+```{r commun_wilcox_elem_plot_gut, comment="", message=FALSE, warning=FALSE, fig.height=6, fig.width=12, fig.fullwidth=TRUE, eval=FALSE}
 difference_table %>%
   ggplot(aes(x=forcats::fct_reorder(Function,Difference), y=Difference, fill=group_color)) + 
   geom_col() +
@@ -269,6 +272,8 @@ difference_table %>%
   ylab("Mean difference")+
   labs(fill="Elevation")
 ```
+
+
 ```{r plot3, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=8, fig.width=14, fig.fullwidth=TRUE}
 
 uniqueGIFT <- unique(GIFT_db[c(2,3,4,5,6)])
@@ -300,27 +305,27 @@ code_function %>%
 
 ### Community functions differences
 
-```{r comunity_func, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+```{r comunity_func_gut, comment="", message=FALSE, warning=FALSE}
 function_gift <- GIFTs_functions_community %>% 
   as.data.frame() %>% 
   rownames_to_column(., "sample") %>% 
-  merge(., sample_metadata[c(1,13)], by="sample")
+  merge(., sample_metadata %>% select(sample,sex,broad_environment), by="sample")
 ```
 
-```{r commun_wilcox_func, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+```{r commun_wilcox_func_gut, comment="", message=FALSE, warning=FALSE, eval = FALSE}
 unique_funct_db<- GIFT_db[c(3,4,5)] %>% 
   distinct(Code_function, .keep_all = TRUE)
 
 significant_functional <- function_gift %>%
-    pivot_longer(-c(sample,sex), names_to = "trait", values_to = "value") %>%
+    pivot_longer(-c(sample,sex,broad_environment), names_to = "trait", values_to = "value") %>%
     group_by(trait) %>%
     summarise(p_value = wilcox.test(value ~ sex)$p.value) %>%
     mutate(p_adjust=p.adjust(p_value, method="BH")) %>%
     filter(p_adjust < 0.05)%>%
   left_join(.,unique_funct_db[c(1,3)],by = join_by(trait == Code_function))
-
 ```
-```{r  function_sig, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+
+```{r  function_sig_gut, comment="", message=FALSE, warning=FALSE, eval=FALSE}
 function_gift_t <- function_gift  %>% 
   select(-sex)  %>% 
   t() %>%
@@ -335,24 +340,24 @@ function_gift_filt <- subset(function_gift_t, trait %in% significant_functional$
   as.data.frame() %>%
   mutate_if(is.character, as.numeric)  %>%
   rownames_to_column(., "sample")%>% 
-  left_join(., sample_metadata[c(1,13)], by = join_by(sample == sample))
-
+  left_join(., sample_metadata %>% select(sample,sex,broad_environment), by = join_by(sample == sample)) %>%
+  filter(!is.na(sex))
 
 function_gift_filt %>%
-  select(-sample)%>%
+  select(-c(sample,broad_environment)) %>%
   group_by(sex)  %>%
   summarise(across(everything(), mean))%>%
-   t() %>%
+  t() %>%
   row_to_names(row_number = 1) %>%
   as.data.frame() %>%
   mutate_if(is.character, as.numeric)  %>%
   rownames_to_column(., "Code_function")  %>%
-  left_join(.,unique_funct_db[c(1,3)],by = join_by(Code_function == Code_function))
+  left_join(unique_funct_db[c(1,3)],by = join_by(Code_function == Code_function))
 ```
 
-```{r function_plot, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+```{r function_plot_gut, comment="", message=FALSE, warning=FALSE, eval = FALSE}
 function_gift_names <- function_gift_filt%>%
-  select(-sex)%>%
+  select(-c(sex,broad_environment)) %>%
    t() %>%
   row_to_names(row_number = 1) %>%
   as.data.frame() %>%
@@ -366,10 +371,10 @@ function_gift_names <- function_gift_filt%>%
   as.data.frame() %>%
   mutate_if(is.character, as.numeric)  %>%
   rownames_to_column(., "sample")%>% 
-  left_join(., sample_metadata[c(1,13)], by = join_by(sample == sample))
+  left_join(sample_metadata %>% select(sample,sex,broad_environment), by = join_by(sample == sample))
 
 
-colNames <- names(function_gift_names)[2:4]
+colNames <- names(function_gift_names)[2]
 for(i in colNames){
   plt <- ggplot(function_gift_names, aes(x=sex, y=.data[[i]], color = sex, fill=sex)) +
     geom_boxplot(alpha = 0.2, outlier.shape = NA, width = 0.3, show.legend = FALSE) +
@@ -388,26 +393,26 @@ print(plt)
 
 ### Community domains differences
 
-```{r comunity_dom, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+```{r comunity_dom_gut, comment="", message=FALSE, warning=FALSE}
 domain_gift <- GIFTs_domains_community %>% 
   as.data.frame() %>% 
   rownames_to_column(., "sample") %>% 
-  merge(., sample_metadata[c(1,13)], by="sample")
+  merge(sample_metadata %>% select(sample,sex,broad_environment), by="sample")
 ```
 
-```{r commun_wilcox_dom, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+```{r commun_wilcox_dom_gut, comment="", message=FALSE, warning=FALSE}
 unique_domain_db<- GIFT_db[c(4)] %>% 
   distinct(Domain, .keep_all = TRUE)
 
 significant_domain <- domain_gift %>%
-    pivot_longer(-c(sample,sex), names_to = "trait", values_to = "value") %>%
+    pivot_longer(-c(sample,sex,broad_environment), names_to = "trait", values_to = "value") %>%
     group_by(trait) %>%
     summarise(p_value = wilcox.test(value ~ sex)$p.value) %>%
     mutate(p_adjust=p.adjust(p_value, method="BH")) %>%
     filter(p_adjust < 0.05)
 ```
 
-```{r  domain_sig, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+```{r  domain_sig, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
 domain_gift_t <- domain_gift  %>% 
   select(-sex)  %>% 
   t() %>%
@@ -420,11 +425,12 @@ domain_gift_filt <- subset(domain_gift_t, trait %in% significant_domain$trait) %
   t() %>%
   row_to_names(row_number = 1) %>%
   as.data.frame() %>%
-  mutate_if(is.character, as.numeric)  %>%
-  rownames_to_column(., "sample")%>% 
-  left_join(., sample_metadata[c(1,13)], by = join_by(sample == sample))
+  mutate_if(is.character, as.numeric) %>%
+  rownames_to_column(., "sample") %>%
+  left_join(sample_metadata[c("sample", "sex", "broad_environment")], by = join_by(sample == sample)) %>%
+  filter(!is.na(sex))
 
-
+  
 domain_gift_filt %>%
   select(-sample)%>%
   group_by(sex)  %>%
@@ -434,9 +440,10 @@ domain_gift_filt %>%
   as.data.frame() %>%
   mutate_if(is.character, as.numeric)  %>%
   rownames_to_column(., "Code_domain")
+
 ```
 
-```{r domain_plot, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+```{r domain_plot, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
 domain_gift_names <- domain_gift_filt%>%
   select(-sex)%>%
    t() %>%
@@ -451,7 +458,7 @@ domain_gift_names <- domain_gift_filt%>%
   as.data.frame() %>%
   mutate_if(is.character, as.numeric)  %>%
   rownames_to_column(., "sample")%>% 
-  left_join(., sample_metadata[c(1,13)], by = join_by(sample == sample))
+  left_join(., sample_metadata[c("sample", "sex", "broad_environment")], by = join_by(sample == sample))
 
 
 colNames <- names(domain_gift_names)[2:3]

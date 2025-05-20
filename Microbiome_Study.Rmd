@@ -1,14 +1,20 @@
-# Inline Annotated R Markdown: index_Inline_Annotated
+---
+title: "AlberdiLab | Fix et al 2025"
+subtitle: "Brush-tail possum metagenomics"
+author:
+  - Lukas Fix, Antton Alberdi, Raphael Eisenhofer 
+date: "Last update: `r Sys.Date()`"
+site: bookdown::bookdown_site
+documentclass: book
+bibliography: [book.bib, packages.bib]
+url: https://alberdilab.github.io/calotriton_metagenomics
+description: |
+  Data analysis code for the study on the gut microbiomes of brushtail possums in tasmania.
+link-citations: yes
+github-repo: https://github.com/alberdilab/btp_metagenomics.git
+---
 
-## Code Chunk 1
-```{r}
-knitr::opts_chunk$set(
-    class.source = "script-source",
-    class.output = "script-output",
-    comment = NA)
-```
-
-## Code Chunk 2
+## Libaries 
 ```{r}
 # Base
 library(R.utils)
@@ -33,6 +39,7 @@ library(gridExtra)
 library(ggtreeExtra)
 library(ggtree)
 library(ggh4x)
+library(GGally)
 
 # For statistics
 library(spaa)
@@ -42,13 +49,16 @@ library(geiger)
 library(hilldiv2)
 library(distillR)
 library(broom.mixed)
+library(emmeans)
+library(vegan)
 #library(lmerTest)
 library(Hmsc)
 library(corrplot)
 library(lme4)
 library(nlme)
 library(ANCOMBC)
-#for geogrphic visualisation
+
+#map visualtisation
 library(rnaturalearth)
 library(rnaturalearthdata)
 library(patchwork)
@@ -57,31 +67,35 @@ library(patchwork)
 
 <!--chapter:end:index.Rmd-->
 
-# Inline Annotated R Markdown: 01_prepare_data_Inline_Annotated
 
-## Code Chunk 1
-```{r}
-sample_metadata <- read_excel("~/btp_metagenomics/data/Merged_Metadata.xlsx") %>%
+## Load data
+
+Load the original data files outputted by the bioinformatic pipeline.
+
+### Sample metadata
+
+```{r load_sample_metadata, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+sample_metadata <- read_tsv("data/merged_metadata.tsv") %>%
     rename(sample=1)
 ```
 
-## Code Chunk 2
-```{r}
+## load_read_counts
+```{r load_read_counts, warning=FALSE, comments="", message=FALSE}
 read_counts <- read_tsv("data/DMB0167_counts.tsv.gz") %>%
     rename(genome=1) %>% 
     select(one_of(c("genome",sample_metadata$sample)))  # Select specific columns from the data
 ```
 
-## Code Chunk 3
-```{r}
+## load_genome_metadata
+```{r load_genome_metadata, warning=FALSE, comments="", message=FALSE}
 genome_metadata <- read_tsv("data/DMB0167_mag_info.tsv.gz") %>%
     rename(length=mag_size)%>%
   semi_join(., read_counts, by = "genome") %>% 
   arrange(match(genome,read_counts$genome))
 ```
 
-## Code Chunk 4
-```{r}
+##  Genome base hits
+```{r load_genome_hits, warning=FALSE, comments="", message=FALSE}
 genome_coverage <- read_tsv("data/DMB0167_coverage.tsv.gz") %>%
     rename(genome=1) %>% 
     select(one_of(c("genome",sample_metadata$sample)))%>%   # Select specific columns from the data
@@ -89,132 +103,83 @@ genome_coverage <- read_tsv("data/DMB0167_coverage.tsv.gz") %>%
   arrange(match(genome, read_counts$genome))
 ```
 
-## Code Chunk 5
-```{r}
+## Genome tree
+```{r load_genome_tree, warning=FALSE, comments="", message=FALSE}
 genome_tree <- read_tree("data/DMB0167.tree.gz")
 genome_tree$tip.label <- str_replace_all(genome_tree$tip.label,"'", "") #remove single quotes in MAG names
 genome_tree <- keep.tip(genome_tree, tip=genome_metadata$genome) # keep only MAG tips
 ```
 
-## Code Chunk 6
-```{r}
-library(rairtable)
-Sys.setenv(AIRTABLE_API_KEY = "patmRpNHp5cMxwd8y.ac9b4c3710ad0a2ab334ec3ffa971fb97834f96d0244640f0cedacf0f1d44e22")
-##
+## Genome annotations
+Downloading individual annotation files from ERDA using information in Airtable and writing them to a single compressed table takes a while. The following chunk only needs to be run once, to generate the ***genome_annotations*** table that is saved in the data directory. Note that the airtable connection requires a personal access token.
+
+```{r download_genome_annotations, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+airtable("MAGs", "appWbHBNLE6iAsMRV") %>% #get base ID from Airtable browser URL
+  read_airtable(., fields = c("ID","mag_name","number_genes","anno_url"), id_to_col = TRUE) %>% #get 3 columns from MAGs table
+  filter(mag_name %in% paste0(genome_metadata$genome,".fa")) %>% #filter by MAG name
+  filter(number_genes > 0) %>% #genes need to exist
+  select(anno_url) %>% #list MAG annotation urls
+  pull() %>%
+  read_tsv() %>% #load all tables
+  rename(gene=1, genome=2, contig=3) %>% #rename first 3 columns
+  write_tsv(file="data/genome_annotations.tsv.xz") #write to overall compressed file
 ```
 
-## Code Chunk 7
-```{r}
-# STEP 1: Get annotation URLs from Airtable
-anno_urls <- airtable(
-  base = "appWbHBNLE6iAsMRV",
-  table = "tblMzd3oyaJhdeQcs",
-  view = "viwx4daClBXQW02LB"
-) %>%
-  read_airtable(fields = c("ID", "mag_name", "number_genes", "anno_url"), id_to_col = TRUE) %>%
-  filter(  # Filter the data to include only rows that meet certain conditions
-    mag_name %in% paste0(genome_metadata$genome, ".fa"),
-    number_genes > 0,
-    !is.na(anno_url),
-    anno_url != ""
-  ) %>%
-  pull(anno_url)
 
-# STEP 2: Download and merge annotations with explicit column names
-successful_data <- list()
-successful_urls <- c()
-failed_urls <- c()
-
-if (length(anno_urls) > 0) {
-  walk(anno_urls, function(url) {
-    tryCatch({
-      df <- suppressMessages(read_tsv(
-        url,
-        col_types = cols(),
-        col_names = c("gene", "genome", "contig"),
-        skip = 0  # change to 1 if you want to skip header row
-      ))
-
-      # Keep only the first 3 columns (ignore extras)
-      df <- df[, 1:3]
-
-      successful_data <<- append(successful_data, list(df))
-      successful_urls <<- c(successful_urls, url)
-    }, error = function(e) {
-      message("❌ Failed to read: ", url)
-      failed_urls <<- c(failed_urls, url)
-    })
-  })
-
-  # Save merged data
-  if (length(successful_data) > 0) {
-    bind_rows(successful_data) %>%
-      write_tsv("data/genome_annotations.tsv.xz")
-    message("✅ Merged annotations saved to data/genome_annotations.tsv.xz")
-  } else {
-    message("⚠️ No data was successfully read.")
-  }
-
-  # Save logs
-  if (length(successful_urls) > 0) {
-    write_lines(successful_urls, "data/successful_annotation_urls.txt")
-  }
-  if (length(failed_urls) > 0) {
-    write_lines(failed_urls, "data/failed_annotation_urls.txt")
-  }
-
-} else {
-  message("⚠️ No valid annotation URLs found.")
-}
-
-#
+```{r load_genome_annotations, warning=FALSE, comments="", message=FALSE}
+genome_annotations <- read_tsv("data/genome_annotations.tsv.xz") %>%
+    rename(gene=1, genome=2, contig=3)
 ```
 
-## Code Chunk 8
-```{r}
+## Filter reads by coverage
+```{r filter_coverage, warning=FALSE, comments="", message=FALSE}
 min_coverage=0.3
 read_counts_filt <- genome_coverage %>%
   mutate(across(where(is.numeric), ~ ifelse(. > min_coverage, 1, 0))) %>%  # Add or modify columns in the dataset
   mutate(across(-1, ~ . * read_counts[[cur_column()]]))  # Add or modify columns in the dataset
 ```
 
-## Code Chunk 9
-```{r}
+## Transform reads into genome counts
+```{r calculate_genome_counts_unfiltered, warning=FALSE, comments="", message=FALSE}
 readlength=150
 genome_counts <- read_counts %>%
   mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))  # Add or modify columns in the dataset
 ```
 
-## Code Chunk 10
-```{r}
+```{r calculate_genome_counts_filtered_gut, warning=FALSE, comments="", message=FALSE}
 readlength=150
 genome_counts_filt <- read_counts_filt %>%
   mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))  # Add or modify columns in the dataset
 ```
 
-## Code Chunk 11
-```{r}
-genome_gifts <- distill(genome_annotations,GIFT_db,genomecol=2,annotcol=c(9,10,19), verbosity=F)
+### Distill annotations into GIFTs 
+
+```{r distill_annotations, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+ genome_gifts <- distill(genome_annotations,GIFT_db,genomecol=2,annotcol=c(9,10,19), verbosity=F)
 ```
 
-## Code Chunk 12
-```{r}
+
+## Prepare color scheme
+```{r get_ehi_colors, warning=FALSE, comments="", message=FALSE}
 phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
     right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
     arrange(match(genome, genome_tree$tip.label)) %>%
-    select(phylum, colors) %>%   # Select specific columns from the data
+    select(phylum, colors) %>%
     unique() %>%
     arrange(phylum) %>%
     pull(colors, name=phylum)
 ```
 
-## Code Chunk 13
-```{r}
-save(sample_metadata, 
-     genome_metadata, 
-     read_counts, 
-     genome_counts, 
-     genome_counts_filt, 
+## Wrap working objects
+
+All working objects are wrapped into a single Rdata object to facilitate downstream usage.
+
+```{r wrap_working_objects, warning=FALSE, comments="", message=FALSE}
+save(sample_metadata,
+     genome_metadata,
+     read_counts,
+     genome_counts,
+     genome_counts_filt,
      genome_tree,
      genome_gifts,
      phylum_colors,
@@ -224,15 +189,17 @@ save(sample_metadata,
 
 <!--chapter:end:01_prepare_data.Rmd-->
 
-# Inline Annotated R Markdown: 02_data_statistics_Inline_Annotated
+# Data statistics
 
-## Code Chunk 1
-```{r}
-load("data/data.Rdata")  # Load an RData file with variables and datasets
+```{r load_data_stats}
+load("data/data.Rdata")
 ```
 
-## Code Chunk 2
-```{r}
+#Visualisation of geographical location of samples and their respectiv envirotypes
+
+## Filter Data
+
+```{r filter_data}
 # Define extended boundary to include all possum data points
 lat_min <- -45.0  # Slightly smaller than -42.93
 lat_max <- -28.0  # Slightly larger than -30.65
@@ -241,33 +208,36 @@ lon_max <- 150.0  # Slightly larger than 148.28
 
 # Full dataset with all points (Tasmania & Australia border)
 full_possums <- sample_metadata %>%
-  filter(latitude >= lat_min & latitude <= lat_max,   # Filter the data to include only rows that meet certain conditions
+  filter(latitude >= lat_min & latitude <= lat_max, 
          longitude >= lon_min & longitude <= lon_max)
 
 # Filter for Tasmania only
 tasmania_possums <- full_possums %>%
-  filter(latitude < -38 & latitude > -45,  # Tasmania lat range  # Filter the data to include only rows that meet certain conditions
+  filter(latitude < -38 & latitude > -45,  # Tasmania lat range
          longitude > 140 & longitude < 150)  # Tasmania lon range
 
 # Aggregate possum count per location
 full_possums_count <- full_possums %>%
-  group_by(latitude, longitude, broad.scale.environmental.context) %>%  # Group the data by one or more variables
-  summarise(count = n(), .groups = "drop")  # Summarize grouped data (e.g., calculate averages)
+  group_by(latitude, longitude, broad_environment) %>%
+  summarise(count = n(), .groups = "drop")
 
 tasmania_possums_count <- tasmania_possums %>%
-  group_by(latitude, longitude, broad.scale.environmental.context) %>%  # Group the data by one or more variables
-  summarise(count = n(), .groups = "drop")  # Summarize grouped data (e.g., calculate averages)
+  group_by(latitude, longitude, broad_environment) %>%
+  summarise(count = n(), .groups = "drop")
 ```
 
-## Code Chunk 3
-```{r}
+## Load Map
+
+```{r load_map}
 # Load world map
 australia_map <- ne_countries(scale = "medium", returnclass = "sf") %>%
-  filter(admin == "Australia")  # Filter the data to include only rows that meet certain conditions
+  filter(admin == "Australia")
 ```
 
-## Code Chunk 4
-```{r}
+## Plot Possum Locations
+
+```{r plot_maps, warning=FALSE, message=FALSE}
+
 # Get Tasmania data range to set zoom
 lat_range <- range(tasmania_possums$latitude, na.rm = TRUE)
 lon_range <- range(tasmania_possums$longitude, na.rm = TRUE)
@@ -277,38 +247,36 @@ total_full <- sum(full_possums_count$count)
 total_tasmania <- sum(tasmania_possums_count$count)
 
 # Plot 1: Full Dataset (Including Border Data)
-map_plot_full <- ggplot() +  # Begin plotting using ggplot2
-  geom_sf(data = australia_map, fill = "lightgray", color = "black") +  # Base map  # Add a specific type of plot layer (bars, points, lines, etc.)
-  geom_point(data = full_possums_count, aes(x = longitude, y = latitude,   # Add a specific type of plot layer (bars, points, lines, etc.)
-                                            color = broad.scale.environmental.context, size = count), 
+map_plot_full <- ggplot() +
+  geom_sf(data = australia_map, fill = "lightgray", color = "black") +  # Base map
+  geom_point(data = full_possums_count, aes(x = longitude, y = latitude, 
+                                            color = broad_environment, size = count), 
              alpha = 0.8) +
   theme_minimal() + 
-  labs(title = paste("PD - Full Dataset (", total_full, ")"),  # Customize axis labels or plot titles
+  labs(title = paste("PD - Full Dataset (", total_full, ")"),
        x = "Longitude", y = "Latitude", color = "Environment Type", size = "Count", shape = "species") +
-  theme(legend.position = "none",  # Customize visual aspects of the plot
+  theme(legend.position = "none",
         plot.title = element_text(size = 14, face = "bold"))
 
 # Plot 2: Zoomed-in Tasmania (with entire landmass and cleaned longitude labels)
-map_plot_zoomed <- ggplot() +  # Begin plotting using ggplot2
-  geom_sf(data = australia_map, fill = "lightgray", color = "black") +  # Base map  # Add a specific type of plot layer (bars, points, lines, etc.)
-  geom_point(data = tasmania_possums_count, aes(x = longitude, y = latitude,   # Add a specific type of plot layer (bars, points, lines, etc.)
-                                                color = broad.scale.environmental.context, size = count), 
+map_plot_zoomed <- ggplot() +
+  geom_sf(data = australia_map, fill = "lightgray", color = "black") +  # Base map
+  geom_point(data = tasmania_possums_count, aes(x = longitude, y = latitude, 
+                                                color = broad_environment, size = count), 
              alpha = 0.8) + 
   coord_sf(xlim = c(143, 149), ylim = c(-44, -39)) +  # Full Tasmania view
   theme_minimal() + 
-  labs(title = paste("PD - Tasmania (", total_tasmania, ")"),  # Customize axis labels or plot titles
+  labs(title = paste("PD - Tasmania (", total_tasmania, ")"),
        x = "Longitude", y = "Latitude",
        color = "Environment Type", size = "Count", shape = "species" ) +
-  theme(legend.position = "right",   # Customize visual aspects of the plot
+  theme(legend.position = "right", 
         axis.text.x = element_text(angle = 0, hjust = 0.5),
         plot.title = element_text(size = 14, face = "bold"))
 
 # Combine the plots side by side with shared legend and increased size
 (map_plot_full + map_plot_zoomed) + plot_layout(guides = "collect", widths = c(1, 1.2))
 ```
-
-## Code Chunk 5
-```{r}
+```{r filter_data2}
 # Define extended boundary to include all possum data points
 lat_min <- -45.0  # Slightly smaller than -42.93
 lat_max <- -28.0  # Slightly larger than -30.65
@@ -317,33 +285,35 @@ lon_max <- 150.0  # Slightly larger than 148.28
 
 # Full dataset with all points (Tasmania & Australia border)
 full_possums <- sample_metadata %>%
-  filter(latitude >= lat_min & latitude <= lat_max,   # Filter the data to include only rows that meet certain conditions
+  filter(latitude >= lat_min & latitude <= lat_max, 
          longitude >= lon_min & longitude <= lon_max)
 
 # Filter for Tasmania only
 tasmania_possums <- full_possums %>%
-  filter(latitude < -38 & latitude > -45,  # Tasmania lat range  # Filter the data to include only rows that meet certain conditions
+  filter(latitude < -38 & latitude > -45,  # Tasmania lat range
          longitude > 140 & longitude < 150)  # Tasmania lon range
 
 # Aggregate possum count per location
 full_possums_count <- full_possums %>%
-  group_by(latitude, longitude, local.environmental.context) %>%  # Group the data by one or more variables
-  summarise(count = n(), .groups = "drop")  # Summarize grouped data (e.g., calculate averages)
+  group_by(latitude, longitude, local_environment) %>%
+  summarise(count = n(), .groups = "drop")
 
 tasmania_possums_count <- tasmania_possums %>%
-  group_by(latitude, longitude, local.environmental.context) %>%  # Group the data by one or more variables
-  summarise(count = n(), .groups = "drop")  # Summarize grouped data (e.g., calculate averages)
+  group_by(latitude, longitude, local_environment) %>%
+  summarise(count = n(), .groups = "drop")
 ```
 
-## Code Chunk 6
-```{r}
+## Load Map
+
+```{r load_map2}
 # Load world map
 australia_map <- ne_countries(scale = "medium", returnclass = "sf") %>%
-  filter(admin == "Australia")  # Filter the data to include only rows that meet certain conditions
+  filter(admin == "Australia")
 ```
 
-## Code Chunk 7
-```{r}
+## Plot Possum Locations
+
+```{r plot_maps2, warning=FALSE, message=FALSE}
 library(RColorBrewer)
 
 # Get Tasmania data range to set zoom
@@ -355,32 +325,32 @@ total_full <- sum(full_possums_count$count)
 total_tasmania <- sum(tasmania_possums_count$count)
 
 # Plot 1: Full Dataset (Including Border Data)
-map_plot_full <- ggplot() +  # Begin plotting using ggplot2
-  geom_sf(data = australia_map, fill = "lightgray", color = "black") +  # Add a specific type of plot layer (bars, points, lines, etc.)
-  geom_point(data = full_possums_count, aes(x = longitude, y = latitude,  # Add a specific type of plot layer (bars, points, lines, etc.)
-                                            color = local.environmental.context, size = count),
+map_plot_full <- ggplot() +
+  geom_sf(data = australia_map, fill = "lightgray", color = "black") +
+  geom_point(data = full_possums_count, aes(x = longitude, y = latitude,
+                                            color = local_environment, size = count),
              alpha = 0.8) +
-  scale_color_viridis_d(name = "Environment Type", option = "D") +  # Adjust color scales, axes, or fill options
+  scale_color_viridis_d(name = "Environment Type", option = "D") +
   theme_minimal() +
-  labs(title = paste("PD - Full Dataset (", total_full, ")"),  # Customize axis labels or plot titles
+  labs(title = paste("PD - Full Dataset (", total_full, ")"),
        x = "Longitude", y = "Latitude") +
-  theme(  # Customize visual aspects of the plot
+  theme(
     plot.title = element_text(size = 10, face = "bold"),
     legend.position = "none"
   )
 
 # Plot 2: Zoomed-in Tasmania
-map_plot_zoomed <- ggplot() +  # Begin plotting using ggplot2
-  geom_sf(data = australia_map, fill = "lightgray", color = "black") +  # Add a specific type of plot layer (bars, points, lines, etc.)
-  geom_point(data = tasmania_possums_count, aes(x = longitude, y = latitude,  # Add a specific type of plot layer (bars, points, lines, etc.)
-                                                color = local.environmental.context, size = count),
+map_plot_zoomed <- ggplot() +
+  geom_sf(data = australia_map, fill = "lightgray", color = "black") +
+  geom_point(data = tasmania_possums_count, aes(x = longitude, y = latitude,
+                                                color = local_environment, size = count),
              alpha = 0.8) +
   coord_sf(xlim = c(143, 149), ylim = c(-44, -39)) +
-  scale_color_viridis_d(name = "Environment Type", option = "D") +  # Adjust color scales, axes, or fill options
+  scale_color_viridis_d(name = "Environment Type", option = "D") +
   theme_minimal() +
-  labs(title = paste("PD - Tasmania (", total_tasmania, ")"),  # Customize axis labels or plot titles
+  labs(title = paste("PD - Tasmania (", total_tasmania, ")"),
        x = "Longitude", y = "Latitude") +
-  theme(  # Customize visual aspects of the plot
+  theme(
     plot.title = element_text(size = 10, face = "bold"),
     axis.text.x = element_text(angle = 0, hjust = 0.5),
     legend.position = "none"
@@ -389,26 +359,27 @@ map_plot_zoomed <- ggplot() +  # Begin plotting using ggplot2
 # Combine the plots side by side
 (map_plot_full + map_plot_zoomed) +
   plot_layout(widths = c(1, 1.2))
+
 ```
 
-## Code Chunk 8
-```{r}
+```{r combined_legend, warning=FALSE, message=FALSE}
+
 # Step 1: Create simplified/aggregated legend data
 legend_data <- tasmania_possums_count %>%
-  group_by(local.environmental.context) %>%  # Group the data by one or more variables
-  summarise(mean_count = mean(count, na.rm = TRUE)) %>%  # Summarize grouped data (e.g., calculate averages)
-  filter(!is.na(local.environmental.context)) %>%  # Filter the data to include only rows that meet certain conditions
+  group_by(local_environment) %>%
+  summarise(mean_count = mean(count, na.rm = TRUE)) %>%
+  filter(!is.na(local_environment)) %>%
   arrange(desc(mean_count)) %>%
-  mutate(env_label = paste0(local.environmental.context))  # Add or modify columns in the dataset
+  mutate(env_label = paste0(local_environment))
 
 # Step 2: Plot custom "legend" with clean layout
-custom_legend_plot <- ggplot(legend_data, aes(x = 1, y = reorder(env_label, mean_count),  # Begin plotting using ggplot2
+custom_legend_plot <- ggplot(legend_data, aes(x = 1, y = reorder(env_label, mean_count),
                                               color = env_label, size = mean_count)) +
-  geom_point(show.legend = FALSE) +  # Add a specific type of plot layer (bars, points, lines, etc.)
-  scale_size_continuous(range = c(3, 6)) +  # tweak dot size scaling  # Adjust color scales, axes, or fill options
-  scale_color_viridis_d(name = "Environment Type", option = "D") +  # Adjust color scales, axes, or fill options
+  geom_point(show.legend = FALSE) +
+  scale_size_continuous(range = c(3, 6)) +  # tweak dot size scaling
+  scale_color_viridis_d(name = "Environment Type", option = "D") +
   theme_minimal() +
-  theme(  # Customize visual aspects of the plot
+  theme(
     axis.title = element_blank(),
     axis.text.x = element_blank(),
     axis.ticks.x = element_blank(),
@@ -422,29 +393,31 @@ custom_legend_plot <- ggplot(legend_data, aes(x = 1, y = reorder(env_label, mean
 custom_legend_plot
 ```
 
-## Code Chunk 9
-```{r}
+
+## Sequencing reads statistics
+
+```{r reads_stats2}
 sample_metadata %>% 
-    summarise(Total=sum(reads_post_fastp * 150 / 1000000000) %>% round(2),   # Summarize grouped data (e.g., calculate averages)
+    summarise(Total=sum(reads_post_fastp * 150 / 1000000000) %>% round(2), 
               mean=mean(reads_post_fastp * 150 / 1000000000) %>% round(2),
               sd=sd(reads_post_fastp * 150 / 1000000000) %>% round(2)) %>%
     unite("Average",mean, sd, sep = " ± ", remove = TRUE) %>%
     tt()
 ```
 
-## Code Chunk 10
-```{r}
+## DNA fractions
+```{r dna_fractions_stats2}
 sequence_fractions <- read_counts %>%
   pivot_longer(-genome, names_to = "sample", values_to = "value") %>%
-  group_by(sample) %>%  # Group the data by one or more variables
-  summarise(mags = sum(value)) %>%  # Summarize grouped data (e.g., calculate averages)
-	left_join(sample_metadata, by = join_by(sample == sample)) %>%  # Merge two datasets, keeping all rows from the left one
-	select(sample,mags,metagenomic_bases,host_bases,bases_lost_fastp_percent) %>%  # Select specific columns from the data
-	mutate(mags_bases = mags*146) %>%  # Add or modify columns in the dataset
-	mutate(lowqual_bases = ((metagenomic_bases+host_bases)/(1-bases_lost_fastp_percent))-(metagenomic_bases+host_bases)) %>%  # Add or modify columns in the dataset
-	mutate(unmapped_bases = metagenomic_bases - mags_bases) %>%  # Add or modify columns in the dataset
-	mutate(unmapped_bases = ifelse(unmapped_bases < 0, 0, unmapped_bases)) %>%  # Add or modify columns in the dataset
-	select(sample, lowqual_bases, host_bases, unmapped_bases, mags_bases)  # Select specific columns from the data
+  group_by(sample) %>%
+  summarise(mags = sum(value)) %>%
+	left_join(sample_metadata, by = join_by(sample == sample)) %>%
+	select(sample,mags,metagenomic_bases,host_bases,bases_lost_fastp_percent) %>%
+	mutate(mags_bases = mags*146) %>%
+	mutate(lowqual_bases = ((metagenomic_bases+host_bases)/(1-bases_lost_fastp_percent))-(metagenomic_bases+host_bases)) %>%
+	mutate(unmapped_bases = metagenomic_bases - mags_bases) %>%
+	mutate(unmapped_bases = ifelse(unmapped_bases < 0, 0, unmapped_bases)) %>%
+	select(sample, lowqual_bases, host_bases, unmapped_bases, mags_bases)
 
 sequence_fractions %>%
   mutate_at(vars(-sample), ~./1000000000) %>%
@@ -454,458 +427,1017 @@ sequence_fractions %>%
 sequence_fractions %>%
   mutate_at(vars(-sample), ~./1000000000) %>%
   rename("Sample"=1, "Low quality"=2, "Mapped to host"=3, "Unmapped"=4, "Mapped to MAGs"=5) %>%
-  summarise(across(where(is.numeric), mean, na.rm = TRUE)) %>%  # Summarize grouped data (e.g., calculate averages)
+  summarise(across(where(is.numeric), mean, na.rm = TRUE)) %>%
   tt()
+
 ```
 
-## Code Chunk 11
-```{r}
+
+```{r dna_fractions_plot, message=FALSE, warning=FALSE, fig.height=6, fig.width=10, fig.fullwidth=TRUE}
 sequence_fractions %>%
 	pivot_longer(!sample, names_to = "fraction", values_to = "value") %>%
-	mutate(value = value / 1000000000) %>%  # Add or modify columns in the dataset
-	mutate(fraction = factor(fraction, levels = c("lowqual_bases","host_bases","unmapped_bases","mags_bases"))) %>%  # Add or modify columns in the dataset
+	mutate(value = value / 1000000000) %>%
+	mutate(fraction = factor(fraction, levels = c("lowqual_bases","host_bases","unmapped_bases","mags_bases"))) %>%
   
-	ggplot(., aes(x = sample, y = value, fill=fraction)) +  # Begin plotting using ggplot2
-	    geom_bar(position="stack", stat = "identity") +  # Add a specific type of plot layer (bars, points, lines, etc.)
-      scale_fill_manual(name="Sequence type",  # Adjust color scales, axes, or fill options
+	ggplot(., aes(x = sample, y = value, fill=fraction)) +
+	    geom_bar(position="stack", stat = "identity") +
+      scale_fill_manual(name="Sequence type",
                     breaks=c("lowqual_bases","host_bases","unmapped_bases","mags_bases"),
                     labels=c("Low quality","Mapped to host","Unmapped","Mapped to MAGs"),
                     values=c("#CCCCCC", "#bcdee1", "#d8b8a3","#93655c"))+
-	    labs(x = "Samples", y = "Amount of data (GB)") +  # Customize axis labels or plot titles
+	    labs(x = "Samples", y = "Amount of data (GB)") +
 	    theme_classic() +
-	    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size=6),legend.position = "bottom")  # Customize visual aspects of the plot
+	    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size=6),legend.position = "bottom")
 ```
 
-## Code Chunk 12
-```{r}
+## Recovered microbial fraction
+
+```{r data_estimations_plot1, message=FALSE, warning=FALSE, fig.height=6, fig.width=10, fig.fullwidth=TRUE}
 singlem_table <- sequence_fractions %>%
-	mutate(mags_proportion = round((mags_bases / (mags_bases + unmapped_bases))*100,2)) %>%  # Add or modify columns in the dataset
-	left_join(sample_metadata, by = join_by(sample == sample))  %>%  # Merge two datasets, keeping all rows from the left one
-	mutate(singlem_proportion = round(singlem_fraction,2)) %>%  # Add or modify columns in the dataset
-	select(sample,mags_proportion,singlem_proportion) %>%  # Select specific columns from the data
-	mutate(mags_proportion = ifelse(singlem_proportion == 0, 0, mags_proportion)) %>% #convert zeros to NA  # Add or modify columns in the dataset
-	mutate(singlem_proportion = ifelse(singlem_proportion == 0, NA, singlem_proportion)) %>% #convert zeros to NA  # Add or modify columns in the dataset
-	mutate(singlem_proportion = ifelse(singlem_proportion < mags_proportion, NA, singlem_proportion)) %>% #if singlem is smaller, then NA, to simplify plot  # Add or modify columns in the dataset
-	mutate(singlem_proportion = ifelse(singlem_proportion > 100, 100, singlem_proportion)) #simplify  # Add or modify columns in the dataset
+	mutate(mags_proportion = round((mags_bases / (mags_bases + unmapped_bases))*100,2)) %>%
+	left_join(sample_metadata, by = join_by(sample == sample))  %>%
+	mutate(singlem_proportion = round(singlem_fraction,2)) %>%
+	select(sample,mags_proportion,singlem_proportion) %>%
+	mutate(mags_proportion = ifelse(singlem_proportion == 0, 0, mags_proportion)) %>% #convert zeros to NA
+	mutate(singlem_proportion = ifelse(singlem_proportion == 0, NA, singlem_proportion)) %>% #convert zeros to NA
+	mutate(singlem_proportion = ifelse(singlem_proportion < mags_proportion, NA, singlem_proportion)) %>% #if singlem is smaller, then NA, to simplify plot
+	mutate(singlem_proportion = ifelse(singlem_proportion > 100, 100, singlem_proportion)) #simplify
 
 singlem_table %>%
 	pivot_longer(!sample, names_to = "proportion", values_to = "value") %>%
-	mutate(proportion = factor(proportion, levels = c("mags_proportion","singlem_proportion"))) %>%  # Add or modify columns in the dataset
-	ggplot(., aes(x = value, y = sample, color=proportion)) +  # Begin plotting using ggplot2
-			geom_line(aes(group = sample), color = "#f8a538") +  # Add a specific type of plot layer (bars, points, lines, etc.)
-			geom_point() +  # Add a specific type of plot layer (bars, points, lines, etc.)
-      scale_color_manual(name="Proportion",  # Adjust color scales, axes, or fill options
+	mutate(proportion = factor(proportion, levels = c("mags_proportion","singlem_proportion"))) %>%
+	ggplot(., aes(x = value, y = sample, color=proportion)) +
+			geom_line(aes(group = sample), color = "#f8a538") +
+			geom_point() +
+      scale_color_manual(name="Proportion",
                     breaks=c("mags_proportion","singlem_proportion"),
                     labels=c("Recovered","Estimated"),
                     values=c("#52e1e8", "#876b53"))+
 			theme_classic() +
-			labs(y = "Samples", x = "Prokaryotic fraction (%)") +  # Customize axis labels or plot titles
-	    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size=6),legend.position = "right")  # Customize visual aspects of the plot
+			labs(y = "Samples", x = "Prokaryotic fraction (%)") +
+	    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size=6),legend.position = "right")
+
 ```
 
+
+  
 
 <!--chapter:end:02_data_statistics.Rmd-->
 
-# Inline Annotated R Markdown: 03_MAGs_Catalouge_Inline_Annotated
 
-## Code Chunk 1
-```{r}
-load("data/data.Rdata")  # Load an RData file with variables and datasets
+# MAG catalogue
+
+## Gut microbiota
+
+```{r gut_load_data_mag}
+load("data/data.Rdata")
 ```
 
-## Code Chunk 2
-```{r}
+### Genome phylogeny
+
+```{r gut_genome_phylogeny, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE}
+
 # Generate the phylum color heatmap
 phylum_heatmap <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
     right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
     arrange(match(genome, genome_tree$tip.label)) %>%
-    select(genome,phylum) %>%  # Select specific columns from the data
-    mutate(phylum = factor(phylum, levels = unique(phylum))) %>%  # Add or modify columns in the dataset
+
+    select(genome,phylum) %>%
+    mutate(phylum = factor(phylum, levels = unique(phylum))) %>%
     column_to_rownames(var = "genome")
+
+# Generate new species table
+newspecies_table <- genome_metadata %>%
+  mutate(newspecies=ifelse(species=="s__","Y","N")) %>%
+  select(genome,newspecies) %>%
+  column_to_rownames(var = "genome")
 
 # Generate  basal tree
 circular_tree <- force.ultrametric(genome_tree, method="extend") %>% # extend to ultrametric for the sake of visualisation
-    ggtree(., layout="fan", open.angle=20, size=0.2)
-```
+    ggtree(., layout="fan", open.angle=10, size=0.5)
 
-## Code Chunk 3
-```{r}
-circular_tree <- force.ultrametric(genome_tree, method="extend") %>% # extend to ultrametric for the sake of visualisation
-  ggtree(., layout="fan", open.angle=10, size=0.5)
-```
 
-## Code Chunk 4
-```{r}
-circular_tree <- gheatmap(circular_tree, phylum_heatmap, offset=0.55, width=0.1, colnames=FALSE) +
-  scale_fill_manual(values=phylum_colors) +  # Adjust color scales, axes, or fill options
-  geom_tiplab2(size=1, hjust=-0.1) +  # Add a specific type of plot layer (bars, points, lines, etc.)
-  theme(legend.position = "none", plot.margin = margin(0, 0, 0, 0), panel.margin = margin(0, 0, 0, 0))  # Customize visual aspects of the plot
-```
+# Add phylum ring
+# circular_tree <- gheatmap(circular_tree, phylum_heatmap, offset=0.55, width=0.1, colnames=FALSE) +
+#         scale_fill_manual(values=phylum_colors) +
+#         geom_tiplab2(size=1, hjust=-0.1) +
+#         theme(legend.position = "none", plot.margin = margin(0, 0, 0, 0), panel.margin = margin(0, 0, 0, 0))
+circular_tree <- gheatmap(circular_tree, phylum_heatmap, offset=0.05, width=0.05, colnames=FALSE) +
+        scale_fill_manual(values=phylum_colors) +
+  labs(fill="Phylum")
+        #theme(legend.position = "none", plot.margin = margin(0, 0, 0, 0), panel.margin = margin(0, 0, 0, 0))
 
-## Code Chunk 5
-```{r}
-circular_tree <- circular_tree + new_scale_fill()  # Adjust color scales, axes, or fill options
-```
+# Flush color scale to enable a new color scheme in the next ring
+circular_tree <- circular_tree + new_scale_fill()
 
-## Code Chunk 6
-```{r}
+# Add completeness ring
 circular_tree <- circular_tree +
-  new_scale_fill() +  # Adjust color scales, axes, or fill options
-  scale_fill_gradient(low = "#d1f4ba", high = "#f4baba") +  # Adjust color scales, axes, or fill options
-  geom_fruit(  # Add a specific type of plot layer (bars, points, lines, etc.)
-    data=genome_metadata,
-    geom=geom_bar,  # Add a specific type of plot layer (bars, points, lines, etc.)
-    mapping = aes(x=completeness, y=genome, fill=contamination),
-    offset = 0.55,
-    orientation="y",
-    stat="identity")
-```
+        new_scale_fill() +
+        scale_fill_gradient(low = "#d1f4ba", high = "#f4baba") +
+        geom_fruit(
+                data=genome_metadata,
+                geom=geom_bar,
+                mapping = aes(x=completeness, y=genome, fill=contamination),
+                offset = 0.24,
+                pwidth = 0.1,
+                orientation="y",
+              stat="identity")+
+  labs(fill="Contamination")
 
-## Code Chunk 7
-```{r}
+# Add genome-size ring
+circular_tree <-  circular_tree + new_scale_fill()
+
+circular_tree <- gheatmap(circular_tree, newspecies_table, offset=0.3, width=0.05, colnames=FALSE) +
+  scale_fill_manual(values=c("#f4f4f4","#74C8AE"))+
+  labs(fill="New species")
+        #theme(legend.position = "none", plot.margin = margin(0, 0, 0, 0), panel.margin = margin(0, 0, 0, 0))
+
+
 circular_tree <-  circular_tree +
-  new_scale_fill() +  # Adjust color scales, axes, or fill options
-  scale_fill_manual(values = "#cccccc") +  # Adjust color scales, axes, or fill options
-  geom_fruit(  # Add a specific type of plot layer (bars, points, lines, etc.)
+  geom_fruit(
     data=genome_metadata,
-    geom=geom_bar,  # Add a specific type of plot layer (bars, points, lines, etc.)
+    geom=geom_bar,
     mapping = aes(x=length, y=genome),
+    fill = "#1e6e55",
     offset = 0.05,
     orientation="y",
     stat="identity")
-```
 
-## Code Chunk 8
-```{r}
-ggsave("clean_circular_tree_large.png", plot=circular_tree, dpi=600, width=80, height=80, limitsize = FALSE, units = "cm")
+
+# Add text
+circular_tree <-  circular_tree +
+        annotate('text', x=3.1, y=0, label='            Phylum', family='arial', size=3.5) +
+        annotate('text', x=3.7, y=0, label='                         Genome quality', family='arial', size=3.5) +
+        annotate('text', x=4.1, y=0, label='                     Genome size', family='arial', size=3.5) +
+        annotate('text', x=3.4, y=0, label='                     New species', family='arial', size=3.5)
 
 #Plot circular tree
-circular_tree %>% open_tree(15) %>% rotate_tree(90)
+circular_tree %>% open_tree(30) %>% rotate_tree(90)
 ```
 
-## Code Chunk 9
-```{r}
-genome_metadata$completeness %>% mean()
+### Taxonomy overview
 
-genome_metadata$completeness %>% sd()
+```{r genome_taxonomy_bacteria}
+tax_mag <-genome_metadata %>%
+  group_by(phylum) %>%
+  summarise(mag_n=n())
 
-genome_metadata$contamination %>% mean()
-
-genome_metadata$contamination %>% sd()
+tax_mag %>%
+  mutate(percetage_mag=round(mag_n*100/sum(mag_n), 2)) %>%
+  arrange(-percetage_mag) %>%
+  tt()
 ```
 
-## Code Chunk 10
+### Mag size (MB)
 ```{r}
+genome_metadata <-genome_metadata %>%
+  mutate(corrected_size=100*length/completeness) %>%
+  arrange(completeness)
+```
+
+Mags average size (MB)
+```{r mag_size_all_mean, message=FALSE, warning=FALSE}
+genome_metadata %>%
+  summarise(Average_corrected_size=mean(corrected_size))
+```
+
+### Genome quality
+
+```{r gut_genome_quality}
+genome_metadata %>%
+    summarise(completeness_mean=mean(completeness) %>% round(2) %>% as.character(),
+              completeness_sd=sd(completeness) %>% round(2) %>% as.character(),
+              contamination_mean=mean(contamination) %>% round(2),
+              contamination_sd=sd(contamination) %>% round(2)) %>%
+    unite("Completeness",completeness_mean, completeness_sd, sep = " ± ", remove = TRUE) %>%
+    unite("Contamination",contamination_mean, contamination_sd, sep = " ± ", remove = TRUE) %>%
+    tt()
+```
+
+```{r gut_genome_quality_plot, message=FALSE, warning=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+
+#Generate quality biplot
 genome_biplot <- genome_metadata %>%
-  select(c(genome,domain,phylum,completeness,contamination,length)) %>%  # Select specific columns from the data
+  select(c(genome,domain,phylum,completeness,contamination,length)) %>%
   arrange(match(genome, rev(genome_tree$tip.label))) %>% #sort MAGs according to phylogenetic tree
-  ggplot(aes(x=completeness,y=contamination,size=length,color=phylum)) +  # Begin plotting using ggplot2
-  geom_point(alpha=0.7) +  # Add a specific type of plot layer (bars, points, lines, etc.)
-  ylim(c(10,0)) +
-  scale_color_manual(values=phylum_colors) +  # Adjust color scales, axes, or fill options
-  labs(y= "Contamination", x = "Completeness") +  # Customize axis labels or plot titles
-  theme_classic() +
-  theme(legend.position = "none")  # Customize visual aspects of the plot
-```
+  ggplot(aes(x=completeness,y=contamination,size=length,color=phylum)) +
+              geom_point(alpha=0.7) +
+                    ylim(c(10,0)) +
+                    scale_color_manual(values=phylum_colors) +
+                    labs(y= "Contamination", x = "Completeness") +
+                    theme_classic() +
+                    theme(legend.position = "none")
 
-## Code Chunk 11
-```{r}
+#Generate contamination boxplot
 genome_contamination <- genome_metadata %>%
-  ggplot(aes(y=contamination)) +  # Begin plotting using ggplot2
-  ylim(c(10,0)) +
-  geom_boxplot(colour = "#999999", fill="#cccccc") +  # Add a specific type of plot layer (bars, points, lines, etc.)
-  theme_void() +
-  theme(legend.position = "none",  # Customize visual aspects of the plot
-        axis.title.x = element_blank(),
-        axis.title.y = element_blank(),
-        axis.text.y=element_blank(),
-        axis.ticks.y=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank(),
-        plot.margin = unit(c(0, 0, 0.40, 0),"inches")) #add bottom-margin (top, right, bottom, left)
-```
+            ggplot(aes(y=contamination)) +
+                    ylim(c(10,0)) +
+                    geom_boxplot(colour = "#999999", fill="#cccccc") +
+                    theme_void() +
+                    theme(legend.position = "none",
+                        axis.title.x = element_blank(),
+                        axis.title.y = element_blank(),
+                        axis.text.y=element_blank(),
+                        axis.ticks.y=element_blank(),
+                        axis.text.x=element_blank(),
+                        axis.ticks.x=element_blank(),
+                        plot.margin = unit(c(0, 0, 0.40, 0),"inches")) #add bottom-margin (top, right, bottom, left)
 
-## Code Chunk 12
-```{r}
+#Generate completeness boxplot
 genome_completeness <- genome_metadata %>%
-  ggplot(aes(x=completeness)) +  # Begin plotting using ggplot2
-  xlim(c(50,100)) +
-  geom_boxplot(colour = "#999999", fill="#cccccc") +  # Add a specific type of plot layer (bars, points, lines, etc.)
-  theme_void() +
-  theme(legend.position = "none",  # Customize visual aspects of the plot
-        axis.title.x = element_blank(),
-        axis.title.y = element_blank(),
-        axis.text.y=element_blank(),
-        axis.ticks.y=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank(),
-        plot.margin = unit(c(0, 0, 0, 0.50),"inches")) #add left-margin (top, right, bottom, left)
-```
+        ggplot(aes(x=completeness)) +
+                xlim(c(50,100)) +
+                geom_boxplot(colour = "#999999", fill="#cccccc") +
+                theme_void() +
+                theme(legend.position = "none",
+                    axis.title.x = element_blank(),
+                    axis.title.y = element_blank(),
+                    axis.text.y=element_blank(),
+                    axis.ticks.y=element_blank(),
+                    axis.text.x=element_blank(),
+                    axis.ticks.x=element_blank(),
+                    plot.margin = unit(c(0, 0, 0, 0.50),"inches")) #add left-margin (top, right, bottom, left)
 
-## Code Chunk 13
-```{r}
+#Render composite figure
 grid.arrange(grobs = list(genome_completeness,genome_biplot,genome_contamination),
-             layout_matrix = rbind(c(1,1,1,1,1,1,1,1,1,1,1,4),
-                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
-                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
-                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
-                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
-                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
-                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
-                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
-                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
-                                   c(2,2,2,2,2,2,2,2,2,2,2,3),
-                                   c(2,2,2,2,2,2,2,2,2,2,2,3)))
+        layout_matrix = rbind(c(1,1,1,1,1,1,1,1,1,1,1,4),
+                              c(2,2,2,2,2,2,2,2,2,2,2,3),
+                              c(2,2,2,2,2,2,2,2,2,2,2,3),
+                              c(2,2,2,2,2,2,2,2,2,2,2,3),
+                              c(2,2,2,2,2,2,2,2,2,2,2,3),
+                              c(2,2,2,2,2,2,2,2,2,2,2,3),
+                              c(2,2,2,2,2,2,2,2,2,2,2,3),
+                              c(2,2,2,2,2,2,2,2,2,2,2,3),
+                              c(2,2,2,2,2,2,2,2,2,2,2,3),
+                              c(2,2,2,2,2,2,2,2,2,2,2,3),
+                              c(2,2,2,2,2,2,2,2,2,2,2,3),
+                              c(2,2,2,2,2,2,2,2,2,2,2,3)))
+
 ```
 
-## Code Chunk 14
-```{r}
+### Functional overview
+
+***Predicted genes***
+```{r predicted_stats_gut, message=FALSE, warning=FALSE}
+genome_annotations <- read_tsv("data/genome_annotations.tsv.xz") %>%
+    rename(gene=1, genome=2, contig=3)
+
+# Predicted genes
+pred_genes <- genome_annotations %>%
+  nrow()
+
+cat(pred_genes)
+```
+
+***Number of annotated genes and percentages***
+```{r annotation_stats, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE, eval = FALSE}
+
+# Some annotation
+genome_annota <- genome_annotations %>%
+  filter(if_any(c(kegg_id, pfam_hits, cazy_hits), ~ !is.na(.))) %>%
+  nrow()
+
+cat(genome_annota)
+
+# Some annotation percentage
+genome_annota*100/pred_genes
+```
+
+***Number of KEGG annotatated genes and percentages***
+```{r kegg_stats, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE, eval = FALSE}
+# KEGG annotation
+kegg_annota <- genome_annotations %>%
+  filter(!is.na(kegg_id)) %>%
+  nrow()
+cat(kegg_annota)
+
+# KEGG annotation percentage
+kegg_annota*100/genome_annota
+```
+
+```{r function_heatmap, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE}
+
+# Aggregate basal GIFT into elements
 function_table <- genome_gifts %>%
-  to.elements(., GIFT_db)
-```
+    to.elements(., GIFT_db)
 
-## Code Chunk 15
-```{r}
+# Generate  basal tree
 function_tree <- force.ultrametric(genome_tree, method="extend") %>%
-  ggtree(., size = 0.3)
-```
+                ggtree(., size = 0.3)
 
-## Code Chunk 16
-```{r}
+#Add phylum colors next to the tree tips
 function_tree <- gheatmap(function_tree, phylum_heatmap, offset=0, width=0.1, colnames=FALSE) +
-  scale_fill_manual(values=phylum_colors) +  # Adjust color scales, axes, or fill options
-  labs(fill="Phylum")  # Customize axis labels or plot titles
-```
+            scale_fill_manual(values=phylum_colors) +
+            labs(fill="Phylum")
 
-## Code Chunk 17
-```{r}
-function_tree <- function_tree + new_scale_fill()  # Adjust color scales, axes, or fill options
-```
+#Reset fill scale to use a different colour profile in the heatmap
+function_tree <- function_tree + new_scale_fill()
 
-## Code Chunk 18
-```{r}
+#Add functions heatmap
 function_tree <- gheatmap(function_tree, function_table, offset=0.5, width=3.5, colnames=FALSE) +
-  vexpand(.08) +
-  coord_cartesian(clip = "off") +
-  scale_fill_gradient(low = "#f4f4f4", high = "steelblue", na.value="white") +  # Adjust color scales, axes, or fill options
-  labs(fill="GIFT")  # Customize axis labels or plot titles
-```
+            vexpand(.08) +
+            coord_cartesian(clip = "off") +
+            scale_fill_gradient(low = "#f4f4f4", high = "steelblue", na.value="white") +
+            labs(fill="GIFT")
 
-## Code Chunk 19
-```{r}
+#Reset fill scale to use a different colour profile in the heatmap
+function_tree <- function_tree + new_scale_fill()
+
+# Add completeness barplots
 function_tree <- function_tree +
-  geom_fruit(data=genome_metadata,  # Add a specific type of plot layer (bars, points, lines, etc.)
-             geom=geom_bar,  # Add a specific type of plot layer (bars, points, lines, etc.)
-             grid.params=list(axis="x", text.size=2, nbreak = 1),
-             axis.params=list(vline=TRUE),
-             mapping = aes(x=length, y=genome, fill=completeness),
-             offset = 3.8,
-             orientation="y",
-             stat="identity") +
-  scale_fill_gradient(low = "#cf8888", high = "#a2cc87") +  # Adjust color scales, axes, or fill options
-  labs(fill="Genome\ncompleteness")  # Customize axis labels or plot titles
+            geom_fruit(data=genome_metadata,
+            geom=geom_bar,
+            grid.params=list(axis="x", text.size=2, nbreak = 1),
+            axis.params=list(vline=TRUE),
+            mapping = aes(x=length, y=genome, fill=completeness),
+                 offset = 3.8,
+                 orientation="y",
+                 stat="identity") +
+            scale_fill_gradient(low = "#cf8888", high = "#a2cc87") +
+            labs(fill="Genome\ncompleteness")
 
 function_tree
-
-ggsave("function_tree_highres.png", 
-       plot = function_tree, 
-       width = 12, 
-       height = 10, 
-       dpi = 600)  # Higher dpi = better quality
 ```
 
-## Code Chunk 20
-```{r}
+### Functional ordination
+
+```{r function_ordination, message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+# Generate the tSNE ordination
 tSNE_function <- Rtsne(X=function_table, dims = 2, check_duplicates = FALSE)
-```
 
-## Code Chunk 21
-```{r}
+# Plot the ordination
 function_ordination <- tSNE_function$Y %>%
-  as.data.frame() %>%
-  mutate(genome=rownames(function_table)) %>%  # Add or modify columns in the dataset
-  inner_join(genome_metadata, by="genome") %>%
-  rename(tSNE1="V1", tSNE2="V2") %>%
-  select(genome,phylum,tSNE1,tSNE2, length) %>%  # Select specific columns from the data
-  ggplot(aes(x = tSNE1, y = tSNE2, color = phylum, size=length))+  # Begin plotting using ggplot2
-  geom_point(shape=16, alpha=0.7) +  # Add a specific type of plot layer (bars, points, lines, etc.)
-  scale_color_manual(values=phylum_colors) +  # Adjust color scales, axes, or fill options
-  theme_minimal() +
-  labs(color="Phylum", size="Genome size") +  # Customize axis labels or plot titles
-  guides(color = guide_legend(override.aes = list(size = 5))) # enlarge Phylum dots in legend
+                as.data.frame() %>%
+                mutate(genome=rownames(function_table)) %>%
+                inner_join(genome_metadata, by="genome") %>%
+                rename(tSNE1="V1", tSNE2="V2") %>%
+                select(genome,phylum,tSNE1,tSNE2, length) %>%
+                ggplot(aes(x = tSNE1, y = tSNE2, color = phylum, size=length))+
+                            geom_point(shape=16, alpha=0.7) +
+                            scale_color_manual(values=phylum_colors) +
+                            theme_minimal() +
+                labs(color="Phylum", size="Genome size") +
+                guides(color = guide_legend(override.aes = list(size = 5))) # enlarge Phylum dots in legend
 
 function_ordination
 ```
 
-
 <!--chapter:end:03_MAGs_Catalouge.Rmd-->
 
-# Inline Annotated R Markdown: Community Composition
 
-This version keeps the format similar to your original R Markdown file,
-with `#` comments added **at the end of code lines** wherever possible.
+# Community composition
 
-## Code Chunk 1
-```{r}
-load("data/data.Rdata")  # Load the saved R data file containing datasets and variables
+## Gut microbiota
+
+```{r gut_load_data_tax}
+load("data/data.Rdata")
 ```
 
-## Code Chunk 2
-```{r}
+### Taxonomy overview 
+
+#### Phylum level
+
+```{r taxonomy_barplot, fig.height=6, fig.width=10, fig.fullwidth=TRUE}
 genome_counts_filt %>%
-  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS normalisation  # Normalize counts in each column (TSS normalization)
-  pivot_longer(-genome, names_to = "sample", values_to = "count") %>% #reduce to minimum number of columns  # Transform wide data to long format for plotting
-  left_join(., genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata  # Add metadata about each genome
-  left_join(., sample_metadata, by = join_by(sample == sample)) %>% #append sample metadata  # Add metadata about each sample
-  filter(!is.na(count)) %>%  # Keep only rows that have actual values
-  ggplot(aes(y=count,x=sample, fill=phylum, group=phylum)) + #grouping enables keeping the same sorting of taxonomic units  # Start plotting: define x, y, fill colors
-    geom_bar(stat="identity", colour="white", linewidth=0.1) + #plot stacked bars with white borders  # Draw stacked bar charts for each sample
-    scale_fill_manual(values=phylum_colors) +  # Use specific colors for phylum groups
-    labs(x = "Relative abundance", y ="Samples") +  # Label the x and y axes
-    facet_nested(. ~ species.y ,  scales="free", space="free") + #facet per day and treatment  # Split the plots by species and treatment
-    scale_y_continuous(expand = c(0.001, 0.001)) +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
+  pivot_longer(-genome, names_to = "sample", values_to = "count") %>% #reduce to minimum number of columns
+  left_join(., genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata
+  left_join(., sample_metadata, by = join_by(sample == sample)) %>% #append sample metadata
+  filter(count > 0) %>% #filter 0 counts
+  ggplot(., aes(x=sample,y=count, fill=phylum, group=phylum)) + #grouping enables keeping the same sorting of taxonomic units
+    geom_bar(stat="identity", colour="white", linewidth=0.1) + #plot stacked bars with white borders
+    scale_fill_manual(values=phylum_colors) +
+    guides(fill = guide_legend(ncol = 1)) +
+    theme(axis.text.x = element_blank(),
+          axis.ticks.x = element_blank(),
           axis.title.x = element_blank(),
           panel.background = element_blank(),
           panel.border = element_blank(),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
-          axis.line = element_line(linewidth = 0.5, linetype = "solid", colour = "black"),
-          legend.position = "none",
-          strip.background.x=element_rect(color = NA, fill= "#f4f4f4"))
+          strip.background = element_rect(fill = "white"),
+          strip.text = element_text(size = 12, lineheight = 0.6,face="bold"),
+          axis.line = element_line(linewidth = 0.5, linetype = "solid", colour = "black")) +
+   labs(fill="Phylum",y = "Relative abundance",x="Samples")
 ```
 
-## Code Chunk 3
-```{r}
+**Number of MAGs**
+```{r mag, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+nmags <- nrow(genome_counts)
+cat(nmags)
+```
+
+**Number of bacteria phyla**
+
+```{r phyla, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+genome_metadata %>% 
+  filter(domain == "d__Bacteria")%>%
+  dplyr::select(phylum) %>%
+  unique() %>%
+  pull() %>%
+  length() %>% 
+  cat()
+```
+
+**Number of Archaea phyla**
+
+```{r arch, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+genome_metadata %>% 
+  filter(domain == "d__Archaea")%>%
+  dplyr::select(phylum) %>%
+  unique() %>%
+  pull() %>%
+  length()%>% 
+  cat()
+```
+
+***Phylum relative abundances***
+
+```{r taxonomy_phylum_summary, warning=FALSE, comments="", message=FALSE}
 phylum_summary <- genome_counts_filt %>%
-  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation  # Normalize counts in each column (TSS normalization)
-  pivot_longer(-genome, names_to = "sample", values_to = "count") %>%  # Transform wide data to long format for plotting
-  left_join(sample_metadata, by = join_by(sample == sample)) %>%  # Add metadata about each sample
-  left_join(genome_metadata, by = join_by(genome == genome)) %>%  # Add metadata about each genome
-  group_by(sample,phylum) %>%
+  mutate_at(vars(-genome),~./sum(.)) %>%
+  pivot_longer(-genome, names_to = "sample", values_to = "count") %>%
+  left_join(sample_metadata, by = join_by(sample == sample)) %>%
+  left_join(genome_metadata, by = join_by(genome == genome)) %>%
+  group_by(sample,phylum,broad_environment, sex) %>%
   summarise(relabun=sum(count))
-
-phylum_summary %>%
-    group_by(phylum) %>%
-    summarise(mean=mean(relabun),sd=sd(relabun)) %>%
-    arrange(-mean) %>%
-    tt()
 ```
 
-## Code Chunk 4
-```{r}
+```{r taxonomy_phylum_summary_envir, warning=FALSE, comments="", message=FALSE}
+phylum_summary %>%
+  group_by(phylum) %>%
+  summarise(
+    total_mean = mean(relabun * 100, na.rm = TRUE),
+    total_sd = sd(relabun * 100, na.rm = TRUE)
+  ) %>%
+  mutate(Total = str_c(round(total_mean, 3), "±", round(total_sd, 3))) %>%
+  arrange(-total_mean) %>%
+  dplyr::select(phylum, Total)
+
+```
+
+```{r taxonomy_jitterplot_phylum, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
 phylum_arrange <- phylum_summary %>%
     group_by(phylum) %>%
-    summarise(mean=mean(relabun)) %>%
+    summarise(mean=sum(relabun)) %>%
     arrange(-mean) %>%
     select(phylum) %>%
     pull()
 
 phylum_summary %>%
-    filter(phylum %in% phylum_arrange) %>%
-    mutate(phylum=factor(phylum,levels=rev(phylum_arrange))) %>%
-    ggplot(aes(x=relabun, y=phylum, group=phylum, color=phylum)) +  # Start plotting: define x, y, fill colors
-        scale_color_manual(values=phylum_colors[rev(phylum_arrange)]) +
-        geom_jitter(alpha=0.5) + 
+    left_join(genome_metadata %>% select(phylum,phylum) %>% unique(),by=join_by(phylum==phylum)) %>%
+#    left_join(sample_metadata,by=join_by(sample==sample)) %>%
+    filter(phylum %in% phylum_arrange[1:20]) %>%
+    mutate(phylum=factor(phylum,levels=rev(phylum_arrange[1:20]))) %>%
+    filter(relabun > 0) %>%
+    ggplot(aes(x=relabun, y=phylum, group=phylum, color=phylum)) +
+        scale_color_manual(values=phylum_colors[-8]) +
+        geom_jitter(alpha=0.5) +
         theme_minimal() + 
-        theme(legend.position="none") +
-        labs(y="Phylum",x="Relative abundance")  # Label the x and y axes
+        labs(y="phylum", x="Relative abundance", color="Phylum")
+```
+**Bacteria phyla in individuals from females**
+
+```{r phyla_nat_female, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+
+female_sample <- sample_metadata %>% 
+  filter(sex=="Female") %>% 
+  dplyr::select(sample) %>% 
+  pull()
+
+female_genomes <- genome_counts_filt %>% 
+  column_to_rownames("genome") %>% 
+  select(all_of(female_sample)) %>%
+  as.data.frame() %>%
+  filter(rowSums(across(where(is.numeric)))!=0)%>% 
+  rownames_to_column("genome")%>% 
+  dplyr::select(genome) %>% 
+  pull()
+
+genome_metadata %>% 
+  filter(genome %in% female_genomes) %>% 
+  filter(domain == "d__Bacteria")%>%
+  dplyr::select(phylum) %>%
+  unique() %>%
+  pull() %>%
+  length() %>% 
+  cat()
 ```
 
-## Code Chunk 5
-```{r}
+```{r phyla_nat_male, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+
+male_sample <- sample_metadata %>% 
+  filter(sex=="Male") %>% 
+  dplyr::select(sample) %>% 
+  pull()
+
+male_genomes <- genome_counts_filt %>% 
+  column_to_rownames("genome") %>% 
+  select(all_of(male_sample)) %>%
+  as.data.frame() %>%
+  filter(rowSums(across(where(is.numeric)))!=0)%>% 
+  rownames_to_column("genome")%>% 
+  dplyr::select(genome) %>% 
+  pull()
+
+genome_metadata %>% 
+  filter(genome %in% male_genomes) %>% 
+  filter(domain == "d__Bacteria")%>%
+  dplyr::select(phylum) %>%
+  unique() %>%
+  pull() %>%
+  length() %>% 
+  cat()
+```
+
+
+
+**Bacteria phyla in individuals from Temperate woodland**
+
+```{r phyla_nat, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+
+Temperate_woodland_samples <- sample_metadata %>% 
+  filter(broad_environment=="1000221 - Temperate woodland") %>% 
+  dplyr::select(sample) %>% 
+  pull()
+
+Temperate_woodland_genomes <- genome_counts_filt %>% 
+  column_to_rownames("genome") %>% 
+  select(all_of(Temperate_woodland_samples)) %>%
+  as.data.frame() %>%
+  filter(rowSums(across(where(is.numeric)))!=0)%>% 
+  rownames_to_column("genome")%>% 
+  dplyr::select(genome) %>% 
+  pull()
+
+genome_metadata %>% 
+  filter(genome %in% Temperate_woodland_genomes) %>% 
+  filter(domain == "d__Bacteria")%>%
+  dplyr::select(phylum) %>%
+  unique() %>%
+  pull() %>%
+  length() %>% 
+  cat()
+```
+
+
+**Bacteria phyla in individuals from Xeric shrubland**
+
+```{r phyla_cap_xeric, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+
+xeric_shrubland_samples <- sample_metadata %>% 
+  filter(broad_environment=="1000218 - Xeric shrubland") %>% 
+  dplyr::select(sample) %>% 
+  pull()
+
+xeric_shrubland_genomes <- genome_counts_filt %>% 
+  column_to_rownames("genome") %>% 
+  select(all_of(xeric_shrubland_samples)) %>%
+  as.data.frame() %>%
+  filter(rowSums(across(where(is.numeric)))!=0)%>% 
+  rownames_to_column("genome")%>% 
+  dplyr::select(genome) %>% 
+  pull()
+
+genome_metadata %>% 
+  filter(genome %in% xeric_shrubland_genomes) %>% 
+  filter(domain == "d__Bacteria")%>%
+  dplyr::select(phylum) %>%
+  unique() %>%
+  pull() %>%
+  length() %>% 
+  cat()
+```
+**Bacteria phyla in individuals from mixed_forest**
+```{r phyla_cap_forest, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+
+mixed_forest_samples <- sample_metadata %>% 
+  filter(broad_environment=="1000198 - Mixed forest") %>% 
+  dplyr::select(sample) %>% 
+  pull()
+
+mixed_forest_genomes <- genome_counts_filt %>% 
+  column_to_rownames("genome") %>% 
+  select(all_of(mixed_forest_samples)) %>%
+  as.data.frame() %>%
+  filter(rowSums(across(where(is.numeric)))!=0)%>% 
+  rownames_to_column("genome")%>% 
+  dplyr::select(genome) %>% 
+  pull()
+
+genome_metadata %>% 
+  filter(genome %in% mixed_forest_genomes) %>% 
+  filter(domain == "d__Bacteria")%>%
+  dplyr::select(phylum) %>%
+  unique() %>%
+  pull() %>%
+  length() %>% 
+  cat()
+```
+
+**Bacteria phyla in individuals from cropland**
+```{r phyla_cap_cropland, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+
+cropland_samples <- sample_metadata %>% 
+  filter(broad_environment=="1000245 - Cropland") %>% 
+  dplyr::select(sample) %>% 
+  pull()
+
+cropland_genomes <- genome_counts_filt %>% 
+  column_to_rownames("genome") %>% 
+  select(all_of(cropland_samples)) %>%
+  as.data.frame() %>%
+  filter(rowSums(across(where(is.numeric)))!=0)%>% 
+  rownames_to_column("genome")%>% 
+  dplyr::select(genome) %>% 
+  pull()
+
+genome_metadata %>% 
+  filter(genome %in% cropland_genomes) %>% 
+  filter(domain == "d__Bacteria")%>%
+  dplyr::select(phylum) %>%
+  unique() %>%
+  pull() %>%
+  length() %>% 
+  cat()
+```
+
+```{r taxonomy_phylum_summary_broad_environment, warning=FALSE, comments="", message=FALSE}
+phylum_summary %>%
+  group_by(phylum) %>%
+  summarise(
+    total_mean = mean(relabun * 100, na.rm = TRUE),
+    total_sd = sd(relabun * 100, na.rm = TRUE),
+    le_mean = mean(ifelse(broad_environment == "1000245 - Cropland", relabun * 100, NA), na.rm = TRUE),
+    le_sd = sd(ifelse(broad_environment == "1000245 - Cropland", relabun * 100, NA), na.rm = TRUE),
+    ha_mean = mean(ifelse(broad_environment == "1000198 - Mixed forest", relabun * 100, NA), na.rm = TRUE),
+    ha_sd = sd(ifelse(broad_environment == "1000198 - Mixed forest", relabun * 100, NA), na.rm = TRUE),
+    er_mean = mean(ifelse(broad_environment == "1000218 - Xeric shrubland", relabun * 100, NA), na.rm = TRUE),
+    er_sd = sd(ifelse(broad_environment == "1000218 - Xeric shrubland", relabun * 100, NA), na.rm = TRUE),
+    go_mean = mean(ifelse(broad_environment == "1000221 - Temperate woodland", relabun * 100, NA), na.rm = TRUE),
+    go_sd = sd(ifelse(broad_environment == "1000221 - Temperate woodland", relabun * 100, NA), na.rm = TRUE)
+  ) %>%
+  mutate(
+    Total = str_c(round(total_mean, 3), "±", round(total_sd, 3)),
+    Cropland = str_c(round(le_mean, 3), "±", round(le_sd, 3)),
+    Mixed_forest = str_c(round(ha_mean, 3), "±", round(ha_sd, 3)),
+    Xeric_shrubland = str_c(round(er_mean, 3), "±", round(er_sd, 3)),
+    Temperate_woodland = str_c(round(go_mean, 3), "±", round(go_sd, 3))
+  ) %>%
+  arrange(-total_mean) %>%
+  select(phylum, Total, Cropland, Temperate_woodland, Mixed_forest, Xeric_shrubland)
+
+```
+
+```{r taxonomy_phylum_summary_sex, warning=FALSE, comments="", message=FALSE}
+phylum_summary %>%
+  group_by(phylum) %>%
+  summarise(
+    total_mean = mean(relabun * 100, na.rm = TRUE),
+    total_sd = sd(relabun * 100, na.rm = TRUE),
+    le_mean = mean(ifelse(sex == "Female", relabun * 100, NA), na.rm = TRUE),
+    le_sd = sd(ifelse(sex == "Female", relabun * 100, NA), na.rm = TRUE),
+    ha_mean = mean(ifelse( sex== "Male", relabun * 100, NA), na.rm = TRUE),
+    ha_sd = sd(ifelse(sex == "Male", relabun * 100, NA), na.rm = TRUE)
+  ) %>%
+  mutate(
+    Total = str_c(round(total_mean, 3), "±", round(total_sd, 3)),
+    Female = str_c(round(le_mean, 3), "±", round(le_sd, 3)),
+    Male = str_c(round(ha_mean, 3), "±", round(ha_sd, 3))
+  ) %>%
+  arrange(-total_mean) %>%
+  select(phylum, Total, Female, Male)
+
+```
+
+#### Family level
+
+***Percentange of families in each group of environment***
+
+```{r taxonomy_family_summary, warning=FALSE, comments="", message=FALSE}
 family_summary <- genome_counts_filt %>%
-  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation  # Normalize counts in each column (TSS normalization)
-  pivot_longer(-genome, names_to = "sample", values_to = "count") %>% #reduce to minimum number of columns  # Transform wide data to long format for plotting
-  left_join(sample_metadata, by = join_by(sample == sample)) %>% #append sample metadata  # Add metadata about each sample
-  left_join(., genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata  # Add metadata about each genome
-  group_by(sample,family) %>%
+  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
+  pivot_longer(-genome, names_to = "sample", values_to = "count") %>% #reduce to minimum number of columns
+  left_join(sample_metadata, by = join_by(sample == sample)) %>% #append sample metadata
+  left_join(genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata
+  group_by(sample,family, broad_environment, sex) %>%
   summarise(relabun=sum(count))
-
-family_summary %>%
-    filter(!is.na(relabun)) %>%  # Keep only rows that have actual values
-    group_by(family) %>%
-    summarise(mean=mean(relabun),sd=sd(relabun)) %>%
-    mutate(family= sub("^f__", "", family)) %>%
-    arrange(-mean) %>%
-    tt()
 ```
 
-## Code Chunk 6
-```{r}
+```{r taxonomy_family_summary_origin_environment, warning=FALSE, comments="", message=FALSE}
+family_summary %>%
+    group_by(family) %>%
+    summarise(
+    total_mean = mean(relabun * 100, na.rm = TRUE),
+    total_sd = sd(relabun * 100, na.rm = TRUE),
+    le_mean = mean(ifelse(broad_environment == "1000245 - Cropland", relabun * 100, NA), na.rm = TRUE),
+    le_sd = sd(ifelse(broad_environment == "1000245 - Cropland", relabun * 100, NA), na.rm = TRUE),
+    ha_mean = mean(ifelse(broad_environment == "1000198 - Mixed forest", relabun * 100, NA), na.rm = TRUE),
+    ha_sd = sd(ifelse(broad_environment == "1000198 - Mixed forest", relabun * 100, NA), na.rm = TRUE),
+    er_mean = mean(ifelse(broad_environment == "1000218 - Xeric shrubland", relabun * 100, NA), na.rm = TRUE),
+    er_sd = sd(ifelse(broad_environment == "1000218 - Xeric shrubland", relabun * 100, NA), na.rm = TRUE),
+    go_mean = mean(ifelse(broad_environment == "1000221 - Temperate woodland", relabun * 100, NA), na.rm = TRUE),
+    go_sd = sd(ifelse(broad_environment == "1000221 - Temperate woodland", relabun * 100, NA), na.rm = TRUE)
+  ) %>%
+  mutate(
+    Total = str_c(round(total_mean, 3), "±", round(total_sd, 3)),
+    Cropland = str_c(round(le_mean, 3), "±", round(le_sd, 3)),
+    Mixed_forest = str_c(round(ha_mean, 3), "±", round(ha_sd, 3)),
+    Xeric_shrubland = str_c(round(er_mean, 3), "±", round(er_sd, 3)),
+    Temperate_woodland = str_c(round(go_mean, 3), "±", round(go_sd, 3))
+  ) %>%
+    dplyr::select(family,Total,Cropland, Temperate_woodland, Mixed_forest, Xeric_shrubland)
+```
+
+```{r taxonomy_jitterplot_family, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
 family_arrange <- family_summary %>%
-    filter(!is.na(relabun)) %>%  # Keep only rows that have actual values
     group_by(family) %>%
     summarise(mean=sum(relabun)) %>%
     arrange(-mean) %>%
     select(family) %>%
-    mutate(family= sub("^f__", "", family)) %>%
     pull()
 
+# Per environment
 family_summary %>%
-    left_join(genome_metadata %>% select(family,phylum) %>% unique(),by=join_by(family==family)) %>%  # Add metadata about each genome
-    left_join(sample_metadata,by=join_by(sample==sample)) %>%  # Add metadata about each sample
-    mutate(family= sub("^f__", "", family)) %>%
+    left_join(genome_metadata %>% select(family,phylum) %>% unique(),by=join_by(family==family)) %>%
     filter(family %in% family_arrange[1:20]) %>%
     mutate(family=factor(family,levels=rev(family_arrange[1:20]))) %>%
     filter(relabun > 0) %>%
-    ggplot(aes(x=relabun, y=family, group=family, color=phylum, fill=phylum)) +  # Start plotting: define x, y, fill colors
+    ggplot(aes(x=relabun, y=family, group=family, color=phylum)) +
         scale_color_manual(values=phylum_colors[-8]) +
-        scale_fill_manual(values=phylum_colors[-8]) +  # Use specific colors for phylum groups
-        #geom_boxplot(alpha=0.2) +
         geom_jitter(alpha=0.5) + 
-        facet_nested(. ~ species + sample_type)+  # Split the plots by species and treatment
-        theme_minimal() +
-        theme(legend.position = "none")
+        facet_grid(.~broad_environment)+
+        theme_minimal() + 
+        labs(y="Family", x="Relative abundance", color="Phylum")
+
 ```
 
-## Code Chunk 7
-```{r}
-genus_summary <- genome_counts_filt %>%
-  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation  # Normalize counts in each column (TSS normalization)
-  pivot_longer(-genome, names_to = "sample", values_to = "count") %>% #reduce to minimum number of columns  # Transform wide data to long format for plotting
-  left_join(sample_metadata, by = join_by(sample == sample)) %>% #append sample metadata  # Add metadata about each sample
-  left_join(genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata  # Add metadata about each genome
-  group_by(sample,genus) %>%
-  summarise(relabun=sum(count)) %>%
-  filter(genus != "g__")
-
-genus_summary %>%
-    filter(!is.na(relabun)) %>%  # Keep only rows that have actual values
-    group_by(genus) %>%
-    summarise(mean=mean(relabun),sd=sd(relabun)) %>%
-    arrange(-mean) %>%
-    tt()
+```{r taxonomy_family_summary_broad_environment, warning=FALSE, comments="", message=FALSE}
+family_summary %>%
+    group_by(family) %>%
+    summarise(total_mean=mean(relabun*100, na.rm=T),
+              total_sd=sd(relabun*100, na.rm=T),
+              le_mean=mean(relabun[broad_environment=="1000245 - Cropland"]*100, na.rm=T),
+             le_sd=sd(relabun[broad_environment=="1000245 - Cropland"]*100, na.rm=T),
+              ha_mean=mean(relabun[broad_environment=="1000198 - Mixed forest"]*100, na.rm=T),
+              ha_sd=sd(relabun[broad_environment=="1000198 - Mixed forest"]*100, na.rm=T),
+              er_mean=mean(relabun[broad_environment=="1000218 - Xeric shrubland"]*100, na.rm=T),
+              er_sd=sd(relabun[broad_environment=="1000218 - Xeric shrubland"]*100, na.rm=T),
+              go_mean=mean(relabun[broad_environment=="1000221 - Temperate woodland"]*100, na.rm=T),
+              go_sd=sd(relabun[broad_environment=="1000221 - Temperate woodland"]*100, na.rm=T)) %>%
+    mutate(Total=str_c(round(total_mean,3),"±",round(total_sd,3)),
+          Cropland=str_c(round(le_mean,3),"±",round(le_sd,3)),
+          Mixed_forest=str_c(round(ha_mean,3),"±",round(ha_sd,3)),
+          Xeric_shrubland=str_c(round(er_mean,3),"±",round(er_sd,3)),
+          Temperate_woodland=str_c(round(go_mean,3),"±",round(go_sd,3))) %>% 
+    arrange(-total_mean) %>% 
+    dplyr::select(family,Total,Cropland,Temperate_woodland, Mixed_forest,Xeric_shrubland)
 ```
+***Family summary grouped by sex***
 
-## Code Chunk 8
-```{r}
-genus_arrange <- genus_summary %>%
-    group_by(genus) %>%
+```{r taxonomy_family_summary_origin_sex, warning=FALSE, comments="", message=FALSE}
+family_summary %>%
+    group_by(family) %>%
+   summarise(
+    total_mean = mean(relabun * 100, na.rm = TRUE),
+    total_sd = sd(relabun * 100, na.rm = TRUE),
+    le_mean = mean(ifelse(sex == "Female", relabun * 100, NA), na.rm = TRUE),
+    le_sd = sd(ifelse(sex == "Female", relabun * 100, NA), na.rm = TRUE),
+    ha_mean = mean(ifelse( sex== "Male", relabun * 100, NA), na.rm = TRUE),
+    ha_sd = sd(ifelse(sex == "Male", relabun * 100, NA), na.rm = TRUE)
+  ) %>%
+  mutate(
+    Total = str_c(round(total_mean, 3), "±", round(total_sd, 3)),
+    Female = str_c(round(le_mean, 3), "±", round(le_sd, 3)),
+    Male = str_c(round(ha_mean, 3), "±", round(ha_sd, 3))
+  ) %>%
+  arrange(-total_mean) %>%
+  select(family, Total, Female, Male)
+```
+```{r taxonomy_jitterplot_family_sex, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+family_arrange <- family_summary %>%
+    group_by(family) %>%
     summarise(mean=sum(relabun)) %>%
-    filter(genus != "g__")%>%
     arrange(-mean) %>%
-    select(genus) %>%
-    mutate(genus= sub("^g__", "", genus)) %>%
+    select(family) %>%
     pull()
 
-genus_summary %>%
-    left_join(genome_metadata %>% select(genus,phylum) %>% unique(),by=join_by(genus==genus)) %>%  # Add metadata about each genome
-    left_join(sample_metadata,by=join_by(sample==sample)) %>%  # Add metadata about each sample
-    mutate(genus= sub("^g__", "", genus)) %>%
-    filter(genus %in% genus_arrange[1:20]) %>%
-    mutate(genus=factor(genus,levels=rev(genus_arrange[1:20]))) %>%
+# Per environment
+family_summary %>%
+    left_join(genome_metadata %>% select(family,phylum) %>% unique(),by=join_by(family==family)) %>%
+    filter(family %in% family_arrange[1:20]) %>%
+    mutate(family=factor(family,levels=rev(family_arrange[1:20]))) %>%
     filter(relabun > 0) %>%
-    ggplot(aes(x=relabun, y=genus, group=genus, color=phylum)) +  # Start plotting: define x, y, fill colors
-        scale_color_manual(values=phylum_colors) +
-        #geom_boxplot() +
+    ggplot(aes(x=relabun, y=family, group=family, color=phylum)) +
+        scale_color_manual(values=phylum_colors[-8]) +
         geom_jitter(alpha=0.5) + 
-        facet_nested(. ~ species )+  # Split the plots by species and treatment
-        theme_minimal()
+        facet_grid(.~sex)+
+        theme_minimal() + 
+        labs(y="Family", x="Relative abundance", color="Phylum")
+
 ```
 
-## Code Chunk 9
-```{r}
+```{r taxonomy_family_summary_sex, warning=FALSE, comments="", message=FALSE}
+family_summary %>%
+    group_by(family) %>%
+    summarise(
+    total_mean = mean(relabun * 100, na.rm = TRUE),
+    total_sd = sd(relabun * 100, na.rm = TRUE),
+    le_mean = mean(ifelse(sex == "Female", relabun * 100, NA), na.rm = TRUE),
+    le_sd = sd(ifelse(sex == "Female", relabun * 100, NA), na.rm = TRUE),
+    ha_mean = mean(ifelse( sex== "Male", relabun * 100, NA), na.rm = TRUE),
+    ha_sd = sd(ifelse(sex == "Male", relabun * 100, NA), na.rm = TRUE)
+  ) %>%
+  mutate(
+    Total = str_c(round(total_mean, 3), "±", round(total_sd, 3)),
+    Female = str_c(round(le_mean, 3), "±", round(le_sd, 3)),
+    Male = str_c(round(ha_mean, 3), "±", round(ha_sd, 3))
+  ) %>%
+  arrange(-total_mean) %>%
+    dplyr::select(family,Total,Female, Male)
+```
+#### Genus level
+
+*** Percetange of genera in each group of environment***
+
+```{r taxonomy_genus_summary, warning=FALSE, comments="", message=FALSE}
+genus_summary <- genome_counts_filt %>%
+  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
+  pivot_longer(-genome, names_to = "sample", values_to = "count") %>% #reduce to minimum number of columns
+  left_join(sample_metadata, by = join_by(sample == sample)) %>% #append sample metadata
+  left_join(genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata
+  group_by(sample,phylum,genus,broad_environment) %>%
+  summarise(relabun=sum(count)) 
+# %>%
+#   filter(genus != "g__") %>%
+#   mutate(genus= sub("^g__", "", genus))
+
+genus_summary %>%
+    group_by(genus) %>%
+    summarise(total_mean=mean(relabun*100, na.rm=T),
+              total_sd=sd(relabun*100, na.rm=T),
+              le_mean=mean(relabun[broad_environment=="1000245 - Cropland"]*100, na.rm=T),
+             le_sd=sd(relabun[broad_environment=="1000245 - Cropland"]*100, na.rm=T),
+              ha_mean=mean(relabun[broad_environment=="1000198 - Mixed forest"]*100, na.rm=T),
+              ha_sd=sd(relabun[broad_environment=="1000198 - Mixed forest"]*100, na.rm=T),
+              er_mean=mean(relabun[broad_environment=="1000218 - Xeric shrubland"]*100, na.rm=T),
+              er_sd=sd(relabun[broad_environment=="1000218 - Xeric shrubland"]*100, na.rm=T),
+              go_mean=mean(relabun[broad_environment=="1000221 - Temperate woodland"]*100, na.rm=T),
+              go_sd=sd(relabun[broad_environment=="1000221 - Temperate woodland"]*100, na.rm=T)) %>%
+    mutate(Total=str_c(round(total_mean,3),"±",round(total_sd,3)),
+          Cropland=str_c(round(le_mean,3),"±",round(le_sd,3)),
+          Mixed_forest=str_c(round(ha_mean,3),"±",round(ha_sd,3)),
+          Xeric_shrubland=str_c(round(er_mean,3),"±",round(er_sd,3)),
+          Temperate_woodland=str_c(round(go_mean,3),"±",round(go_sd,3))) %>% 
+    arrange(-total_mean) %>% 
+    dplyr::select(genus,Total, Cropland,Temperate_woodland, Mixed_forest,Xeric_shrubland) 
+```
+
+```{r taxonomy_jitterplot_genus, fig.height=14, fig.width=10, fig.fullwidth=TRUE}
+genus_summary_sort <- genus_summary %>%
+    group_by(genus) %>%
+    summarise(mean=mean(relabun, na.rm=T),sd=sd(relabun, na.rm=T)) %>%
+    arrange(-mean) 
+
+genus_summary %>%
+  mutate(genus=factor(genus, levels=rev(genus_summary_sort %>% pull(genus)))) %>%
+  filter(relabun > 0) %>%
+  ggplot(aes(x=relabun, y=genus, group=genus, color=phylum)) +
+  scale_color_manual(values=phylum_colors) +
+  geom_jitter(alpha=0.5) + 
+  facet_grid(.~broad_environment)+
+  theme_minimal() + 
+  theme(axis.text.y = element_text(size=6))+
+  labs(y="Family", x="Relative abundance", color="Phylum")
+
+```
+*** Percetange of genera in each group of sex***
+
+```{r taxonomy_genus_summary_sex, warning=FALSE, comments="", message=FALSE}
+genus_summary <- genome_counts_filt %>%
+  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
+  pivot_longer(-genome, names_to = "sample", values_to = "count") %>% #reduce to minimum number of columns
+  left_join(sample_metadata, by = join_by(sample == sample)) %>% #append sample metadata
+  left_join(genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata
+  group_by(sample,phylum,genus,sex) %>%
+  summarise(relabun=sum(count)) 
+# %>%
+#   filter(genus != "g__") %>%
+#   mutate(genus= sub("^g__", "", genus))
+
+genus_summary %>%
+    group_by(genus) %>%
+    summarise(total_mean=mean(relabun*100, na.rm=T),
+              total_sd=sd(relabun*100, na.rm=T),
+              le_mean=mean(relabun[sex=="Female"]*100, na.rm=T),
+             le_sd=sd(relabun[sex=="Female"]*100, na.rm=T),
+              ha_mean=mean(relabun[sex=="Male"]*100, na.rm=T),
+              ha_sd=sd(relabun[sex=="Male"]*100, na.rm=T)) %>%
+    mutate(Total=str_c(round(total_mean,3),"±",round(total_sd,3)),
+          Female=str_c(round(le_mean,3),"±",round(le_sd,3)),
+          Male=str_c(round(ha_mean,3),"±",round(ha_sd,3))) %>% 
+    arrange(-total_mean) %>% 
+    dplyr::select(genus,Total,Male,Female) 
+```
+
+```{r taxonomy_jitterplot_genus_sex, fig.height=14, fig.width=10, fig.fullwidth=TRUE}
+genus_summary_sort <- genus_summary %>%
+    group_by(genus) %>%
+    summarise(mean=mean(relabun, na.rm=T),sd=sd(relabun, na.rm=T)) %>%
+    arrange(-mean) 
+
+genus_summary %>%
+  mutate(genus=factor(genus, levels=rev(genus_summary_sort %>% pull(genus)))) %>%
+  filter(relabun > 0) %>%
+  ggplot(aes(x=relabun, y=genus, group=genus, color=phylum)) +
+  scale_color_manual(values=phylum_colors) +
+  geom_jitter(alpha=0.5) + 
+  facet_grid(.~sex)+
+  theme_minimal() + 
+  theme(axis.text.y = element_text(size=6))+
+  labs(y="Family", x="Relative abundance", color="Phylum")
+
+```
+
+**Number of MAGs without genera-level annotation**
+```{r nongenera_gut, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+genome_metadata %>%
+  filter(genus == "g__") %>%
+  nrow() %>% 
+  cat()
+```
+
+```{r nongene_phylum_gut, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+total_mag_phylum <- genome_metadata %>%
+  group_by(phylum) %>%
+  summarize(count_total = n())
+genome_metadata %>%
+  filter(genus == "g__") %>%
+  group_by(phylum) %>%
+  summarize(count_nogene = n()) %>% 
+  left_join(total_mag_phylum, by = join_by(phylum == phylum)) %>% 
+  mutate(percentage=100*count_nogene/count_total) %>% 
+  tt()
+```
+
+**Percentage of MAGs without genus-level annotation**
+```{r gen_percet, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+nongenera <- genome_metadata %>%
+  filter(genus == "g__") %>%
+  summarize(Mag_nogenera = n()) %>% 
+  pull()
+perct <- nongenera*100/nmags
+cat(perct)
+```
+
+
+**Number of MAGs without species-level annotation**
+```{r nonspe, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+genome_metadata %>%
+  filter(species == "s__") %>%
+  summarize(Mag_nospecies = n())
+
+```
+
+```{r nonspe_phylum, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+total_mag_phylum <- genome_metadata %>%
+  group_by(phylum) %>%
+  summarize(count_total = n())
+genome_metadata %>%
+  filter(species == "s__") %>%
+  group_by(phylum) %>%
+  summarize(count_nospecies = n()) %>% 
+  left_join(total_mag_phylum, by = join_by(phylum == phylum)) %>%
+  mutate(species_annotated=count_total-count_nospecies) %>% 
+  mutate(percentage=100*count_nospecies/count_total) %>% 
+  mutate(percentage_species=100-100*count_nospecies/count_total)%>% 
+  tt()
+```
+
+**Percentage of MAGs without species-level annotation**
+```{r sp_percet, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+nonspecies <- genome_metadata %>%
+  filter(species == "s__") %>%
+  summarize(Mag_nospecies = n()) %>% 
+  pull()
+perct <- nonspecies*100/nmags
+cat(perct)
+```
+
+<!--chapter:end:04_Community.Rmd-->
+
+
+# Alpha diversity
+
+## Gut microbiota
+
+```{r load_data_alpha}
+load("data/data.Rdata")
+treatment_colors <- c("#f56042","#429ef5", "#42f58d", "#b142f5")
+sample_metadata$broad_environment <- factor(sample_metadata$broad_environment, levels=c("1000198 - Mixed forest", "1000221 - Temperate woodland", "1000218 - Xeric shrubland", "1000245 - Cropland"))
+```
+
+```{r alpha_div, comment="", message=FALSE, warning=FALSE}
 # Calculate Hill numbers
 richness <- genome_counts_filt %>%
   column_to_rownames(var = "genome") %>%
@@ -940,7 +1472,7 @@ dist <- genome_gifts %>%
   traits2dist(., method = "gower")
 
 functional <- genome_counts_filt %>%
-  filter(genome %in% labels(dist)[[1]]) %>%
+  filter(genome %in% rownames(dist)) %>% 
   column_to_rownames(var = "genome") %>%
   dplyr::select(where(~ !all(. == 0))) %>%
   hilldiv(., q = 1, dist = dist) %>%
@@ -957,693 +1489,1942 @@ alpha_div <- richness %>%
   full_join(functional, by = join_by(sample == sample))
 ```
 
-## Code Chunk 10
-```{r}
+```{r alpha_div_diets_summary_all, comment="",echo=FALSE, message=FALSE, warning=FALSE}
 alpha_div %>%
-  pivot_longer(-sample, names_to = "metric", values_to = "value") %>%  # Transform wide data to long format for plotting
-  left_join(., sample_metadata, by = join_by(sample == sample)) %>%  # Add metadata about each sample
-  mutate(metric=factor(metric,levels=c("richness","neutral","phylogenetic","functional"))) %>%
-  unite("group", c(species,sample_type), remove = FALSE) %>%
-      ggplot(aes(y = value, x = group, group=group, color=group, fill=group)) +  # Start plotting: define x, y, fill colors
-      geom_boxplot(outlier.shape = NA) +
-      geom_jitter(alpha=0.5) +
-      scale_color_manual(name="Group",
-          breaks=c("Cathartes aura_Colon contents","Coragyps atratus_Colon contents","Cathartes aura_Stomach contents","Coragyps atratus_Stomach contents"),
-          labels=c("Cathartes aura (colon)","Coragyps atratus (colon)","Cathartes aura (stomach)","Coragyps atratus (stomach)"),
-          values=c("#e5bd5b", "#6b7398","#e2815a", "#876b96")) +
-      scale_fill_manual(name="Group",  # Use specific colors for phylum groups
-          breaks=c("Cathartes aura_Colon contents","Coragyps atratus_Colon contents","Cathartes aura_Stomach contents","Coragyps atratus_Stomach contents"),
-          labels=c("Cathartes aura (colon)","Coragyps atratus (colon)","Cathartes aura (stomach)","Coragyps atratus (stomach)"),
-          values=c("#e5bd5b50", "#6b739850","#e2815a50", "#876b9650")) +
-      facet_wrap(. ~ metric, scales = "free", ncol=4) +
-      coord_cartesian(xlim = c(1, NA)) +
-      theme_classic() +
-      theme(
-        strip.background = element_blank(),
-        panel.grid.minor.x = element_line(size = .1, color = "grey"),
-        axis.title.x = element_blank(),
-        axis.title.y = element_blank(),
-        axis.text.x = element_blank())
+  pivot_longer(-sample, names_to = "alpha", values_to = "value") %>%
+  left_join(sample_metadata, by = join_by(sample == sample)) %>%
+    group_by(alpha)%>%
+    summarise(total_mean=mean(value, na.rm=T),
+              total_sd=sd(value, na.rm=T),
+              Xeric_shrubland_mean=mean(value[broad_environment=="1000218 - Xeric shrubland"], na.rm=T),
+             Xeric_shrubland_sd=sd(value[broad_environment=="1000218 - Xeric shrubland"], na.rm=T),
+             Cropland_mean=mean(value[broad_environment=="1000245 - Cropland"], na.rm=T),
+             Cropland_sd=sd(value[broad_environment=="1000245 - Cropland"], na.rm=T),
+              Mixed_forest_mean=mean(value[broad_environment=="1000198 - Mixed forest"], na.rm=T),
+             Mixed_forest_sd=sd(value[broad_environment=="1000198 - Mixed forest"], na.rm=T),
+              Temperate_woodland_mean=mean(value[broad_environment=="1000221 - Temperate woodland"], na.rm=T),
+              Temperate_woodland_sd=sd(value[broad_environment=="1000221 - Temperate woodland"], na.rm=T)) %>%
+    mutate(Total=str_c(round(total_mean,2),"±",round(total_sd,2)),
+           Xeric_shrubland=str_c(round(Xeric_shrubland_mean,2),"±",round(Xeric_shrubland_sd,2)),
+           Cropland=str_c(round(Cropland_mean,2),"±",round(Cropland_sd,2)),
+           Mixed_forest=str_c(round(Mixed_forest_mean,2),"±",round(Mixed_forest_sd,2)),
+           Temperate_woodland=str_c(round(Temperate_woodland_mean,2),"±",round(Temperate_woodland_sd,2))) %>% 
+    arrange(-total_mean) %>% 
+    dplyr::select(alpha,Total,Xeric_shrubland,Temperate_woodland,Cropland,Mixed_forest) %>% 
+  tt()
 ```
 
-## Code Chunk 11
-```{r}
-beta_q0n <- genome_counts_filt %>%
-  column_to_rownames(., "genome") %>%
-  hillpair(., q = 0)
-
-beta_q1n <- genome_counts_filt %>%
-  column_to_rownames(., "genome") %>%
-  hillpair(., q = 1)
-
-beta_q1p <- genome_counts_filt %>%
-  column_to_rownames(., "genome") %>%
-  hillpair(., q = 1, tree = genome_tree)
-
-beta_q1f <- genome_counts_filt %>%
-  filter(genome %in% labels(dist)[[1]]) %>%
-  column_to_rownames(., "genome") %>%
-  hillpair(., q = 1, dist = dist)
-```
-
-## Code Chunk 12
-```{r}
+```{r alpha_div_boxplot, comment="", message=FALSE, warning=FALSE, fig.height=3, fig.width=10, fig.fullwidth=TRUE}
 #Richness
-betadisper(beta_q0n$C, sample_metadata$region) %>% permutest(., pairwise = TRUE)
-```
-
-## Code Chunk 13
-```{r}
-adonis2(beta_q0n$C ~ region,   # Run a PERMANOVA test to compare groups
-        data = sample_metadata %>% arrange(match(sample,labels(beta_q1n$C))), 
-        permutations = 999, 
-        strata = sample_metadata %>% arrange(match(sample,labels(beta_q1n$C))) %>% pull(sample)) %>%
-        broom::tidy() %>%
-        tt()
-```
-
-## Code Chunk 14
-```{r}
-#Neutral diversity
-betadisper(beta_q1n$C, sample_metadata$region) %>% permutest(., pairwise = TRUE)
-```
-
-## Code Chunk 15
-```{r}
-adonis2(beta_q1n$C ~ region,   # Run a PERMANOVA test to compare groups
-        data = sample_metadata %>% arrange(match(sample,labels(beta_q1n$C))), 
-        permutations = 999, 
-        strata = sample_metadata %>% arrange(match(sample,labels(beta_q1n$C))) %>% pull(sample)) %>%
-        broom::tidy() %>%
-        tt()
-```
-
-## Code Chunk 16
-```{r}
-#Phylogenetic diversity
-betadisper(beta_q1p$C, sample_metadata$region) %>% permutest(., pairwise = TRUE)
-```
-
-## Code Chunk 17
-```{r}
-adonis2(beta_q1p$C ~ region,   # Run a PERMANOVA test to compare groups
-        data = sample_metadata %>% arrange(match(sample,labels(beta_q1n$C))), 
-        permutations = 999, 
-        strata = sample_metadata %>% arrange(match(sample,labels(beta_q1n$C))) %>% pull(sample)) %>%
-        broom::tidy() %>%
-        tt()
-```
-
-## Code Chunk 18
-```{r}
-adonis2(beta_q1f$C ~ region,   # Run a PERMANOVA test to compare groups
-        data = sample_metadata %>% arrange(match(sample,labels(beta_q1n$C))), 
-        permutations = 999, 
-        strata = sample_metadata %>% arrange(match(sample,labels(beta_q1n$C))) %>% pull(sample)) %>%
-        broom::tidy() %>%
-        tt()
-```
-
-## Code Chunk 19
-```{r}
-beta_q0n$S %>%
-  vegan::metaMDS(., trymax = 500, k = 2, verbosity = FALSE, trace=FALSE) %>%
-  vegan::scores() %>%
-  as_tibble(., rownames = "sample") %>%
-  dplyr::left_join(sample_metadata, by = join_by(sample == sample)) %>%  # Add metadata about each sample
-  group_by(region) %>%
-  mutate(x_cen = mean(NMDS1, na.rm = TRUE)) %>%
-  mutate(y_cen = mean(NMDS2, na.rm = TRUE)) %>%
-  mutate(sample=factor(sample, levels=c("Sg1","Sg2","Sg3","Sg4","Sg5","Sg6","Sg7","Sg8","Sg9","Sg10"))) %>%
-  ungroup() %>%
-  ggplot(aes(x = NMDS1, y = NMDS2, color = region, shape = sample)) +  # Start plotting: define x, y, fill colors
-    scale_shape_manual(values = 1:10) +
-    geom_point(size = 4) +
-    #   stat_ellipse(aes(color = beta_q1n_nmds$Groups))+
-    geom_segment(aes(x = x_cen, y = y_cen, xend = NMDS1, yend = NMDS2), alpha = 0.9) +
-    theme_classic() +
-    theme(
-      axis.text.x = element_text(size = 12),
-      axis.text.y = element_text(size = 12),
-      axis.title = element_text(size = 20, face = "bold"),
-      axis.text = element_text(face = "bold", size = 18),
-      panel.background = element_blank(),
-      axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
-      legend.text = element_text(size = 16),
-      legend.title = element_text(size = 18),
-      legend.position = "right", legend.box = "vertical"
-    ) +
-    labs(shape="Individual")  # Label the x and y axes
-```
-
-## Code Chunk 20
-```{r}
-beta_q1n$S %>%
-  vegan::metaMDS(., trymax = 500, k = 2, verbosity = FALSE, trace=FALSE) %>%
-  vegan::scores() %>%
-  as_tibble(., rownames = "sample") %>%
-  dplyr::left_join(sample_metadata, by = join_by(sample == sample)) %>%  # Add metadata about each sample
-  group_by(region) %>%
-  mutate(x_cen = mean(NMDS1, na.rm = TRUE)) %>%
-  mutate(y_cen = mean(NMDS2, na.rm = TRUE)) %>%
-  mutate(individual=factor(individual, levels=c("Sg1","Sg2","Sg3","Sg4","Sg5","Sg6","Sg7","Sg8","Sg9","Sg10"))) %>%
-  ungroup() %>%
-  ggplot(aes(x = NMDS1, y = NMDS2, color = type, shape = individual)) +  # Start plotting: define x, y, fill colors
-    scale_color_manual(name="Sample type",
-          breaks=c("cloaca","feces"),
-          labels=c("Cloaca","Faeces"),
-          values=c("#e5bd5b", "#6b7398")) +
-    scale_shape_manual(values = 1:10) +
-    geom_point(size = 4) +
-    #   stat_ellipse(aes(color = beta_q1n_nmds$Groups))+
-    geom_segment(aes(x = x_cen, y = y_cen, xend = NMDS1, yend = NMDS2), alpha = 0.9) +
-    theme_classic() +
-    theme(
-      axis.text.x = element_text(size = 12),
-      axis.text.y = element_text(size = 12),
-      axis.title = element_text(size = 20, face = "bold"),
-      axis.text = element_text(face = "bold", size = 18),
-      panel.background = element_blank(),
-      axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
-      legend.text = element_text(size = 16),
-      legend.title = element_text(size = 18),
-      legend.position = "right", legend.box = "vertical"
-    ) +
-    labs(shape="Individual")  # Label the x and y axes
-```
-
-## Code Chunk 21
-```{r}
-beta_q1p$S %>%
-  vegan::metaMDS(., trymax = 500, k = 2, verbosity = FALSE, trace=FALSE) %>%
-  vegan::scores() %>%
-  as_tibble(., rownames = "sample") %>%
-  dplyr::left_join(sample_metadata, by = join_by(sample == sample)) %>%  # Add metadata about each sample
-  group_by(region) %>%
-  mutate(x_cen = mean(NMDS1, na.rm = TRUE)) %>%
-  mutate(y_cen = mean(NMDS2, na.rm = TRUE)) %>%
-  mutate(individual=factor(individual, levels=c("Sg1","Sg2","Sg3","Sg4","Sg5","Sg6","Sg7","Sg8","Sg9","Sg10"))) %>%
-  ungroup() %>%
-  ggplot(aes(x = NMDS1, y = NMDS2, color = type, shape = individual)) +  # Start plotting: define x, y, fill colors
-    scale_color_manual(name="Sample type",
-          breaks=c("cloaca","feces"),
-          labels=c("Cloaca","Faeces"),
-          values=c("#e5bd5b", "#6b7398")) +
-    scale_shape_manual(values = 1:10) +
-    geom_point(size = 4) +
-    #   stat_ellipse(aes(color = beta_q1n_nmds$Groups))+
-    geom_segment(aes(x = x_cen, y = y_cen, xend = NMDS1, yend = NMDS2), alpha = 0.9) +
-    theme_classic() +
-    theme(
-      axis.text.x = element_text(size = 12),
-      axis.text.y = element_text(size = 12),
-      axis.title = element_text(size = 20, face = "bold"),
-      axis.text = element_text(face = "bold", size = 18),
-      panel.background = element_blank(),
-      axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
-      legend.text = element_text(size = 16),
-      legend.title = element_text(size = 18),
-      legend.position = "right", legend.box = "vertical"
-    ) +
-    labs(shape="Individual")  # Label the x and y axes
-```
-
-## Code Chunk 22
-```{r}
-beta_q1p$S %>%
-  vegan::metaMDS(., trymax = 500, k = 2, verbosity = FALSE, trace=FALSE) %>%
-  vegan::scores() %>%
-  as_tibble(., rownames = "sample") %>%
-  dplyr::left_join(sample_metadata, by = join_by(sample == sample)) %>%  # Add metadata about each sample
-  group_by(region) %>%
-  mutate(x_cen = mean(NMDS1, na.rm = TRUE)) %>%
-  mutate(y_cen = mean(NMDS2, na.rm = TRUE)) %>%
-  mutate(individual=factor(individual, levels=c("Sg1","Sg2","Sg3","Sg4","Sg5","Sg6","Sg7","Sg8","Sg9","Sg10"))) %>%
-  ungroup() %>%
-  ggplot(aes(x = NMDS1, y = NMDS2, color = type, shape = individual)) +  # Start plotting: define x, y, fill colors
-    scale_color_manual(name="Sample type",
-          breaks=c("cloaca","feces"),
-          labels=c("Cloaca","Faeces"),
-          values=c("#e5bd5b", "#6b7398")) +
-    scale_shape_manual(values = 1:10) +
-    geom_point(size = 4) +
-    #   stat_ellipse(aes(color = beta_q1n_nmds$Groups))+
-    geom_segment(aes(x = x_cen, y = y_cen, xend = NMDS1, yend = NMDS2), alpha = 0.9) +
-    theme_classic() +
-    theme(
-      axis.text.x = element_text(size = 12),
-      axis.text.y = element_text(size = 12),
-      axis.title = element_text(size = 20, face = "bold"),
-      axis.text = element_text(face = "bold", size = 18),
-      panel.background = element_blank(),
-      axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
-      legend.text = element_text(size = 16),
-      legend.title = element_text(size = 18),
-      legend.position = "right", legend.box = "vertical"
-    ) +
-    labs(shape="Individual")  # Label the x and y axes
-```
-
-
-<!--chapter:end:04_Community.Rmd-->
-
-# Inline Annotated R Markdown: 05_Differential_abundance_Inline_Annotated
-
-## Code Chunk 1
-```{r}
-load("data/data.Rdata")  # Load an RData file with variables and datasets
-```
-
-## Code Chunk 2
-```{r}
-# phyloseq object considering structual zeros
-phylo_samples <- sample_metadata %>%
-  column_to_rownames("sample") %>%
-  sample_data() # convert to phyloseq sample_data object
-
-phylo_genome <- genome_counts_filt %>%
-  column_to_rownames("genome") %>%
-  mutate_all(~ replace(., . == 0, 0.00001)) %>% # add pseudo counts to avoid structural zero issues (note this approach can be improved!) %>%
-  mutate_all(~./sum(.)) %>% #apply TSS nornalisation
-  otu_table(., taxa_are_rows = TRUE)
-
-phylo_taxonomy <- genome_metadata %>%
-  filter(genome %in% rownames(phylo_genome)) %>% # remove structural zeros  # Filter the data to include only rows that meet certain conditions
-  mutate(genome2 = genome) %>% # create a pseudo genome name column  # Add or modify columns in the dataset
-  column_to_rownames("genome2") %>%
-  dplyr::select(domain, phylum, class, order, family, genus, species, genome) %>% # add an additional taxonomic level to ensure genome-level analysis (as no all genomes have species-level taxonomic assignments. Otherwise, ANCOMBC2 aggregates analyses per species)  # Select specific columns from the data
-  as.matrix() %>%
-  tax_table() # convert to phyloseq tax_table object
-
-phyloseq <- phyloseq(phylo_genome, phylo_taxonomy, phylo_samples)
-```
-
-## Code Chunk 3
-```{r}
-differential_abundance <- ancombc2(
-  data = phyloseq,
-  assay_name = "counts",
-  tax_level = NULL, # change to agglomerate analysis to a higher taxonomic range
-  fix_formula = "type", # fixed variable(s)
-  rand_formula = "(1|individual)",
-  p_adj_method = "holm",
-  pseudo_sens = TRUE,
-  prv_cut = 0,
-  lib_cut = 0,
-  s0_perc = 0.05,
-  group = NULL,
-  struc_zero = FALSE,
-  neg_lb = FALSE,
-  alpha = 0.05,
-  n_cl = 2,
-  verbose = TRUE,
-  global = FALSE,
-  pairwise = FALSE,
-  dunnet = FALSE,
-  trend = FALSE,
-  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
-  em_control = list(tol = 1e-5, max_iter = 100),
-  lme_control = lme4::lmerControl(),
-  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100),
-  trend_control = NULL
-)
-
-# Save differential abundance to data object
-
-save(sample_metadata, 
-     genome_metadata, 
-     read_counts, 
-     genome_counts, 
-     genome_counts_filt, 
-     genome_tree,
-     genome_gifts, 
-     phylum_colors,
-     data_stats,
-     differential_abundance,
-     file = "resources/data.Rdata")
-```
-
-## Code Chunk 4
-```{r}
-tax <- data.frame(phyloseq@tax_table) %>%
-  rownames_to_column(., "taxon")
-
-differential_abundance_table <- differential_abundance$res %>%
-  dplyr::select(genome=taxon, lfc_typefeces, p_typefeces) %>%  # Select specific columns from the data
-  filter(p_typefeces < 0.05) %>%  # Filter the data to include only rows that meet certain conditions
-  dplyr::arrange(p_typefeces) %>%
-  merge(., tax, by = "genome")
-
-differential_abundance_table %>%
-  select(genome,order,phylum, lfc_typefeces, p_typefeces) %>%  # Select specific columns from the data
-  tt()
-```
-
-## Code Chunk 5
-```{r}
-ggplot(differential_abundance_table, aes(x = forcats::fct_rev(genome), y = lfc_typefeces, color = phylum)) +  # Begin plotting using ggplot2
-  geom_point(size = 3) +  # Add a specific type of plot layer (bars, points, lines, etc.)
-  scale_color_manual(values = phylum_colors[-c(3,4)]) +  # Adjust color scales, axes, or fill options
-  geom_hline(yintercept = 0) +  # Add a specific type of plot layer (bars, points, lines, etc.)
-  coord_flip() +
-  facet_grid(phylum ~ ., scales = "free", space = "free") +  # Create multiple subplots based on a variable
-  theme(  # Customize visual aspects of the plot
-    panel.background = element_blank(),
-    axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
+plot1 <- alpha_div %>%
+  pivot_longer(-sample, names_to = "metric", values_to = "value") %>%
+  left_join(., sample_metadata, by = join_by(sample == sample)) %>%
+  filter(metric=="richness") %>%
+  ggplot(aes(y = value, x = broad_environment, group=broad_environment, color=broad_environment, fill=broad_environment)) +
+  geom_jitter(width = 0.2, show.legend = FALSE) +
+  geom_boxplot(width = 0.5, alpha=0.5,outlier.shape = NA, show.legend = FALSE) +
+  scale_color_manual(values=treatment_colors)+
+  scale_fill_manual(values=treatment_colors) +
+  scale_x_discrete(labels=c("1000218 - Xeric shrubland" = "Xeric shrubland", "1000245 - Cropland" = "Cropland", "1000198 - Mixed forest" = "Mixed forest", "1000221 - Temperate woodland" = "Temperate woodland")) +
+  stat_compare_means(method = "wilcox.test", show.legend = F, size = 3, label.y = c(300), label.x = c(1.5))+
+  coord_cartesian(xlim = c(1, NA)) +
+  theme_classic() +
+  theme(
     axis.title.x = element_blank(),
-    strip.background = element_blank(), 
-    strip.text = element_blank()
-  ) +
-  xlab("Genome") +
-  ylab("log2FoldChange") +
-  guides(col = guide_legend("Phylum"))
+    strip.background = element_blank(),
+    panel.grid.minor.x = element_line(size = .1, color = "grey"),
+    axis.text = element_text(size=10),
+    axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0))
+    )+
+  labs(y = "Richness")
+
+
+plot2 <- alpha_div %>%
+  pivot_longer(-sample, names_to = "metric", values_to = "value") %>%
+  left_join(., sample_metadata, by = join_by(sample == sample)) %>%
+  filter(metric=="neutral") %>%
+  ggplot(aes(y = value, x = broad_environment, group=broad_environment, color=broad_environment, fill=broad_environment)) +
+  geom_jitter(width = 0.2, show.legend = FALSE) +
+  geom_boxplot(width = 0.5, alpha=0.5,outlier.shape = NA, show.legend = FALSE) +
+  scale_color_manual(values=treatment_colors)+
+  scale_fill_manual(values=treatment_colors) +
+  scale_x_discrete(labels=c("1000218 - Xeric shrubland" = "Xeric shrubland", "1000245 - Cropland" = "Cropland", "1000198 - Mixed forest" = "Mixed forest", "1000221 - Temperate woodland" = "Temperate woodland")) +
+  stat_compare_means(method = "wilcox.test", show.legend = F, size = 3, label.y = c(190), label.x = c(1.5))+
+  coord_cartesian(xlim = c(1, NA)) +
+  theme_classic() +
+  theme(
+    axis.title.x = element_blank(),
+    strip.background = element_blank(),
+    panel.grid.minor.x = element_line(size = .1, color = "grey"),
+    axis.text = element_text(size=10),
+    axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0))
+    )+
+  labs(y = "Neutral alpha diversity")
+
+plot3 <- alpha_div %>%
+  pivot_longer(-sample, names_to = "metric", values_to = "value") %>%
+  left_join(., sample_metadata, by = join_by(sample == sample)) %>%
+  filter(metric=="phylogenetic") %>%
+  ggplot(aes(y = value, x = broad_environment, group=broad_environment, color=broad_environment, fill=broad_environment)) +
+  geom_jitter(width = 0.2, show.legend = FALSE) +
+  geom_boxplot(width = 0.5, alpha=0.5,outlier.shape = NA, show.legend = FALSE) +
+  scale_color_manual(values=treatment_colors)+
+  scale_fill_manual(values=treatment_colors) +
+  scale_x_discrete(labels=c("1000218 - Xeric shrubland" = "Xeric shrubland", "1000245 - Cropland" = "Cropland", "1000198 - Mixed forest" = "Mixed forest", "1000221 - Temperate woodland" = "Temperate woodland")) +
+  stat_compare_means(method = "wilcox.test", show.legend = F, size = 3, label.y = c(12), label.x = c(1.5))+
+  coord_cartesian(xlim = c(1, NA)) +
+  theme_classic() +
+  theme(
+    axis.title.x = element_blank(),
+    strip.background = element_blank(),
+    panel.grid.minor.x = element_line(size = .1, color = "grey"),
+    axis.text = element_text(size=10),
+    axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0))
+    )+
+  labs(y = "Phylogenetic alpha diversity")
+
+
+plot4 <- alpha_div %>%
+  pivot_longer(-sample, names_to = "metric", values_to = "value") %>%
+  left_join(., sample_metadata, by = join_by(sample == sample)) %>%
+  filter(metric=="functional") %>%
+  ggplot(aes(y = value, x = broad_environment, group=broad_environment, color=broad_environment, fill=broad_environment)) +
+  geom_jitter(width = 0.2, show.legend = FALSE) +
+  geom_boxplot(width = 0.5, alpha=0.5,outlier.shape = NA, show.legend = FALSE) +
+  scale_color_manual(values=treatment_colors)+
+  scale_fill_manual(values=treatment_colors) +
+  scale_x_discrete(labels=c("1000218 - Xeric shrubland" = "Xeric shrubland", "1000245 - Cropland" = "Cropland", "1000198 - Mixed forest" = "Mixed forest", "1000221 - Temperate woodland" = "Temperate woodland")) +
+  stat_compare_means(method = "wilcox.test", show.legend = F, size = 3, label.y = c(2), label.x = c(1.5))+
+  coord_cartesian(xlim = c(1, NA)) +
+  theme_classic() +
+  theme(
+    axis.title.x = element_blank(),
+    strip.background = element_blank(),
+    panel.grid.minor.x = element_line(size = .1, color = "grey"),
+    axis.text = element_text(size=10),
+    axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0))
+    )+
+  labs(y = "Functional alpha diversity")
+```
+```{r div_plot_together, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+grid.arrange(arrangeGrob(plot1,plot2,plot3, plot4, ncol = 2))
 ```
 
-## Code Chunk 6
-```{r}
-differential_abundance$res %>%
-  na.omit() %>%
-  dplyr::select(genome=taxon, lfc_typefeces, p_typefeces) %>%  # Select specific columns from the data
-  left_join(genome_metadata, by = join_by(genome == genome)) %>%  # Merge two datasets, keeping all rows from the left one
-  mutate(phylum = ifelse(p_typefeces < 0.05, phylum, NA)) %>%  # Add or modify columns in the dataset
-  ggplot(., aes(x = lfc_typefeces, y = -log(p_typefeces), color = phylum)) +  # Begin plotting using ggplot2
-  geom_point() +  # Add a specific type of plot layer (bars, points, lines, etc.)
-  #xlim(c(-10,4)) +
-  scale_color_manual(values = phylum_colors[-c(3,4)]) +  # Adjust color scales, axes, or fill options
-  labs(color = "Significance", x = "Log-fold difference between sample types", y = "p-value") +  # Customize axis labels or plot titles
-  theme_classic()
+```{r alpha_div_boxplot_sex, comment="", message=FALSE, warning=FALSE, fig.height=3, fig.width=10, fig.fullwidth=TRUE}
+#Richness
+plot1 <- alpha_div %>%
+  pivot_longer(-sample, names_to = "metric", values_to = "value") %>%
+  left_join(., sample_metadata, by = join_by(sample == sample)) %>%
+  filter(metric=="richness") %>%
+  ggplot(aes(y = value, x = sex, group=sex, color=broad_environment, fill=broad_environment)) +
+  geom_jitter(width = 0.2, show.legend = FALSE) +
+  geom_boxplot(width = 0.5, alpha=0.5,outlier.shape = NA, show.legend = FALSE) +
+  scale_color_manual(values=treatment_colors)+
+  scale_fill_manual(values=treatment_colors) +
+  facet_grid(~factor(broad_environment, labels=c("1000218 - Xeric shrubland" = "Xeric shrubland", "1000245 - Cropland" = "Cropland", "1000198 - Mixed forest" = "Mixed forest", "1000221 - Temperate woodland" = "Temperate woodland")), scale="free", space = "free")+
+  coord_cartesian(xlim = c(1, NA)) +
+  theme_classic() +
+  theme(
+    axis.title.x = element_blank(),
+    strip.background = element_blank(),
+    strip.text = element_text(size = 12, lineheight = 0.6),
+    panel.grid.minor.x = element_line(size = .1, color = "grey"),
+    axis.text = element_text(size=10),
+    axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0))
+    )+
+  labs(y = "Richness")
+
+
+plot2 <- alpha_div %>%
+  pivot_longer(-sample, names_to = "metric", values_to = "value") %>%
+  left_join(., sample_metadata, by = join_by(sample == sample)) %>%
+  filter(metric=="neutral") %>%
+  ggplot(aes(y = value, x = sex, group=sex, color=broad_environment, fill=broad_environment)) +
+  geom_jitter(width = 0.2, show.legend = FALSE) +
+  geom_boxplot(width = 0.5, alpha=0.5,outlier.shape = NA, show.legend = FALSE) +
+  scale_color_manual(values=treatment_colors)+
+  scale_fill_manual(values=treatment_colors) +
+  facet_grid(~factor(broad_environment, labels=c("1000218 - Xeric shrubland" = "Xeric shrubland", "1000245 - Cropland" = "Cropland", "1000198 - Mixed forest" = "Mixed forest", "1000221 - Temperate woodland" = "Temperate woodland")), scale="free", space = "free")+
+  coord_cartesian(xlim = c(1, NA)) +
+  theme_classic() +
+  theme(
+    axis.title.x = element_blank(),
+    strip.background = element_blank(),
+    strip.text = element_text(size = 12, lineheight = 0.6),
+    panel.grid.minor.x = element_line(size = .1, color = "grey"),
+    axis.text = element_text(size=10),
+    axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0))
+    )+
+  labs(y = "Neutral alpha diversity")
+
+plot3 <- alpha_div %>%
+  pivot_longer(-sample, names_to = "metric", values_to = "value") %>%
+  left_join(., sample_metadata, by = join_by(sample == sample)) %>%
+  filter(metric=="phylogenetic") %>%
+  ggplot(aes(y = value, x = sex, group=sex, color=broad_environment, fill=broad_environment)) +
+  geom_jitter(width = 0.2, show.legend = FALSE) +
+  geom_boxplot(width = 0.5, alpha=0.5,outlier.shape = NA, show.legend = FALSE) +
+  scale_color_manual(values=treatment_colors)+
+  scale_fill_manual(values=treatment_colors) +
+  facet_grid(~factor(broad_environment, labels=c("1000218 - Xeric shrubland" = "Xeric shrubland", "1000245 - Cropland" = "Cropland", "1000198 - Mixed forest" = "Mixed forest", "1000221 - Temperate woodland" = "Temperate woodland")), scale="free", space = "free")+
+  coord_cartesian(xlim = c(1, NA)) +
+  theme_classic() +
+  theme(
+    axis.title.x = element_blank(),
+    strip.background = element_blank(),
+    strip.text = element_text(size = 12, lineheight = 0.6),
+    panel.grid.minor.x = element_line(size = .1, color = "grey"),
+    axis.text = element_text(size=10),
+    axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0))
+    )+
+  labs(y = "Phylogenetic alpha diversity")
+
+
+plot4 <- alpha_div %>%
+  pivot_longer(-sample, names_to = "metric", values_to = "value") %>%
+  left_join(., sample_metadata, by = join_by(sample == sample)) %>%
+  filter(metric=="functional") %>%
+  ggplot(aes(y = value, x = sex, group=sex, color=broad_environment, fill=broad_environment)) +
+  geom_jitter(width = 0.2, show.legend = FALSE) +
+  geom_boxplot(width = 0.5, alpha=0.5,outlier.shape = NA, show.legend = FALSE) +
+  scale_color_manual(values=treatment_colors)+
+  scale_fill_manual(values=treatment_colors) +
+  facet_grid(~factor(broad_environment, labels=c("1000218 - Xeric shrubland" = "Xeric shrubland", "1000245 - Cropland" = "Cropland", "1000198 - Mixed forest" = "Mixed forest", "1000221 - Temperate woodland" = "Temperate woodland")), scale="free", space = "free")+
+  coord_cartesian(xlim = c(1, NA)) +
+  theme_classic() +
+  theme(
+    axis.title.x = element_blank(),
+    strip.background = element_blank(),
+    strip.text = element_text(size = 12, lineheight = 0.6),
+    panel.grid.minor.x = element_line(size = .1, color = "grey"),
+    axis.text = element_text(size=10),
+    axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0))
+    )+
+  labs(y = "Functional alpha diversity")
 ```
 
-## Code Chunk 7
-```{r}
-differential_abundance_genus <- ancombc2(
-  data = phyloseq,
-  assay_name = "counts",
-  tax_level = "genus", # change to agglomerate analysis to a higher taxonomic range
-  fix_formula = "type", # fixed variable(s)
-  rand_formula = "(1|individual)",
-  p_adj_method = "holm",
-  pseudo_sens = TRUE,
-  prv_cut = 0,
-  lib_cut = 0,
-  s0_perc = 0.05,
-  group = NULL,
-  struc_zero = FALSE,
-  neg_lb = FALSE,
-  alpha = 0.05,
-  n_cl = 2,
-  verbose = TRUE,
-  global = FALSE,
-  pairwise = FALSE,
-  dunnet = FALSE,
-  trend = FALSE,
-  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
-  em_control = list(tol = 1e-5, max_iter = 100),
-  lme_control = lme4::lmerControl(),
-  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100),
-  trend_control = NULL
-)
-
-# Save differential abundance to data object
-
-save(sample_metadata, 
-     genome_metadata, 
-     read_counts, 
-     genome_counts, 
-     genome_counts_filt, 
-     genome_tree,
-     genome_gifts, 
-     phylum_colors,
-     data_stats,
-     differential_abundance,
-     differential_abundance_genus,
-     file = "resources/data.Rdata")
+```{r div_plot_together_sex, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+grid.arrange(arrangeGrob(plot1,plot2,plot3, plot4, ncol = 2))
 ```
 
-## Code Chunk 8
-```{r}
-tax <- data.frame(phyloseq@tax_table) %>%
-  rownames_to_column(., "taxon")
+### Mixed models
 
-differential_abundance_genus$res %>%
-  filter(nchar(taxon) > 5) %>%  # Filter the data to include only rows that meet certain conditions
-  dplyr::select(taxon=taxon, lfc_typefeces, p_typefeces) %>%  # Select specific columns from the data
-  filter(p_typefeces < 0.05) %>%  # Filter the data to include only rows that meet certain conditions
-  dplyr::arrange(lfc_typefeces) %>%
-  left_join(tax %>% select(-c(taxon,genome,species)) %>% unique(), by = join_by(taxon==genus)) %>%  # Select specific columns from the data
-  tt()
+```{r rich_MM, comment="", message=FALSE, warning=FALSE}
+
+alpha_div_meta <- alpha_div %>%
+  left_join(sample_metadata, by = join_by(sample == sample))
+
+alpha_div_meta_clean <- alpha_div_meta %>%
+  filter(!is.na(richness), !is.na(broad_environment), !is.na(sex))
+
+alpha_dic_meta_filtered_out <- anti_join(alpha_div_meta, alpha_div_meta_clean)
+
+Model_richness_random <- lme(fixed = richness ~ broad_environment, data = alpha_div_meta_clean,
+               random = ~ 1 | sex)
+summary(Model_richness_random)
+
+Model_richness<- lm(formula = richness ~ broad_environment+sex, data = alpha_div_meta_clean) 
+summary(Model_richness)
+
+Model_richness_sex_random <- lme(fixed = richness ~ sex, data = alpha_div_meta_clean,
+               random = ~ 1 | broad_environment)
+summary(Model_richness_sex_random)
+emmeans(Model_richness_sex_random, pairwise ~ sex)
 ```
 
-## Code Chunk 9
-```{r}
-differential_abundance_phylum <- ancombc2(
-  data = phyloseq,
-  assay_name = "counts",
-  tax_level = "phylum", # change to agglomerate analysis to a higher taxonomic range
-  fix_formula = "type", # fixed variable(s)
-  rand_formula = "(1|individual)",
-  p_adj_method = "holm",
-  pseudo_sens = TRUE,
-  prv_cut = 0,
-  lib_cut = 0,
-  s0_perc = 0.05,
-  group = NULL,
-  struc_zero = FALSE,
-  neg_lb = FALSE,
-  alpha = 0.05,
-  n_cl = 2,
-  verbose = TRUE,
-  global = FALSE,
-  pairwise = FALSE,
-  dunnet = FALSE,
-  trend = FALSE,
-  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
-  em_control = list(tol = 1e-5, max_iter = 100),
-  lme_control = lme4::lmerControl(),
-  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100),
-  trend_control = NULL
-)
+```{r neutral_MM, comment="", message=FALSE, warning=FALSE}
+Model_neutral_random <- lme(fixed = neutral ~ broad_environment, data = alpha_div_meta_clean,
+               random = ~ 1 | sex)
+summary(Model_neutral_random)
 
-# Save differential abundance to data object
-save(sample_metadata, 
-     genome_metadata, 
-     read_counts, 
-     genome_counts, 
-     genome_counts_filt, 
-     genome_tree,
-     genome_gifts, 
-     phylum_colors,
-     data_stats,
-     differential_abundance,
-     differential_abundance_genus,
-     differential_abundance_phylum,
-     file = "resources/data.Rdata")
+Model_neutral<- lm(formula = neutral ~ broad_environment+sex, data = alpha_div_meta_clean) 
+summary(Model_neutral)
+
+Model_neutral_sex_random <- lme(fixed = neutral ~ sex, data = alpha_div_meta_clean,
+               random = ~ 1 | broad_environment)
+summary(Model_neutral_sex_random)
+emmeans(Model_neutral_sex_random, pairwise ~ sex)
 ```
 
-## Code Chunk 10
-```{r}
-differential_abundance_phylum_table <- differential_abundance_phylum$res %>%
-  dplyr::select(taxon=taxon, lfc_typefeces, p_typefeces) %>%  # Select specific columns from the data
-  #filter(p_typefeces < 0.05) %>%  # Filter the data to include only rows that meet certain conditions
-  dplyr::arrange(lfc_typefeces)
+```{r phylo_MM, comment="", message=FALSE, warning=FALSE}
 
+Model_phylogenetic<- lm(formula = phylogenetic ~ broad_environment+sex, data = alpha_div_meta_clean) 
+summary(Model_phylogenetic)
 
-phylum_colors2 <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
-    left_join(differential_abundance_phylum_table, by=join_by(phylum == taxon)) %>%  # Merge two datasets, keeping all rows from the left one
-    arrange(match(phylum, differential_abundance_phylum_table$taxon)) %>%
-    select(phylum, colors) %>%   # Select specific columns from the data
-    unique() %>%
-    select(colors) %>%  # Select specific columns from the data
-    pull()
+Model_phylogenetic_sex_random <- lme(fixed = phylogenetic ~ sex, data = alpha_div_meta_clean,
+               random = ~ 1 | broad_environment)
 
-differential_abundance_phylum_table %>%
-  filter(p_typefeces < 0.05) %>%  # Filter the data to include only rows that meet certain conditions
-  dplyr::arrange(lfc_typefeces) %>%
-  tt()
+Model_phylogenetic_sex_random <- lme(fixed = phylogenetic ~ sex, data = alpha_div_meta_clean,
+               random = ~ 1 | broad_environment)
+summary(Model_phylogenetic_sex_random)
+emmeans(Model_phylogenetic_sex_random, pairwise ~ sex)
+
 ```
 
-## Code Chunk 11
-```{r}
-differential_abundance_phylum_table %>%
-      mutate(taxon=factor(taxon,levels=differential_abundance_phylum_table$taxon)) %>%  # Add or modify columns in the dataset
-      ggplot(aes(x = lfc_typefeces, y = forcats::fct_rev(taxon), fill = taxon)) +  # Begin plotting using ggplot2
-        geom_col(size = 2) +  # Add a specific type of plot layer (bars, points, lines, etc.)
-        scale_fill_manual(values = phylum_colors2) +  # Adjust color scales, axes, or fill options
-        geom_hline(yintercept = 0) +  # Add a specific type of plot layer (bars, points, lines, etc.)
-        geom_vline(xintercept = 4, linetype="dashed", color = "grey", size=1) +  # Add a specific type of plot layer (bars, points, lines, etc.)
-        geom_vline(xintercept = -4, linetype="dashed", color = "grey", size=1) +  # Add a specific type of plot layer (bars, points, lines, etc.)
-        theme(  # Customize visual aspects of the plot
-          panel.background = element_blank(),
-          axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
-          axis.title.x = element_blank(),
-          strip.background = element_blank(), 
-          strip.text = element_blank()
-        ) +
-        labs(x="log2FoldChange", y="Phylum")  # Customize axis labels or plot titles
-```
+```{r funct_MM, comment="", message=FALSE, warning=FALSE}
+Model_functional_random <- lme(fixed = functional ~ broad_environment, data = alpha_div_meta_clean,
+               random = ~ 1 | sex)
+summary(Model_functional_random)
 
+Model_functional<- lm(formula = functional ~ broad_environment+sex, data = alpha_div_meta_clean) 
+summary(Model_functional)
+
+Model_functional_sex_random <- lme(fixed = functional ~ sex, data = alpha_div_meta_clean,
+               random = ~ 1 | broad_environment)
+summary(Model_functional_sex_random)
+emmeans(Model_functional_sex_random, pairwise ~ sex)
+```
 
 <!--chapter:end:05_Differential_abundance.Rmd-->
 
-# Inline Annotated R Markdown: 06_Functional_diffrences_Inline_Annotated
 
-## Code Chunk 1
-```{r}
-load("resources/data.Rdata")  # Load an RData file with variables and datasets
+# Beta diversity
+## Gut microbiota
+```{r load_data_beta}
+load("data/data.Rdata")
+#load("data/beta_all.Rdata")
+
+treatment_colors <- c("#f56042","#429ef5", "#42f58d", "#b142f5", "#f5e642")
 ```
 
-## Code Chunk 2
-```{r}
-# Aggregate bundle-level GIFTs into the compound level
-GIFTs_elements <- to.elements(genome_gifts, GIFT_db)
-GIFTs_elements_filtered <- GIFTs_elements[rownames(GIFTs_elements) %in% genome_counts$genome, ]
-GIFTs_elements_filtered <- as.data.frame(GIFTs_elements_filtered) %>%
-  select_if(~ !is.numeric(.) || sum(.) != 0)
-
-elements <- GIFTs_elements_filtered %>%
-  as.data.frame()
-
-# Aggregate element-level GIFTs into the function level
-GIFTs_functions <- to.functions(GIFTs_elements_filtered, GIFT_db)
-functions <- GIFTs_functions %>%
-  as.data.frame()
-
-# Aggregate function-level GIFTs into overall Biosynthesis, Degradation and Structural GIFTs
-GIFTs_domains <- to.domains(GIFTs_functions, GIFT_db)
-domains <- GIFTs_domains %>%
-  as.data.frame()
-
-# Get community-weighed average GIFTs per sample
-GIFTs_elements_community <- to.community(GIFTs_elements_filtered, genome_counts_filt %>% column_to_rownames(., "genome") %>% tss(), GIFT_db)
-GIFTs_functions_community <- to.community(GIFTs_functions, genome_counts_filt %>% column_to_rownames(., "genome") %>% tss(), GIFT_db)
-GIFTs_domains_community <- to.community(GIFTs_domains, genome_counts_filt %>% column_to_rownames(., "genome") %>% tss(), GIFT_db)
+```{r filter_NAs}
+sample_metadata_without_NA <- sample_metadata %>%
+  filter(!is.na(broad_environment))
 ```
 
-## Code Chunk 3
-```{r}
-GIFTs_functions_community %>%
-    as.data.frame() %>%
-    rownames_to_column(var="sample") %>%
-    pivot_longer(!sample,names_to="trait",values_to="gift") %>%
-    left_join(sample_metadata, by = join_by(sample == sample)) %>%  # Merge two datasets, keeping all rows from the left one
-    ggplot(aes(x=trait,y=sample,fill=gift)) +  # Begin plotting using ggplot2
-        geom_tile(colour="white", size=0.2)+  # Add a specific type of plot layer (bars, points, lines, etc.)
-        scale_fill_gradientn(colours=rev(c("#d53e4f", "#f46d43", "#fdae61", "#fee08b", "#e6f598", "#abdda4", "#ddf1da")))+  # Adjust color scales, axes, or fill options
-        facet_grid(type ~ ., scales="free",space="free")  # Create multiple subplots based on a variable
+***beta_div***
+```{r beta_div, comment="", message=FALSE, warning=FALSE, eval=FALSE}
+#Presence/Absence
+beta_q0n <- genome_counts_filt %>% 
+  column_to_rownames(., "genome") %>%
+  filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
+  select_if(~!all(. == 0)) %>%
+  hillpair(., q = 0)
+#Abundance-sensitive
+beta_q1n <- genome_counts_filt %>%
+  column_to_rownames(., "genome") %>%
+  filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
+  select_if(~!all(. == 0)) %>%
+  hillpair(., q = 1)
+#Abundance + Phylogeny
+genome_counts_filt_beta <- genome_counts_filt %>%
+  column_to_rownames(., "genome") %>% 
+  filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
+  select_if(~!all(. == 0))%>%
+  rownames_to_column(., "genome")
+#Abundance + Trait Distance
+genome_tree <- keep.tip(genome_tree, tip=genome_counts_filt_beta$genome)
+beta_q1p <- genome_counts_filt %>%  
+  column_to_rownames(., "genome") %>%
+  filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
+  select_if(~!all(. == 0)) %>%
+  hillpair(., q = 1, tree = genome_tree)
 ```
 
-## Code Chunk 4
-```{r}
-GIFTs_functions_community_tt <- GIFTs_functions_community %>%
-  as.data.frame() %>%
-  rownames_to_column("sample") %>%
-  separate(sample, into = c("individual", "type"), sep = "\\.") %>%
-  pivot_longer(-c(individual, type), names_to = "trait", values_to = "value") %>%
-  group_by(trait) %>%  # Group the data by one or more variables
-  mutate(model_result = list(lmerTest::lmer(value ~ type + (1 | individual)))) %>%  # Add or modify columns in the dataset
+```{r beta_div2, comment="", message=FALSE, warning=FALSE, eval=TRUE}
+
+# 1. Only use genomes that also occur in genome_gifts
+valid_genomes <- genome_counts_filt_beta$genome[genome_counts_filt_beta$genome %in% rownames(genome_gifts)]
+
+# 2. filter genome_gifts on these genomes
+genome_gifts1 <- genome_gifts[valid_genomes, ]
+genome_gifts1 <- genome_gifts1[, colSums(genome_gifts1 != 0) > 0]
+
+# 3. Calculate functional distance matrix
+dist <- genome_gifts1 %>%
+  to.elements(., GIFT_db) %>%
+  traits2dist(., method = "gower")
+
+# 4. Determine genomes that exist in both genome_counts_filt_beta and dist
+common_genomes <- intersect(
+  genome_counts_filt_beta$genome,
+  rownames(dist)
+)
+
+# 5. genome_counts_filt to filter and sort the shared genomes
+genome_counts_filt_matched <- genome_counts_filt %>%
+  column_to_rownames("genome") %>%
+  filter(rownames(.) %in% common_genomes) %>%
+  select_if(~!all(. == 0))  # optional: leere Spalten raus
+
+# 6. Limit and sort dist matrix to common genomes
+dist_matched <- dist[common_genomes, common_genomes]
+
+
+beta_q1f <- genome_counts_filt_matched %>%
+  hillpair(q = 1, dist = dist_matched)
+
+
+```
+
+```{r save_beta, comment="", message=FALSE,echo=FALSE,warning=FALSE, eval=FALSE}
+save(beta_q0n, 
+     beta_q1n, 
+     beta_q1p, 
+     beta_q1f, 
+     file = "data/data.Rdata")
+```
+
+
+```{r seed, comment="", message=FALSE,echo=FALSE,warning=FALSE, eval=FALSE}
+
+set.seed(2025)
+```
+
+### Permanova
+
+```{r Funktion für PERMANOVA Analysen, comment="", message=FALSE, warning=FALSE}
+run_permanova <- function(beta_matrix, metadata, sample_col = "sample", group_col, group_vars, pairwise = FALSE) {
+  
+  # 1. Sample labels from Beta-Matrix
+  sample_labels <- labels(beta_matrix$S)
+  
+  # 2. Metadata filtered and sorted
+  metadata_matched <- metadata %>%
+    filter(!!sym(sample_col) %in% sample_labels) %>%
+    arrange(match(!!sym(sample_col), sample_labels))
+  
+  # 3. Synchronize beta_matrix$S to metadata
+  common_samples <- intersect(sample_labels, metadata_matched[[sample_col]])
+  beta_matrix$S <- beta_matrix$S[common_samples, common_samples]
+  metadata_matched <- metadata_matched %>%
+    filter(!!sym(sample_col) %in% common_samples) %>%
+    arrange(match(!!sym(sample_col), common_samples))
+  
+  # 4. Remove samples with NA in group_col
+  valid_idx <- !is.na(metadata_matched[[group_col]])
+  beta_matrix$S <- beta_matrix$S[valid_idx, valid_idx]
+  metadata_matched <- metadata_matched[valid_idx, ]
+  
+  # 5. Betadisper and Permutest
+  cat("\n===== Beta Dispersion Test =====\n")
+  dispersion_result <- betadisper(beta_matrix$S, metadata_matched[[group_col]])
+  print(permutest(dispersion_result))
+  
+  # 6. Dynamic formula building
+  formula_str <- paste0("beta_matrix$S ~ ", paste(group_vars, collapse = " + "))
+  cat("\n===== PERMANOVA Test (adonis2) =====\n")
+  permanova_result <- adonis2(as.formula(formula_str),
+                              data = metadata_matched,
+                              permutations = 999,
+                              by = "terms")
+  print(broom::tidy(permanova_result))
+  
+  # 7. (Optional) Pairwise Adonis
+  if (pairwise) {
+    cat("\n===== Pairwise PERMANOVA =====\n")
+    print(pairwise.adonis(beta_matrix$S, metadata_matched[[group_col]], perm = 999))
+  }
+  
+  # 8. Return outputs
+  return(list(
+    dispersion = dispersion_result,
+    permanova = permanova_result
+  ))
+}
+```
+
+# Richness
+
+```{r permanova_richness, comment="", message=FALSE, warning=FALSE, eval = FALSE}
+
+run_permanova(
+  beta_matrix = beta_q0n$S,
+  metadata = sample_metadata_without_NA,
+  sample_col = "sample",
+  group_col = "broad_environment",
+  group_vars = c("broad_environment","sex", "broad_environment:sex"),
+  pairwise = FALSE
+)
+
+```
+
+#Neutral diversity
+
+```{r permanova_neutral, comment="", message=FALSE, warning=FALSE, eval = FALSE}
+run_permanova(
+  beta_matrix = beta_q1n,
+  metadata = sample_metadata_without_NA,
+  sample_col = "sample",
+  group_col = "broad_environment",
+  group_vars = c("broad_environment","sex", "broad_environment:sex"),
+  pairwise = TRUE
+)
+```
+
+# Phylogenetic diversity (beta_q1p)
+
+```{r permanova_phylo, comment="", message=FALSE, warning=FALSE, eval = FALSE}
+
+run_permanova(
+  beta_matrix = beta_q1p,
+  metadata = sample_metadata_without_NA,
+  sample_col = "sample",
+  group_col = "broad_environment",
+  group_vars = c("broad_environment","sex", "broad_environment:sex"),
+  pairwise = FALSE  # no pairwise comparisons here
+)
+```
+
+# Functional diversity (beta_q1f)
+
+```{r permanova_func, comment="", message=FALSE, warning=FALSE, eval = FALSE}
+
+run_permanova(
+  beta_matrix = beta_q1f,
+  metadata = sample_metadata_without_NA,
+  sample_col = "sample",
+  group_col = "broad_environment",
+  group_vars = c("broad_environment","sex", "broad_environment:sex"),
+  pairwise = TRUE  
+)
+```
+
+### NMDS
+####Richness
+```{r beta_div_nmds_richness_plot, comment="", message=FALSE, warning=FALSE, fig.height=7, fig.width=10, fig.fullwidth=TRUE}
+beta_q0n$S %>%
+  vegan::metaMDS(., trymax = 500, k = 2, trace=0) %>%
+  vegan::scores() %>%
+  as_tibble(., rownames = "sample") %>%
+  dplyr::left_join(sample_metadata, by = join_by(sample == sample)) %>%
+  group_by(broad_environment) %>%
+  mutate(x_cen = mean(NMDS1, na.rm = TRUE)) %>%
+  mutate(y_cen = mean(NMDS2, na.rm = TRUE)) %>%
   ungroup() %>%
-  select(trait,model_result) %>%  # Select specific columns from the data
-  unique() %>%
-  mutate(estimate = map_dbl(model_result, ~broom.mixed::tidy(.) %>% filter(term == "typefeces") %>% pull(estimate))) %>%  # Filter the data to include only rows that meet certain conditions
+  ggplot(aes(x = NMDS1, y = NMDS2, color = broad_environment, shape = as.factor(sex))) +
+  geom_point(size = 4) +
+  scale_color_manual(values = treatment_colors,labels=c("high" = "High-altitude", "low" = "Low-altitude")) +
+  geom_segment(aes(x = x_cen, y = y_cen, xend = NMDS1, yend = NMDS2), alpha = 0.9, show.legend = FALSE) +
+  theme(
+    axis.title = element_text(size = 12, face = "bold"),
+    axis.text = element_text(size = 10),
+    panel.background = element_blank(),
+    axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 12),
+    legend.position = "right", legend.box = "vertical"
+    ) +
+    labs(color="Environmental context", shape="sex")+geom_text_repel(aes(label = sample), size=3)
 
-  mutate(p_value = map_dbl(model_result, ~broom.mixed::tidy(.) %>% filter(term == "typefeces") %>% pull(p.value))) %>%  # Filter the data to include only rows that meet certain conditions
-  mutate(p_value_adj = p.adjust(p_value, method = "bonferroni")) %>%  # Add or modify columns in the dataset
-  left_join(GIFT_db %>% select(Code_function,Function) %>% unique(),by=join_by(trait==Code_function)) %>%  # Select specific columns from the data
-  rename(id=trait,trait=Function) %>%
-  select(id,trait, estimate, p_value_adj)  # Select specific columns from the data
-
-GIFTs_functions_community_tt %>% tt() |> 
-      style_tt(
-        i = which(GIFTs_functions_community_tt$estimate < 0 & GIFTs_functions_community_tt$p_value_adj < 0.05),
-        background = "#E5D5B1") |> 
-      style_tt(
-        i = which(GIFTs_functions_community_tt$estimate > 0 & GIFTs_functions_community_tt$p_value_adj < 0.05),
-        background = "#B7BCCE")
 ```
 
-## Code Chunk 5
-```{r}
-GIFTs_functions_community %>%
-  as.data.frame() %>%
-  rownames_to_column("sample") %>%
-  separate(sample, into = c("individual", "type"), sep = "\\.") %>%
-  pivot_longer(-c(individual, type), names_to = "trait", values_to = "value") %>%
-  mutate(trait = case_when(  # Add or modify columns in the dataset
-      trait %in% GIFT_db$Code_function ~ GIFT_db$Function[match(trait, GIFT_db$Code_function)],
-      TRUE ~ trait
-    )) %>%
-  mutate(trait=factor(trait,levels=unique(GIFT_db$Function))) %>%  # Add or modify columns in the dataset
-  ggplot(aes(x=value, y=type, group=type, fill=type, color=type)) +  # Begin plotting using ggplot2
-    geom_boxplot() +  # Add a specific type of plot layer (bars, points, lines, etc.)
-    scale_color_manual(name="Sample type",  # Adjust color scales, axes, or fill options
-          breaks=c("cloaca","feces"),
-          labels=c("Cloaca","Faeces"),
-          values=c("#e5bd5b", "#6b7398")) +
-      scale_fill_manual(name="Sample type",  # Adjust color scales, axes, or fill options
-          breaks=c("cloaca","feces"),
-          labels=c("Cloaca","Faeces"),
-          values=c("#e5bd5b50", "#6b739850")) +
-    facet_grid(trait ~ ., space="free", scales="free") +  # Create multiple subplots based on a variable
-              theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),  # Customize visual aspects of the plot
-              strip.text.y = element_text(angle = 0)) + 
-        labs(y="Traits",x="Metabolic capacity index")  # Customize axis labels or plot titles
-```
 
-## Code Chunk 6
-```{r}
-GIFTs_elements_community %>%
-    as.data.frame() %>%
-    rownames_to_column(var="sample") %>%
-    pivot_longer(!sample,names_to="trait",values_to="gift") %>%
-    left_join(sample_metadata, by = join_by(sample == sample)) %>%  # Merge two datasets, keeping all rows from the left one
-    mutate(functionid = substr(trait, 1, 3)) %>%  # Add or modify columns in the dataset
-    mutate(trait = case_when(  # Add or modify columns in the dataset
-      trait %in% GIFT_db$Code_element ~ GIFT_db$Element[match(trait, GIFT_db$Code_element)],
-      TRUE ~ trait
-    )) %>%
-    mutate(functionid = case_when(  # Add or modify columns in the dataset
-      functionid %in% GIFT_db$Code_function ~ GIFT_db$Function[match(functionid, GIFT_db$Code_function)],
-      TRUE ~ functionid
-    )) %>%
-    mutate(trait=factor(trait,levels=unique(GIFT_db$Element))) %>%  # Add or modify columns in the dataset
-    mutate(functionid=factor(functionid,levels=unique(GIFT_db$Function))) %>%  # Add or modify columns in the dataset
-    ggplot(aes(x=sample,y=trait,fill=gift)) +  # Begin plotting using ggplot2
-        geom_tile(colour="white", linewidth=0.2)+  # Add a specific type of plot layer (bars, points, lines, etc.)
-        scale_fill_gradientn(colours=rev(c("#d53e4f", "#f46d43", "#fdae61", "#fee08b", "#e6f598", "#abdda4", "#ddf1da")))+  # Adjust color scales, axes, or fill options
-        facet_grid(functionid ~ type, scales="free",space="free") +  # Create multiple subplots based on a variable
-        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),  # Customize visual aspects of the plot
-              strip.text.y = element_text(angle = 0)) + 
-        labs(y="Traits",x="Samples",fill="GIFT")  # Customize axis labels or plot titles
-```
+#### Neutral diversity
 
-## Code Chunk 7
-```{r}
-GIFTs_elements_community_tt <- GIFTs_elements_community %>%
-  as.data.frame() %>%
-  rownames_to_column("sample") %>%
-  separate(sample, into = c("individual", "type"), sep = "\\.") %>%
-  pivot_longer(-c(individual, type), names_to = "trait", values_to = "value") %>%
-  group_by(trait) %>%  # Group the data by one or more variables
-  mutate(model_result = list(lmerTest::lmer(value ~ type + (1 | individual)))) %>%  # Add or modify columns in the dataset
+```{r beta_div_nmds_neutral_plot, comment="", message=FALSE, warning=FALSE, fig.height=7, fig.width=10, fig.fullwidth=TRUE}
+beta_q1n$S %>%
+  vegan::metaMDS(., trymax = 500, k = 2, trace=0) %>%
+  vegan::scores() %>%
+  as_tibble(., rownames = "sample") %>%
+  dplyr::left_join(sample_metadata, by = join_by(sample == sample)) %>%
+  group_by(broad_environment) %>%
+  mutate(x_cen = mean(NMDS1, na.rm = TRUE)) %>%
+  mutate(y_cen = mean(NMDS2, na.rm = TRUE)) %>%
   ungroup() %>%
-  select(trait,model_result) %>%  # Select specific columns from the data
-  unique() %>%
-  mutate(estimate = map_dbl(model_result, ~broom.mixed::tidy(.) %>% filter(term == "typefeces") %>% pull(estimate))) %>%  # Filter the data to include only rows that meet certain conditions
-  mutate(p_value = map_dbl(model_result, ~broom.mixed::tidy(.) %>% filter(term == "typefeces") %>% pull(p.value))) %>%  # Filter the data to include only rows that meet certain conditions
-  mutate(p_value_adj = p.adjust(p_value, method = "bonferroni")) %>%  # Add or modify columns in the dataset
-  left_join(GIFT_db %>% select(Code_element,Element) %>% unique(),by=join_by(trait==Code_element)) %>%  # Select specific columns from the data
-  rename(id=trait,trait=Element) %>%
-  select(id,trait, estimate, p_value_adj)  # Select specific columns from the data
+  ggplot(aes(x = NMDS1, y = NMDS2, color = broad_environment, shape = as.factor(sex))) +
+  geom_point(size = 4) +
+  scale_color_manual(values = treatment_colors,labels=c("high" = "High-altitude", "low" = "Low-altitude")) +
+  geom_segment(aes(x = x_cen, y = y_cen, xend = NMDS1, yend = NMDS2), alpha = 0.9, show.legend = FALSE) +
+  theme(
+    axis.title = element_text(size = 12, face = "bold"),
+    axis.text = element_text(size = 10),
+    panel.background = element_blank(),
+    axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 12),
+    legend.position = "right", legend.box = "vertical"
+    ) +
+    labs(color="Evironmental context", shape="sex")
+```
 
-GIFTs_elements_community_tt %>% tt() |> 
-      style_tt(
-        i = which(GIFTs_elements_community_tt$estimate < 0 & GIFTs_elements_community_tt$p_value_adj < 0.05),
-        background = "#E5D5B1") |> 
-      style_tt(
-        i = which(GIFTs_elements_community_tt$estimate > 0 & GIFTs_elements_community_tt$p_value_adj < 0.05),
-        background = "#B7BCCE")
+#### Phylogenetic diversity
+
+```{r beta_div_nmds_phylo_plot, comment="", message=FALSE, warning=FALSE, fig.height=7, fig.width=10, fig.fullwidth=TRUE}
+beta_q1p$S %>%
+  vegan::metaMDS(., trymax = 500, k = 2, trace=0) %>%
+  vegan::scores() %>%
+  as_tibble(., rownames = "sample") %>%
+  dplyr::left_join(sample_metadata, by = join_by(sample == sample)) %>%
+  group_by(broad_environment) %>%
+  mutate(x_cen = mean(NMDS1, na.rm = TRUE)) %>%
+  mutate(y_cen = mean(NMDS2, na.rm = TRUE)) %>%
+  ungroup() %>%
+  ggplot(aes(x = NMDS1, y = NMDS2, color = broad_environment, shape = as.factor(sex))) +
+  geom_point(size = 4) +
+  scale_color_manual(values = treatment_colors,labels=c("high" = "High-altitude", "low" = "Low-altitude")) +
+  geom_segment(aes(x = x_cen, y = y_cen, xend = NMDS1, yend = NMDS2), alpha = 0.9, show.legend = FALSE) +
+  theme(
+    axis.title = element_text(size = 12, face = "bold"),
+    axis.text = element_text(size = 10),
+    panel.background = element_blank(),
+    axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 12),
+    legend.position = "right", legend.box = "vertical"
+    ) +
+    labs(color="environment context", shape="sex")+geom_text_repel(aes(label = sample), size=3)
+```
+
+
+#### Functional diversity
+
+```{r beta_div_nmds_funct_plot, comment="", message=FALSE, warning=FALSE, fig.height=7, fig.width=10, fig.fullwidth=TRUE}
+beta_q1f$S %>%
+  vegan::metaMDS(., trymax = 500, k = 2, trace=0) %>%
+  vegan::scores() %>%
+  as_tibble(., rownames = "sample") %>%
+  dplyr::left_join(sample_metadata, by = join_by(sample == sample)) %>%
+  group_by(broad_environment) %>%
+  mutate(x_cen = mean(NMDS1, na.rm = TRUE)) %>%
+  mutate(y_cen = mean(NMDS2, na.rm = TRUE)) %>%
+  ungroup() %>%
+  ggplot(aes(x = NMDS1, y = NMDS2, color = broad_environment, shape = as.factor(sex))) +
+  geom_point(size = 4) +
+  scale_color_manual(values = treatment_colors,labels=c("high" = "High-altitude", "low" = "Low-altitude")) +
+  geom_segment(aes(x = x_cen, y = y_cen, xend = NMDS1, yend = NMDS2), alpha = 0.9, show.legend = FALSE) +
+  theme(
+    axis.title = element_text(size = 12, face = "bold"),
+    axis.text = element_text(size = 10),
+    panel.background = element_blank(),
+    axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 12),
+    legend.position = "right", legend.box = "vertical"
+    ) +
+    labs(color="broad_environment", shape="sex")+geom_text_repel(aes(label = sample), size=3)
 ```
 
 
 <!--chapter:end:06_Functional_diffrences.Rmd-->
+
+# Gut microbiota: Differential abundance analysis
+
+```{r load_data_mag_filtdamr_diffe, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+load("data/data.Rdata")
+
+genome_counts_filt <- genome_counts_filt %>%
+  select(one_of(c("genome",sample_metadata$sample))) %>%
+  filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
+  select_if(~!all(. == 0))
+```
+
+```{r phyloseq, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+#Phyloseq object
+count_phy <- genome_counts_filt %>%
+  column_to_rownames(var="genome")%>%
+  otu_table(., taxa_are_rows=T)
+
+sample_info_tab_phy <- sample_metadata%>%
+  column_to_rownames(var="sample")%>%
+  sample_data()
+
+TAX <- genome_metadata%>%
+  column_to_rownames(var="genome")%>%
+  select(1:7)%>%
+  as.matrix()%>%
+  tax_table()
+tree <- phy_tree(genome_tree)
+
+physeq_all = phyloseq(count_phy, TAX, sample_info_tab_phy, tree)
+```
+
+## Structural zeros
+#complett absence of a microbe/genome/function in one group
+
+```{r struct_zero, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+Female_samples <- sample_metadata %>% 
+  filter(sex == "Female") %>%
+  dplyr::select(sample) %>%
+  pull()
+
+Male_samples <- sample_metadata %>% 
+  filter(sex == "Female") %>%
+  dplyr::select(sample) %>% pull()
+
+existing_samples <- colnames(genome_counts_filt)
+
+Female_samples <- Female_samples[Female_samples %in% existing_samples]
+Male_samples <- Male_samples[Male_samples %in% existing_samples]
+
+
+
+structural_zeros <- genome_counts_filt %>% 
+   rowwise() %>% #compute for each row (genome)
+   mutate(all_zeros_Female = all(c_across(all_of(Female_samples)) == 0)) %>% # set true if all samples in TJ1 have zeros
+   mutate(all_zeros_Male = all(c_across(all_of(Male_samples)) == 0)) %>% # set true if all samples in TJ2 have zeros
+   mutate(average_Female = mean(c_across(all_of(Female_samples)), na.rm = TRUE)) %>% # get average genome counts across TJ1
+   mutate(average_Male = mean(c_across(all_of(Male_samples)), na.rm = TRUE)) %>% # get average genome counts across TJ2
+  
+   filter(all_zeros_Female == TRUE || all_zeros_Male==TRUE )  %>% # filter only genomes with structural zeros
+   mutate(present = case_when(
+      all_zeros_Female & !all_zeros_Male  ~ "Female",
+      all_zeros_Female & !all_zeros_Male  ~ "Male",
+      TRUE ~ NA_character_
+    )) %>%
+  mutate(average = case_when(
+  present == "Female" ~ average_Female,
+  present == "Male" ~ average_Male,
+  TRUE ~ NA_real_
+))
+
+```
+
+```{r structu_Zero_plot, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+#Get phylum colors from the EHI standard
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+#  mutate_at(vars(phylum), ~ str_replace(., "[dpcofgs]__", "")) %>%
+  right_join(structural_zeros, by=join_by(phylum == phylum)) %>%
+  dplyr::select(phylum, colors) %>%
+  mutate(colors = str_c(colors, "80"))  %>% #add 80% alpha
+  unique() %>%
+  arrange(phylum) %>%
+  dplyr::select(colors) %>%
+  pull()
+
+structural_zeros %>%
+    mutate(average = ifelse(present == "Male", average * -1, average)) %>%
+  mutate(genome = factor(genome, levels = genome))%>% #convert TJ1 genome counts to negative 
+    ggplot(., aes(x=average, y=forcats::fct_reorder(genome,average), fill=phylum)) +
+  geom_col()+
+#      geom_jitter(height = 0.01, size=3) +
+      geom_vline(xintercept=0) + 
+      xlim(-max(structural_zeros$average)-3,max(structural_zeros$average)+3) +
+      scale_fill_manual(values=phylum_colors) +
+      geom_text(aes(-20, 25), label = "Only present\nin Male", color="#666666") +
+      geom_text(aes(30, 25), label = "Only present\nin Female", color="#666666") +
+     theme(
+          panel.background = element_blank(),
+        axis.text.y = element_text(size = 6),
+          axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"))+
+      labs(y="Mags",x="Genome counts") + 
+      guides(col=guide_legend("Phylum"))
+
+```
+
+
+## MAGs in different locations and shared among locations
+
+```{r chart1, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+locationcolors=c('#408892','#c04062')
+locationcolors=c('#408892','#c04062')
+
+genome_counts_rel <- genome_counts %>%
+  mutate_at(vars(-genome),~./sum(.)) %>%
+  column_to_rownames(., "genome")
+
+genome_counts_rel_fil<- genome_counts_filt%>% 
+    select(one_of(c("genome",sample_metadata$sample))) %>% 
+  column_to_rownames(., "genome")
+  
+genome_counts_rel_pa=1*(genome_counts_rel_fil>0)
+#MAGrel_pa[1:6,1:6]
+table_upset_analysis_cont=t(aggregate(t(genome_counts_rel_pa),by=list(sample_metadata$sex),FUN=sum)[,-1])
+colnames(table_upset_analysis_cont)=levels(as.factor(sample_metadata$sex))
+table_upset_analysis=(table_upset_analysis_cont>0)*1
+table_upset_analysis=data.frame(table_upset_analysis)
+table_upset_analysis=apply(table_upset_analysis,2,as.integer)
+rownames(table_upset_analysis) <- rownames(genome_counts_rel_pa)
+
+#pdf("figures/MAG_intersection.pdf",width=8,height=6, onefile=F)
+upset(as.data.frame(table_upset_analysis),
+  keep.order = T,
+  sets = rev(c("Erlan","Harpea","Leitzaran","Goizueta")),
+  sets.bar.color= rev(locationcolors),
+  mb.ratio = c(0.55, 0.45), order.by = "freq")
+#dev.off()
+```
+
+## Enrichment analysis between male and female: Ancombc2
+
+```{r zero_phylo, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+#phyloseq object considering structual zeros
+phylo_samples <- sample_metadata %>% 
+                    column_to_rownames("sample") %>% 
+                    sample_data() #convert to phyloseq sample_data object
+phylo_genome <- genome_counts_filt %>% 
+                    filter(!genome %in% structural_zeros$genome) %>% # remove structural zeros
+                    column_to_rownames("genome") %>% 
+                    mutate_all(~ replace(., . == 0, 0.00001)) %>% 
+                    otu_table(., taxa_are_rows = TRUE)
+phylo_taxonomy <- genome_metadata %>% 
+                    filter(genome %in% rownames(phylo_genome)) %>% # remove structural zeros
+                    mutate(genome2=genome) %>% #create a pseudo genome name column
+                    column_to_rownames("genome2") %>% 
+                    dplyr::select(domain,phylum,class,order,family,genus,species,genome) %>% #add an additional taxonomic level to ensure genome-level analysis (as no all genomes have species-level taxonomic assignments. Otherwise, ANCOMBC2 aggregates analyses per species)
+                    as.matrix() %>% 
+                    tax_table() #convert to phyloseq tax_table object
+
+physeq_genome_filtered <- phyloseq(phylo_genome, phylo_taxonomy, phylo_samples)
+
+```
+
+### With random effect
+#### MAG level
+
+```{r ancom_rand_pond, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+set.seed(1234) #set seed for reproducibility
+ancom_rand_output = ancombc2(data = physeq_genome_filtered, 
+                  assay_name = "counts", 
+                  tax_level = NULL, #change to agglomerate analysis to a higher taxonomic range
+                  fix_formula = "sex", #fixed variable(s)
+                  rand_formula = "(1|broad_environment)",
+                  p_adj_method = "holm", 
+                  pseudo_sens = TRUE,
+                  prv_cut =0, 
+                  lib_cut = 0, 
+                  s0_perc = 0.05,
+                  group = NULL, 
+                  struc_zero = FALSE, 
+                  neg_lb = FALSE,
+                  alpha = 0.05, 
+                  n_cl = 2, 
+                  verbose = TRUE,
+                  global = FALSE, 
+                  pairwise = FALSE, 
+                  dunnet = FALSE, 
+                  trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = lme4::lmerControl(),
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+
+```
+
+```{r ancom_rand, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+taxonomy <- data.frame(physeq_genome_filtered@tax_table) %>%
+  rownames_to_column(., "taxon") %>%
+  mutate_at(vars(order, phylum, family, genus, species), ~ str_replace(., "[dpcofgs]__", ""))%>%
+  mutate(across(c(family,genus, species), na_if, ""))%>%
+    mutate(family = coalesce(family, paste('Unclassified', order)),
+           genus = coalesce(genus, 
+                              if_else(grepl('^Unclassified', family),
+                                      family, paste('Unclassified', family))),
+           species = coalesce(species, 
+                              if_else(grepl('^Unclassified', genus),
+                                      genus, paste('Unclassified', genus))))
+
+ancombc_rand_table_mag <- ancom_rand_output$res %>%
+  dplyr::select(taxon, lfc_sexMale, p_sexMale) %>%
+  filter(p_sexMale < 0.05) %>%
+  dplyr::arrange(p_sexMale) %>%
+  merge(., taxonomy, by="taxon") %>%
+  mutate_at(vars(phylum, species), ~ str_replace(., "[dpcofgs]__", ""))%>%
+  dplyr::arrange(lfc_sexMale)
+
+ancombc_rand_table_mag
+  
+colors_alphabetic <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+  mutate_at(vars(phylum), ~ str_replace(., "[dpcofgs]__", ""))  %>%
+  right_join(taxonomy, by=join_by(phylum == phylum)) %>%
+  dplyr::select(phylum, colors) %>%
+  mutate(colors = str_c(colors, "80"))  %>% #add 80% alpha
+	unique() %>%
+	dplyr::arrange(phylum)
+
+tax_table <- as.data.frame(unique(ancombc_rand_table_mag$phylum))
+  
+colnames(tax_table)[1] <- "phylum"
+tax_color <- merge(tax_table, colors_alphabetic, by="phylum")%>%
+	dplyr::arrange(phylum) %>%
+	dplyr::select(colors) %>%
+	pull()
+```
+```{r ancombc_rand_plot_phy, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=10, fig.width=8, fig.fullwidth=TRUE, eval = FALSE}
+ancombc_rand_table_mag%>%
+      mutate(genome=factor(genome,levels=ancombc_rand_table_mag$genome)) %>%
+ggplot(., aes(x=lfc_sexMale, y=forcats::fct_reorder(genome,lfc_sexMale), fill=phylum)) + #forcats::fct_rev()
+  geom_col() + 
+  scale_fill_manual(values=tax_color) + 
+  geom_hline(yintercept=0) + 
+#  coord_flip()+
+  theme(panel.background = element_blank(),
+        axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 8),
+        axis.title = element_text(size = 14, face = "bold"),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 14, face = "bold"),
+        legend.position = "right", legend.box = "vertical")+
+  xlab("log2FoldChange") + 
+  ylab("Species")+
+  guides(fill=guide_legend(title="Phylum"))
+```
+
+
+```{r ancom_rand_volcano, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+    right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    arrange(match(genome, genome_tree$tip.label)) %>%
+    select(phylum, colors) %>%
+    unique() %>%
+    arrange(phylum) %>%
+    pull(colors, name=phylum)
+
+#pdf("figures/different_species_StrucZero_new_violin.pdf",width=12, height=6)
+ancom_rand_output$res %>%
+  na.omit() %>%
+  dplyr::select(genome=taxon, lfc_sexMale, p_sexMale) %>%
+  left_join(genome_metadata, by = join_by(genome == genome)) %>%
+  mutate(phylum = ifelse(p_sexMale < 0.05, phylum, NA)) %>%
+  ggplot(., aes(x = lfc_sexMale, y = -log(p_sexMale), color = phylum)) +
+  geom_point(size=3, show.legend = FALSE) +
+  #xlim(c(-10,4)) +
+  scale_color_manual(values = phylum_colors) +
+  labs(color = "Significant phylum", x = "Log-fold difference between sample types", y = "p-value") +
+  theme_classic()
+#dev.off()
+```
+
+##### Controling structural components in Ancombc
+```{r ancom_rand_season, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+set.seed(1234) #set seed for reproducibility
+ancom_rand_output_mag_Struc = ancombc2(data = physeq_all, 
+                  assay_name = "counts", 
+                  tax_level = NULL,
+                  fix_formula = "sex",
+                  rand_formula = "(1|broad_environment)",
+                  p_adj_method = "holm", 
+                  pseudo_sens = TRUE,
+                  prv_cut =0, 
+                  lib_cut = 0, 
+                  s0_perc = 0.05,
+                  group = "sex", 
+                  struc_zero = TRUE, 
+                  neg_lb = FALSE,
+                  alpha = 0.05, 
+                  n_cl = 2, 
+                  verbose = TRUE,
+                  global = FALSE, 
+                  pairwise = FALSE, 
+                  dunnet = FALSE, 
+                  trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = lme4::lmerControl(),
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+
+```
+
+```{r ancom_rand1, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+taxonomy <- data.frame(physeq_genome_filtered@tax_table) %>%
+  rownames_to_column(., "taxon")%>%
+  mutate_at(vars(order, phylum, family, genus, species), ~ str_replace(., "[dpcofgs]__", ""))
+
+ancombc_rand_table_mag_Struc <- ancom_rand_output_mag_Struc$res %>%
+  dplyr::select(taxon, lfc_sexMale, p_sexMale) %>%
+  filter(p_sexMale < 0.05) %>%
+  dplyr::arrange(p_sexMale) %>%
+  merge(., taxonomy, by="taxon") %>%
+  mutate_at(vars(phylum, species), ~ str_replace(., "[dpcofgs]__", ""))%>%
+  dplyr::arrange(lfc_sexMale)
+
+ancombc_rand_table_mag_Struc
+
+colors_alphabetic <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+  mutate_at(vars(phylum), ~ str_replace(., "[dpcofgs]__", ""))  %>%
+  right_join(taxonomy, by=join_by(phylum == phylum)) %>%
+  dplyr::select(phylum, colors) %>%
+  mutate(colors = str_c(colors, "80"))  %>% #add 80% alpha
+	unique() %>%
+	dplyr::arrange(phylum)
+
+tax_table <- as.data.frame(unique(ancombc_rand_table_mag_Struc$phylum))
+  
+  
+colnames(tax_table)[1] <- "phylum"
+tax_color <- merge(tax_table, colors_alphabetic, by="phylum")%>%
+	dplyr::arrange(phylum) %>%
+	dplyr::select(colors) %>%
+	pull()
+```
+```{r ancombc_rand_plot_mag, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=10, fig.width=8, fig.fullwidth=TRUE, eval = FALSE}
+ancombc_rand_table_mag_Struc%>%
+      mutate(genome=factor(genome,levels=ancombc_rand_table_mag_Struc$genome)) %>%
+ggplot(., aes(x=lfc_sexMale, y=forcats::fct_reorder(genome,lfc_sexMale), fill=phylum)) + #forcats::fct_rev()
+  geom_col() + 
+  scale_fill_manual(values=tax_color) + 
+  geom_hline(yintercept=0) + 
+#  coord_flip()+
+  theme(panel.background = element_blank(),
+        axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 8),
+        axis.title = element_text(size = 14, face = "bold"),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 14, face = "bold"),
+        legend.position = "right", legend.box = "vertical")+
+  xlab("log2FoldChange") + 
+  ylab("Species")+
+  guides(fill=guide_legend(title="Phylum"))
+```
+
+```{r ancom_rand_volcano_mag, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+    right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    arrange(match(genome, genome_tree$tip.label)) %>%
+    select(phylum, colors) %>%
+    unique() %>%
+    arrange(phylum) %>%
+    pull(colors, name=phylum)
+
+#pdf("figures/different_species_StrucZero_new_violin.pdf",width=12, height=6)
+ancom_rand_output_mag_Struc$res %>%
+  na.omit() %>%
+  dplyr::select(genome=taxon, lfc_sexMale, p_sexMale) %>%
+  left_join(genome_metadata, by = join_by(genome == genome)) %>%
+  mutate(phylum = ifelse(p_sexMale < 0.05, phylum, NA)) %>%
+  ggplot(., aes(x = lfc_sexMale, y = -log(p_sexMale), color = phylum)) +
+  geom_point(size=3, show.legend = FALSE) +
+  #xlim(c(-10,4)) +
+  scale_color_manual(values = phylum_colors) +
+  labs(color = "Significant phylum", x = "Log-fold difference between sample types", y = "p-value") +
+  theme_classic()
+#dev.off()
+```
+
+#### Phylum level
+
+```{r ancom_phylum, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+ancom_rand_output_phylum = ancombc2(data = physeq_genome_filtered, 
+                  assay_name = "counts", 
+                  tax_level = "phylum", #change to agglomerate analysis to a higher taxonomic range
+                  fix_formula = "sex", #fixed variable(s)
+                  rand_formula = "(1|broad_environment)",
+                  p_adj_method = "holm", 
+                  pseudo_sens = TRUE,
+                  prv_cut = 0, 
+                  lib_cut = 0, 
+                  s0_perc = 0.05,
+                  group = NULL, 
+                  struc_zero = FALSE, 
+                  neg_lb = FALSE,
+                  alpha = 0.05, 
+                  n_cl = 2, 
+                  verbose = TRUE,
+                  global = FALSE, 
+                  pairwise = FALSE, 
+                  dunnet = FALSE, 
+                  trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = lme4::lmerControl(),
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+```
+
+```{r ancom_rand_phylum, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+ancom_rand_output_phylum$res %>%
+  dplyr::select(taxon, lfc_sexMale, p_sexMale) %>%
+  filter(p_sexMale < 0.05) %>%
+  dplyr::arrange(p_sexMale) 
+```
+
+#### Family level
+```{r ancom_family, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+ancom_rand_output_family = ancombc2(data = physeq_genome_filtered, 
+                  assay_name = "counts", 
+                  tax_level = "family", #change to agglomerate analysis to a higher taxonomic range
+                  fix_formula = "sex", #fixed variable(s)
+                  rand_formula = "(1|broad_environment)",
+                  p_adj_method = "holm", 
+                  pseudo_sens = TRUE,
+                  prv_cut = 0, 
+                  lib_cut = 0, 
+                  s0_perc = 0.05,
+                  group = NULL, 
+                  struc_zero = FALSE, 
+                  neg_lb = FALSE,
+                  alpha = 0.05, 
+                  n_cl = 2, 
+                  verbose = TRUE,
+                  global = FALSE, 
+                  pairwise = FALSE, 
+                  dunnet = FALSE, 
+                  trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = lme4::lmerControl(),
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+```
+
+```{r ancom_rand_family, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+ancom_rand_output_family$res %>%
+  dplyr::select(taxon, lfc_sexMale, p_sexMale) %>%
+  filter(p_sexMale < 0.05) %>%
+  dplyr::arrange(p_sexMale) 
+```
+
+#### Genera
+```{r ancom_genera, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+ancom_rand_output_gen = ancombc2(data = physeq_genome_filtered, 
+                  assay_name = "counts", 
+                  tax_level = "genus", #change to agglomerate analysis to a higher taxonomic range
+                  fix_formula = "sex", #fixed variable(s)
+                  rand_formula = "(1|broad_environment)",
+                  p_adj_method = "holm", 
+                  pseudo_sens = TRUE,
+                  prv_cut = 0, 
+                  lib_cut = 0, 
+                  s0_perc = 0.05,
+                  group = NULL, 
+                  struc_zero = FALSE, 
+                  neg_lb = FALSE,
+                  alpha = 0.05, 
+                  n_cl = 2, 
+                  verbose = TRUE,
+                  global = FALSE, 
+                  pairwise = FALSE, 
+                  dunnet = FALSE, 
+                  trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = lme4::lmerControl(),
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+```
+
+```{r ancom_rand_genera, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+ancom_rand_output_gen$res %>%
+  dplyr::select(taxon, lfc_sexMale, p_sexMale) %>%
+  filter(p_sexMale < 0.05) %>%
+  dplyr::arrange(p_sexMale) 
+```
+
+
+
+### Without random effect
+#### MAG level
+
+```{r ancom_rand_pond2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+set.seed(1234) #set seed for reproducibility
+ancom_rand_output_norand = ancombc2(data = physeq_genome_filtered, 
+                  assay_name = "counts", 
+                  tax_level = NULL, #change to agglomerate analysis to a higher taxonomic range
+                  fix_formula = "sex", #fixed variable(s)
+ #                 rand_formula = "(1|broad_environment)",
+                  p_adj_method = "holm", 
+                  pseudo_sens = TRUE,
+                  prv_cut =0, 
+                  lib_cut = 0, 
+                  s0_perc = 0.05,
+                  group = NULL, 
+                  struc_zero = FALSE, 
+                  neg_lb = FALSE,
+                  alpha = 0.05, 
+                  n_cl = 2, 
+                  verbose = TRUE,
+                  global = FALSE, 
+                  pairwise = FALSE, 
+                  dunnet = FALSE, 
+                  trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = NULL,
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+
+```
+
+```{r ancom_rand2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+taxonomy <- data.frame(physeq_genome_filtered@tax_table) %>%
+  rownames_to_column(., "taxon") %>%
+  mutate_at(vars(order, phylum, family, genus, species), ~ str_replace(., "[dpcofgs]__", ""))%>%
+  mutate(across(c(family,genus, species), na_if, ""))%>%
+    mutate(family = coalesce(family, paste('Unclassified', order)),
+           genus = coalesce(genus, 
+                              if_else(grepl('^Unclassified', family),
+                                      family, paste('Unclassified', family))),
+           species = coalesce(species, 
+                              if_else(grepl('^Unclassified', genus),
+                                      genus, paste('Unclassified', genus))))
+
+ancombc_rand_table_mag_norand <- ancom_rand_output_norand$res %>%
+  dplyr::select(taxon, lfc_sexMale, p_sexMale) %>%
+  filter(p_sexMale < 0.05) %>%
+  dplyr::arrange(p_sexMale) %>%
+  merge(., taxonomy, by="taxon") %>%
+  mutate_at(vars(phylum, species), ~ str_replace(., "[dpcofgs]__", ""))%>%
+  dplyr::arrange(lfc_sexMale)
+  
+colors_alphabetic <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+  mutate_at(vars(phylum), ~ str_replace(., "[dpcofgs]__", ""))  %>%
+  right_join(taxonomy, by=join_by(phylum == phylum)) %>%
+  dplyr::select(phylum, colors) %>%
+  mutate(colors = str_c(colors, "80"))  %>% #add 80% alpha
+	unique() %>%
+	dplyr::arrange(phylum)
+
+tax_table <- as.data.frame(unique(ancombc_rand_table_mag_norand$phylum))
+  
+  
+colnames(tax_table)[1] <- "phylum"
+tax_color <- merge(tax_table, colors_alphabetic, by="phylum")%>%
+	dplyr::arrange(phylum) %>%
+	dplyr::select(colors) %>%
+	pull()
+```
+
+```{r ancombc_rand_plot_mag2, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=10, fig.width=8, fig.fullwidth=TRUE, eval = FALSE}
+ancombc_rand_table_mag_norand%>%
+      mutate(genome=factor(genome,levels=ancombc_rand_table_mag_norand$genome)) %>%
+ggplot(., aes(x=lfc_sexMale, y=forcats::fct_reorder(genome,lfc_sexMale), fill=phylum)) + #forcats::fct_rev()
+  geom_col() + 
+  scale_fill_manual(values=tax_color) + 
+  geom_hline(yintercept=0) + 
+#  coord_flip()+
+  theme(panel.background = element_blank(),
+        axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 8),
+        axis.title = element_text(size = 14, face = "bold"),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 14, face = "bold"),
+        legend.position = "right", legend.box = "vertical")+
+  xlab("log2FoldChange") + 
+  ylab("Species")+
+  guides(fill=guide_legend(title="Phylum"))
+```
+
+
+```{r ancom_rand_volcano2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+    right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    arrange(match(genome, genome_tree$tip.label)) %>%
+    select(phylum, colors) %>%
+    unique() %>%
+    arrange(phylum) %>%
+    pull(colors, name=phylum)
+
+#pdf("figures/different_species_StrucZero_new_violin.pdf",width=12, height=6)
+ancom_rand_output_norand$res %>%
+  na.omit() %>%
+  dplyr::select(genome=taxon, lfc_sexMale, p_sexMale) %>%
+  left_join(genome_metadata, by = join_by(genome == genome)) %>%
+  mutate(phylum = ifelse(p_sexMale < 0.05, phylum, NA)) %>%
+  ggplot(., aes(x = lfc_sexMale, y = -log(p_sexMale), color = phylum)) +
+  geom_point(size=3, show.legend = FALSE) +
+  #xlim(c(-10,4)) +
+  scale_color_manual(values = phylum_colors) +
+  labs(color = "Significant phylum", x = "Log-fold difference between sample types", y = "p-value") +
+  theme_classic()
+#dev.off()
+```
+
+##### Controling structural components in Ancombc
+```{r ancom_rand_struct12, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+ancom_rand_output_mag_Struc_norand = ancombc2(data = physeq_all, 
+                  assay_name = "counts", 
+                  tax_level = NULL, #change to agglomerate analysis to a higher taxonomic range
+                  fix_formula = "sex", #fixed variable(s)
+ #                 rand_formula = "(1|broad_environment)",
+                  p_adj_method = "holm", 
+                  pseudo_sens = TRUE,
+                  prv_cut =0, 
+                  lib_cut = 0, 
+                  s0_perc = 0.05,
+                  group = "sex", 
+                  struc_zero = TRUE, 
+                  neg_lb = FALSE,
+                  alpha = 0.05, 
+                  n_cl = 2, 
+                  verbose = TRUE,
+                  global = FALSE, 
+                  pairwise = FALSE, 
+                  dunnet = FALSE, 
+                  trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = NULL,
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+
+```
+
+```{r ancom_rand12, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+taxonomy <- data.frame(physeq_genome_filtered@tax_table) %>%
+  rownames_to_column(., "taxon")%>%
+  mutate_at(vars(order, phylum, family, genus, species), ~ str_replace(., "[dpcofgs]__", ""))%>%
+  mutate(across(c(family,genus, species), na_if, ""))
+
+ancombc_rand_table_mag_Struc_norand <- ancom_rand_output_mag_Struc_norand$res %>%
+  dplyr::select(taxon, lfc_sexMale, p_sexMale) %>%
+  filter(p_sexMale < 0.05) %>%
+  dplyr::arrange(p_sexMale) %>%
+  merge(., taxonomy, by="taxon") %>%
+  mutate_at(vars(phylum, species), ~ str_replace(., "[dpcofgs]__", ""))%>%
+  dplyr::arrange(lfc_sexMale)
+  
+colors_alphabetic <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+  mutate_at(vars(phylum), ~ str_replace(., "[dpcofgs]__", ""))  %>%
+  right_join(taxonomy, by=join_by(phylum == phylum)) %>%
+  dplyr::select(phylum, colors) %>%
+  mutate(colors = str_c(colors, "80"))  %>% #add 80% alpha
+	unique() %>%
+	dplyr::arrange(phylum)
+
+tax_table <- as.data.frame(unique(ancombc_rand_table_mag_Struc_norand$phylum))
+  
+  
+colnames(tax_table)[1] <- "phylum"
+tax_color <- merge(tax_table, colors_alphabetic, by="phylum")%>%
+	dplyr::arrange(phylum) %>%
+	dplyr::select(colors) %>%
+	pull()
+```
+
+```{r ancombc_rand_plot_mag12, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=10, fig.width=8, fig.fullwidth=TRUE, eval = FALSE}
+ancombc_rand_table_mag_Struc_norand%>%
+      mutate(genome=factor(genome,levels=ancombc_rand_table_mag_Struc_norand$genome)) %>%
+ggplot(., aes(x=lfc_sexMale, y=forcats::fct_reorder(genome,lfc_sexMale), fill=phylum)) + #forcats::fct_rev()
+  geom_col() + 
+  scale_fill_manual(values=tax_color) + 
+  geom_hline(yintercept=0) + 
+#  coord_flip()+
+  theme(panel.background = element_blank(),
+        axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 8),
+        axis.title = element_text(size = 14, face = "bold"),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 14, face = "bold"),
+        legend.position = "right", legend.box = "vertical")+
+  xlab("log2FoldChange") + 
+  ylab("Species")+
+  guides(fill=guide_legend(title="Phylum"))
+```
+
+```{r ancom_rand_volcano_mag12, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+    right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    arrange(match(genome, genome_tree$tip.label)) %>%
+    select(phylum, colors) %>%
+    unique() %>%
+    arrange(phylum) %>%
+    pull(colors, name=phylum)
+
+#pdf("figures/different_species_StrucZero_new_violin.pdf",width=12, height=6)
+ancom_rand_output_mag_Struc_norand$res %>%
+  na.omit() %>%
+  dplyr::select(genome=taxon, lfc_sexMale, p_sexMale) %>%
+  left_join(genome_metadata, by = join_by(genome == genome)) %>%
+  mutate(phylum = ifelse(p_sexMale < 0.05, phylum, NA)) %>%
+  ggplot(., aes(x = lfc_sexMale, y = -log(p_sexMale), color = phylum)) +
+  geom_point(size=3, show.legend = FALSE) +
+  #xlim(c(-10,4)) +
+  scale_color_manual(values = phylum_colors) +
+  labs(color = "Significant phylum", x = "Log-fold difference between sample types", y = "p-value") +
+  theme_classic()
+#dev.off()
+```
+
+### Phylum level
+
+```{r ancom_phylum2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+ancom_rand_output_phylum_norand = ancombc2(data = physeq_genome_filtered, 
+                  assay_name = "counts", 
+                  tax_level = "phylum", #change to agglomerate analysis to a higher taxonomic range
+                  fix_formula = "sex", #fixed variable(s)
+  #                rand_formula = "(1|broad_environment)",
+                  p_adj_method = "holm", 
+                  pseudo_sens = TRUE,
+                  prv_cut = 0, 
+                  lib_cut = 0, 
+                  s0_perc = 0.05,
+                  group = NULL, 
+                  struc_zero = FALSE, 
+                  neg_lb = FALSE,
+                  alpha = 0.05, 
+                  n_cl = 2, 
+                  verbose = TRUE,
+                  global = FALSE, 
+                  pairwise = FALSE, 
+                  dunnet = FALSE, 
+                  trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = NULL,
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+```
+
+```{r ancom_rand_phylum2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+ancom_rand_output_phylum_norand$res %>%
+  dplyr::select(taxon, lfc_sexMale, p_sexMale) %>%
+  filter(p_sexMale < 0.05) %>%
+  dplyr::arrange(p_sexMale) 
+```
+
+### Family level
+```{r ancom_family2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+ancom_rand_output_family_norand = ancombc2(data = physeq_genome_filtered, 
+                  assay_name = "counts", 
+                  tax_level = "family", #change to agglomerate analysis to a higher taxonomic range
+                  fix_formula = "sex", #fixed variable(s)
+   #               rand_formula = "(1|broad_environment)",
+                  p_adj_method = "holm", 
+                  pseudo_sens = TRUE,
+                  prv_cut = 0, 
+                  lib_cut = 0, 
+                  s0_perc = 0.05,
+                  group = NULL, 
+                  struc_zero = FALSE, 
+                  neg_lb = FALSE,
+                  alpha = 0.05, 
+                  n_cl = 2, 
+                  verbose = TRUE,
+                  global = FALSE, 
+                  pairwise = FALSE, 
+                  dunnet = FALSE, 
+                  trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = NULL,
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+```
+
+```{r ancom_rand_family2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+ancom_rand_output_family_norand$res %>%
+  dplyr::select(taxon, lfc_sexMale, p_sexMale) %>%
+  filter(p_sexMale < 0.05) %>%
+  dplyr::arrange(p_sexMale) 
+```
+
+### Genera
+```{r ancom_genera2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+ancom_rand_output_gen_norand = ancombc2(data = physeq_genome_filtered, 
+                  assay_name = "counts", 
+                  tax_level = "genus", #change to agglomerate analysis to a higher taxonomic range
+                  fix_formula = "sex", #fixed variable(s)
+ #                 rand_formula = "(1|broad_environment)",
+                  p_adj_method = "holm", 
+                  pseudo_sens = TRUE,
+                  prv_cut = 0, 
+                  lib_cut = 0, 
+                  s0_perc = 0.05,
+                  group = NULL, 
+                  struc_zero = FALSE, 
+                  neg_lb = FALSE,
+                  alpha = 0.05, 
+                  n_cl = 2, 
+                  verbose = TRUE,
+                  global = FALSE, 
+                  pairwise = FALSE, 
+                  dunnet = FALSE, 
+                  trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = NULL,
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+```
+
+```{r ancom_rand_genera2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+ancom_rand_output_gen_norand$res %>%
+  dplyr::select(taxon, lfc_sexMale, p_sexMale) %>%
+  filter(p_sexMale < 0.05) %>%
+  dplyr::arrange(p_sexMale) 
+```
+
+```{r ancom_save, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+save(ancom_rand_output,
+     ancom_rand_output_mag_Struc,
+     ancom_rand_output_phylum,
+     ancom_rand_output_family,
+     ancom_rand_output_gen,
+     ancom_rand_output_norand,
+     ancom_rand_output_mag_Struc_norand,
+     ancom_rand_output_phylum_norand,
+     ancom_rand_output_family_norand,
+     ancom_rand_output_gen_norand,
+     file="data/ancombc_all.Rdata")
+```
+
+<!--chapter:end:07_microbiota_abundance_analysis_sex.Rmd-->
+
+
+# Gut microbiota: functional analysis
+
+```{r load_data_func,comment="", echo=FALSE, message=FALSE, warning=FALSE}
+load("data/data.Rdata")
+
+sample_metadata$sex <- factor(sample_metadata$sex, levels=c("Male", "Female"))
+treatment_colors <- c("#f56042","#429ef5")
+genome_counts_filt <- genome_counts_filt[genome_counts_filt$genome %in% rownames(genome_gifts),] 
+rownames(genome_counts_filt) <- NULL
+
+```
+
+```{r gift, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+#Aggregate bundle-level GIFTs into the compound level
+GIFTs_elements <- to.elements(genome_gifts,GIFT_db)
+GIFTs_elements_filtered <- GIFTs_elements[rownames(GIFTs_elements) %in% genome_counts_filt$genome,]
+GIFTs_elements_filtered <- as.data.frame(GIFTs_elements_filtered) %>% 
+  select_if(~ !is.numeric(.) || sum(.) != 0)
+
+#Aggregate element-level GIFTs into the function level
+GIFTs_functions <- to.functions(GIFTs_elements_filtered,GIFT_db)
+
+#Aggregate function-level GIFTs into overall Biosynthesis, Degradation and Structural GIFTs
+GIFTs_domains <- to.domains(GIFTs_functions,GIFT_db)
+
+#Get community-weighed average GIFTs per sample
+genome_counts_row <- genome_counts_filt %>%
+  mutate_at(vars(-genome),~./sum(.)) %>% 
+  column_to_rownames(., "genome") 
+#genome_counts_row <- rownames_to_column(genome_counts_row, "genome")
+GIFTs_elements_community <- to.community(GIFTs_elements_filtered,genome_counts_row,GIFT_db)
+GIFTs_functions_community <- to.community(GIFTs_functions,genome_counts_row,GIFT_db)
+GIFTs_domains_community <- to.community(GIFTs_domains,genome_counts_row,GIFT_db)
+```
+
+## MCI
+```{r gitfs_functional_wild, echo=TRUE,results=TRUE}
+GIFTs_functions_community %>%
+  rowMeans() %>%
+  as_tibble(., rownames = "sample") %>%
+  left_join(sample_metadata, by = join_by(sample == sample)) %>%
+#  filter(time_point=="0_Wild") %>%
+  group_by(sex) %>%
+  summarise(MCI = mean(value), sd = sd(value))
+
+MCI <- GIFTs_functions_community %>%
+  rowMeans() %>%
+  as_tibble(., rownames = "sample") %>%
+  left_join(sample_metadata, by = join_by(sample == sample)) 
+# %>% 
+#   filter(diet!="Post_grass")
+
+shapiro.test(MCI$value)
+wilcox.test(value ~ sex, data=MCI)
+
+```
+
+```{r comunity_elem_plot, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=12, fig.width=10, fig.fullwidth=TRUE}
+GIFTs_elements_community %>%
+    as.data.frame() %>%
+    rownames_to_column(var="sample")%>%
+    pivot_longer(!sample,names_to="trait",values_to="gift") %>%
+    left_join(sample_metadata, by = join_by(sample == sample)) %>%
+    mutate(functionid = substr(trait, 1, 3)) %>%
+    mutate(trait = case_when(
+      trait %in% GIFT_db$Code_element ~ GIFT_db$Element[match(trait, GIFT_db$Code_element)],
+      TRUE ~ trait
+    )) %>%
+    mutate(functionid = case_when(
+      functionid %in% GIFT_db$Code_function ~ GIFT_db$Function[match(functionid, GIFT_db$Code_function)],
+      TRUE ~ functionid
+    )) %>%
+    mutate(trait=factor(trait,levels=unique(GIFT_db$Element))) %>%
+    mutate(functionid=factor(functionid,levels=unique(GIFT_db$Function))) %>%
+    ggplot(aes(x=sample,y=trait,fill=gift)) +
+        geom_tile(colour="white", linewidth=0.2)+
+        scale_fill_gradientn(colours=rev(c("#d53e4f", "#f46d43", "#fdae61", "#fee08b", "#e6f598", "#abdda4", "#ddf1da")))+
+        facet_grid(functionid ~ sex, scales="free",space="free") +
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+              axis.text.y = element_text(size=8),
+              strip.text.y = element_text(angle = 0)
+              ) +
+        labs(y="Traits",x="Samples",fill="GIFT")
+```
+```{r comunity_funct_plot, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+unique_funct_db<- GIFT_db[c(3,4,5)] %>% 
+  distinct(Code_function, .keep_all = TRUE)
+
+GIFTs_functions_community %>%
+   t() %>%
+  as.data.frame() %>%
+  mutate_if(is.character, as.numeric)  %>%
+  rownames_to_column(., "Code_function")  %>%
+  left_join(.,unique_funct_db[c(1,3)],by = join_by(Code_function == Code_function))  %>%
+  select(-Code_function) %>%
+  column_to_rownames(., "Function")%>%
+   t()  %>%
+    as.data.frame() %>%
+    rownames_to_column(var="sample") %>%
+    pivot_longer(!sample,names_to="trait",values_to="gift") %>%
+    left_join(sample_metadata, by = join_by(sample == sample)) %>%
+    ggplot(aes(x=trait,y=sample,fill=gift)) +
+        geom_tile(colour="white", linewidth=0.2)+
+        scale_fill_gradientn(colours=rev(c("#d53e4f", "#f46d43", "#fdae61", "#fee08b", "#e6f598", "#abdda4", "#ddf1da")))+
+        facet_grid(sex ~ ., scales="free",space="free")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size = 10),
+        axis.text.y = element_text(size=8),
+        strip.background = element_blank(),
+        strip.text = element_text(size = 12, color="black",face="bold"),
+        axis.title = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)),
+        axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)),
+        panel.background= element_blank()
+              ) +
+        labs(x="Function", y="Sample",fill="GIFT")
+```
+
+```{r comunity_dom_plot, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+GIFTs_domains_community %>%
+    as.data.frame() %>%
+    rownames_to_column(var="sample") %>%
+    pivot_longer(!sample,names_to="trait",values_to="gift") %>%
+    left_join(sample_metadata, by = join_by(sample == sample)) %>%
+    ggplot(aes(x=trait,y=sample,fill=gift)) +
+        geom_tile(colour="white", linewidth=0.2)+
+        scale_fill_gradientn(colours=rev(c("#d53e4f", "#f46d43", "#fdae61", "#fee08b", "#e6f598", "#abdda4", "#ddf1da")))+
+        facet_grid(sex ~ ., scales="free",space="free")+
+  theme(axis.text.x = element_text(size = 10),
+        axis.text.y = element_text(size=8),
+        strip.background = element_blank(),
+        strip.text = element_text(size = 12, color="black",face="bold"),
+        axis.title = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)),
+        axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)),
+        panel.background= element_blank()
+        ) +
+        labs(x="Function", y="Sample",fill="GIFT")
+```
+
+## Wilcoxon
+
+### Community elements differences:
+```{r comunity_elem, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+element_gift <- GIFTs_elements_community %>% 
+  as.data.frame() %>% 
+  rownames_to_column(., "sample") %>% 
+  left_join(sample_metadata %>% select(sample,sex, broad_environment), by=join_by("sample"=="sample"))
+```
+
+```{r commun_wilcox_elem, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+uniqueGIFT_db<- unique(GIFT_db[c(2,4,5,6)]) %>% unite("Function",Function:Element, sep= "_", remove=FALSE)
+
+significant_elements <- element_gift %>%
+    pivot_longer(-c(sample,sex, broad_environment), names_to = "trait", values_to = "value") %>%
+    group_by(trait) %>%
+    summarise(p_value = wilcox.test(value ~ sex)$p.value) %>%
+    mutate(p_adjust=p.adjust(p_value, method="BH")) %>%
+    filter(p_adjust < 0.05)%>%
+  rownames_to_column(., "Elements")  %>%
+  left_join(.,uniqueGIFT_db[c(1,3)],by = join_by(trait == Code_element))
+
+element_gift_t <- element_gift  %>% 
+  t() %>%
+  row_to_names(row_number = 1) %>%
+  as.data.frame() %>%
+  mutate_if(is.character, as.numeric)  %>%
+  rownames_to_column(., "trait")
+
+element_gift_filt <- subset(element_gift_t, trait %in% significant_elements$trait) %>% 
+  t() %>%
+  row_to_names(row_number = 1) %>%
+  as.data.frame() %>%
+  mutate_if(is.character, as.numeric) %>%
+  rownames_to_column(., "sample") %>%
+  left_join(sample_metadata %>% select(sample, sex, broad_environment), by = join_by(sample == sample)) %>%
+  filter(!is.na(sex)) 
+
+element_gift_filt %>%
+  select(-c(sample,broad_environment))%>%
+  group_by(sex) %>%
+  summarise(across(everything(), mean))%>%
+   t() %>%
+  row_to_names(row_number = 1) %>%
+  as.data.frame() %>%
+  mutate_if(is.character, as.numeric)  %>%
+  rownames_to_column(., "Elements")  %>%
+  left_join(.,uniqueGIFT_db[c(1,3)],by = join_by(Elements == Code_element))
+
+difference_table <- element_gift_filt %>%
+  select(-sample) %>%
+  group_by(sex) %>%
+  summarise(across(everything(), mean)) %>%
+  t() %>%
+  row_to_names(row_number = 1) %>%
+  as.data.frame() %>%
+  mutate_if(is.character, as.numeric) %>%
+  rownames_to_column(., "Elements") %>%
+    left_join(.,uniqueGIFT_db[c(1,3,4)],by = join_by(Elements == Code_element)) %>% 
+  arrange(Function) %>% 
+  mutate(Difference=Female-Male)%>% 
+  mutate(group_color = ifelse(Difference <0, "Male","Female")) 
+
+```
+
+```{r log_fold_calc, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+means_gift <- element_gift_filt %>% 
+  select(-c(sex,broad_environment)) %>% 
+  pivot_longer(!sample, names_to = "elements", values_to = "abundance") %>% 
+  left_join(sample_metadata, by=join_by(sample==sample)) %>% 
+  group_by(sex, elements) %>%
+  summarise(mean=mean(abundance))
+
+log_fold <- means_gift %>%
+  group_by(elements) %>%
+  summarise(
+    logfc_high_low = log2(mean[sex == "Male"] / mean[sex == "Female"])
+    )
+```
+
+```{r elements_plot, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+element_gift_names <- element_gift_filt%>%
+  select(-c(sex,broad_environment)) %>%
+   t() %>%
+  row_to_names(row_number = 1) %>%
+  as.data.frame() %>%
+  mutate_if(is.character, as.numeric)  %>%
+  rownames_to_column(., "Elements")  %>%
+  left_join(.,uniqueGIFT_db[c(1,3)],by = join_by(Elements == Code_element))%>%
+  select(-Elements)%>%
+  select(Function, everything())%>%
+   t()%>%
+  row_to_names(row_number = 1) %>%
+  as.data.frame() %>%
+  mutate_if(is.character, as.numeric)  %>%
+  rownames_to_column(., "sample")%>% 
+  left_join(sample_metadata %>% select(sample,sex,broad_environment), by = join_by(sample == sample))
+
+
+
+colNames <- names(element_gift_names %>% select(-c(sample,sex,broad_environment)))
+for(i in colNames){
+  plt <- ggplot(element_gift_names, aes(x=sex, y=.data[[i]], color = sex, fill=sex)) +
+    geom_boxplot(alpha = 0.2, outlier.shape = NA, width = 0.3, show.legend = FALSE) +
+    geom_jitter(width = 0.1, show.legend = TRUE) +
+  scale_color_manual(values=treatment_colors)+
+  scale_fill_manual(values=treatment_colors) +
+  theme_minimal() +
+  theme(
+    axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank())
+print(plt)
+}
+```
+```{r commun_wilcox_elem_plot_gut, comment="", message=FALSE, warning=FALSE, fig.height=6, fig.width=12, fig.fullwidth=TRUE, eval=FALSE}
+difference_table %>%
+  ggplot(aes(x=forcats::fct_reorder(Function,Difference), y=Difference, fill=group_color)) + 
+  geom_col() +
+#  geom_point(size=4) + 
+  scale_fill_manual(values=treatment_colors) +
+  geom_hline(yintercept=0) + 
+  coord_flip()+
+  theme(axis.text = element_text(size = 10),
+        axis.title = element_text(size = 12),
+        legend.position = "right", 
+        panel.background = element_blank(),
+          panel.grid.major = element_line(size = 0.15, linetype = 'solid',
+                                colour = "grey"))+
+  xlab("Microbial Functional Capacity") + 
+  ylab("Mean difference")+
+  labs(fill="Elevation")
+```
+
+
+```{r plot3, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=8, fig.width=14, fig.fullwidth=TRUE}
+
+uniqueGIFT <- unique(GIFT_db[c(2,3,4,5,6)])
+
+code_function <- difference_table %>%
+  left_join(uniqueGIFT[c(1:3)], by=join_by(Elements==Code_element))
+
+unique_codes<-unique(code_function$Code_function)
+
+gift_colors <- read_tsv("data/gift_colors.tsv") %>% 
+  filter(Code_function %in% unique_codes)%>% 
+  mutate(legend=str_c(Code_function," - ",Function))
+
+code_function %>%
+#  mutate(Difference_abs = abs(Difference)) %>% 
+  left_join(significant_elements, by=join_by(Elements==trait)) %>%
+  left_join(log_fold, by=join_by(Elements==elements)) %>% 
+  left_join(gift_colors, by=join_by(Code_function==Code_function)) %>% 
+  ggplot(., aes(x = logfc_high_low, y = -log(p_adjust), color=legend, size=abs(Difference))) +
+  geom_jitter(width = 0.2, height = 0.2)+
+  geom_vline(xintercept=0) +
+  scale_color_manual(values = gift_colors$Color)+
+  #xlim(c(-10,4)) +
+  theme_classic()+
+  labs(size="Mean difference (abs)", color="Functional trait")+
+  labs(x = "Log-fold change", y="-Log adjusted p-value") +
+  geom_text_repel(aes(label = Element), min.segment.length = 0.4, size=2.5, max.overlaps = Inf)
+```
+
+### Community functions differences
+
+```{r comunity_func_gut, comment="", message=FALSE, warning=FALSE}
+function_gift <- GIFTs_functions_community %>% 
+  as.data.frame() %>% 
+  rownames_to_column(., "sample") %>% 
+  merge(., sample_metadata %>% select(sample,sex,broad_environment), by="sample")
+```
+
+```{r commun_wilcox_func_gut, comment="", message=FALSE, warning=FALSE, eval = FALSE}
+unique_funct_db<- GIFT_db[c(3,4,5)] %>% 
+  distinct(Code_function, .keep_all = TRUE)
+
+significant_functional <- function_gift %>%
+    pivot_longer(-c(sample,sex,broad_environment), names_to = "trait", values_to = "value") %>%
+    group_by(trait) %>%
+    summarise(p_value = wilcox.test(value ~ sex)$p.value) %>%
+    mutate(p_adjust=p.adjust(p_value, method="BH")) %>%
+    filter(p_adjust < 0.05)%>%
+  left_join(.,unique_funct_db[c(1,3)],by = join_by(trait == Code_function))
+```
+
+```{r  function_sig_gut, comment="", message=FALSE, warning=FALSE, eval=FALSE}
+function_gift_t <- function_gift  %>% 
+  select(-sex)  %>% 
+  t() %>%
+  row_to_names(row_number = 1) %>%
+  as.data.frame() %>%
+  mutate_if(is.character, as.numeric)  %>%
+  rownames_to_column(., "trait")
+
+function_gift_filt <- subset(function_gift_t, trait %in% significant_functional$trait) %>% 
+  t() %>%
+  row_to_names(row_number = 1) %>%
+  as.data.frame() %>%
+  mutate_if(is.character, as.numeric)  %>%
+  rownames_to_column(., "sample")%>% 
+  left_join(., sample_metadata %>% select(sample,sex,broad_environment), by = join_by(sample == sample)) %>%
+  filter(!is.na(sex))
+
+function_gift_filt %>%
+  select(-c(sample,broad_environment)) %>%
+  group_by(sex)  %>%
+  summarise(across(everything(), mean))%>%
+  t() %>%
+  row_to_names(row_number = 1) %>%
+  as.data.frame() %>%
+  mutate_if(is.character, as.numeric)  %>%
+  rownames_to_column(., "Code_function")  %>%
+  left_join(unique_funct_db[c(1,3)],by = join_by(Code_function == Code_function))
+```
+
+```{r function_plot_gut, comment="", message=FALSE, warning=FALSE, eval = FALSE}
+function_gift_names <- function_gift_filt%>%
+  select(-c(sex,broad_environment)) %>%
+   t() %>%
+  row_to_names(row_number = 1) %>%
+  as.data.frame() %>%
+  mutate_if(is.character, as.numeric)  %>%
+  rownames_to_column(., "Code_function")  %>%
+  left_join(.,unique_funct_db[c(1,3)],by = join_by(Code_function == Code_function))%>%
+  select(-Code_function)%>%
+  select(Function, everything())%>%
+   t()%>%
+  row_to_names(row_number = 1) %>%
+  as.data.frame() %>%
+  mutate_if(is.character, as.numeric)  %>%
+  rownames_to_column(., "sample")%>% 
+  left_join(sample_metadata %>% select(sample,sex,broad_environment), by = join_by(sample == sample))
+
+
+colNames <- names(function_gift_names)[2]
+for(i in colNames){
+  plt <- ggplot(function_gift_names, aes(x=sex, y=.data[[i]], color = sex, fill=sex)) +
+    geom_boxplot(alpha = 0.2, outlier.shape = NA, width = 0.3, show.legend = FALSE) +
+  geom_jitter(width = 0.1, show.legend = TRUE) +
+    scale_color_manual(values=treatment_colors)+
+    scale_fill_manual(values=treatment_colors)+
+  theme_minimal() +
+  theme(
+    axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank())
+print(plt)
+}
+```
+
+### Community domains differences
+
+```{r comunity_dom_gut, comment="", message=FALSE, warning=FALSE}
+domain_gift <- GIFTs_domains_community %>% 
+  as.data.frame() %>% 
+  rownames_to_column(., "sample") %>% 
+  merge(sample_metadata %>% select(sample,sex,broad_environment), by="sample")
+```
+
+```{r commun_wilcox_dom_gut, comment="", message=FALSE, warning=FALSE}
+unique_domain_db<- GIFT_db[c(4)] %>% 
+  distinct(Domain, .keep_all = TRUE)
+
+significant_domain <- domain_gift %>%
+    pivot_longer(-c(sample,sex,broad_environment), names_to = "trait", values_to = "value") %>%
+    group_by(trait) %>%
+    summarise(p_value = wilcox.test(value ~ sex)$p.value) %>%
+    mutate(p_adjust=p.adjust(p_value, method="BH")) %>%
+    filter(p_adjust < 0.05)
+```
+
+```{r  domain_sig, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+domain_gift_t <- domain_gift  %>% 
+  select(-sex)  %>% 
+  t() %>%
+  row_to_names(row_number = 1) %>%
+  as.data.frame() %>%
+  mutate_if(is.character, as.numeric)  %>%
+  rownames_to_column(., "trait")
+
+domain_gift_filt <- subset(domain_gift_t, trait %in% significant_domain$trait) %>% 
+  t() %>%
+  row_to_names(row_number = 1) %>%
+  as.data.frame() %>%
+  mutate_if(is.character, as.numeric) %>%
+  rownames_to_column(., "sample") %>%
+  left_join(sample_metadata[c("sample", "sex", "broad_environment")], by = join_by(sample == sample)) %>%
+  filter(!is.na(sex))
+
+  
+domain_gift_filt %>%
+  select(-sample)%>%
+  group_by(sex)  %>%
+  summarise(across(everything(), mean))%>%
+   t() %>%
+  row_to_names(row_number = 1) %>%
+  as.data.frame() %>%
+  mutate_if(is.character, as.numeric)  %>%
+  rownames_to_column(., "Code_domain")
+
+```
+
+```{r domain_plot, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+domain_gift_names <- domain_gift_filt%>%
+  select(-sex)%>%
+   t() %>%
+  row_to_names(row_number = 1) %>%
+  as.data.frame() %>%
+  mutate_if(is.character, as.numeric)  %>%
+  rownames_to_column(., "Code_domain")  %>%
+  # select(-Code_domain)%>%
+  # select(domain, everything())%>%
+   t()%>%
+  row_to_names(row_number = 1) %>%
+  as.data.frame() %>%
+  mutate_if(is.character, as.numeric)  %>%
+  rownames_to_column(., "sample")%>% 
+  left_join(., sample_metadata[c("sample", "sex", "broad_environment")], by = join_by(sample == sample))
+
+
+colNames <- names(domain_gift_names)[2:3]
+for(i in colNames){
+  plt <- ggplot(domain_gift_names, aes(x=sex, y=.data[[i]], color = sex, fill=sex)) +
+    geom_boxplot(alpha = 0.2, outlier.shape = NA, width = 0.3, show.legend = FALSE) +
+  geom_jitter(width = 0.1, show.legend = TRUE) +
+    scale_color_manual(values=treatment_colors)+
+    scale_fill_manual(values=treatment_colors)+
+  theme_minimal() +
+  theme(
+    axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank())
+print(plt)
+}
+```
+
+<!--chapter:end:08_microbiota_functional_analysis.Rmd-->
 
