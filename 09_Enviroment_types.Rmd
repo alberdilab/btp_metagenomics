@@ -11,13 +11,13 @@ library(terra)
 library(exactextractr)
 ```
 
-
 # 1. sample points
 ```{r sample_points, warning=FALSE, comments="", message=FALSE}
 sample_points <- read.csv("sample_points.csv")
 points_sf <- st_as_sf(sample_points, coords = c("longitude", "latitude"), crs = 4326)
 points_proj <- st_transform(points_sf, 28355)  # GDA94 / MGA Zone 55 — meters
 ```
+
 # 2. 150-meter buffer zones
 ```{r buffer_zones, warning=FALSE, comment="", message=FALSE, eval=FALSE}
    buffers <- st_buffer(points_proj, dist = 150)
