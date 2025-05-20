@@ -1,0 +1,88 @@
+,land_cover_description,detailed_category_group
+43,Natural Aquatic Vegetated: Scattered (1 to 4 %),Aquatic Vegetation
+42,Natural Aquatic Vegetated: Sparse (4 to 15 %),Aquatic Vegetation
+41,Natural Aquatic Vegetated: Open (15 to 40 %),Aquatic Vegetation
+40,Natural Aquatic Vegetated: Open (40 to 65 %),Aquatic Vegetation
+39,Natural Aquatic Vegetated: Closed (> 65 %),Aquatic Vegetation
+36,Natural Aquatic Vegetated,Aquatic Vegetation
+"78,""Natural Surface: Bare areas, unvegetated"",Bare Surface"
+0,Cultivated Terrestrial Vegetated,Cultivated Vegetation - General
+7,Cultivated Terrestrial Vegetated: Scattered (1 to 4 %),Cultivated Vegetation - General
+3,Cultivated Terrestrial Vegetated: Closed (> 65 %),Cultivated Vegetation - General
+4,Cultivated Terrestrial Vegetated: Open (40 to 65 %),Cultivated Vegetation - General
+5,Cultivated Terrestrial Vegetated: Open (15 to 40 %),Cultivated Vegetation - General
+6,Cultivated Terrestrial Vegetated: Sparse (4 to 15 %),Cultivated Vegetation - General
+2,Cultivated Terrestrial Vegetated: Herbaceous,Cultivated Vegetation - Herbaceous
+13,Cultivated Terrestrial Vegetated: Herbaceous Closed (> 65 %),Cultivated Vegetation - Herbaceous
+14,Cultivated Terrestrial Vegetated: Herbaceous Open (40 to 65 %),Cultivated Vegetation - Herbaceous
+15,Cultivated Terrestrial Vegetated: Herbaceous Open (15 to 40 %),Cultivated Vegetation - Herbaceous
+16,Cultivated Terrestrial Vegetated: Herbaceous Sparse (4 to 15 %),Cultivated Vegetation - Herbaceous
+17,Cultivated Terrestrial Vegetated: Herbaceous Scattered (1 to 4 %),Cultivated Vegetation - Herbaceous
+8,Cultivated Terrestrial Vegetated: Woody Closed (> 65 %),Cultivated Vegetation - Woody
+9,Cultivated Terrestrial Vegetated: Woody Open (40 to 65 %),Cultivated Vegetation - Woody
+10,Cultivated Terrestrial Vegetated: Woody Open (15 to 40 %),Cultivated Vegetation - Woody
+11,Cultivated Terrestrial Vegetated: Woody Sparse (4 to 15 %),Cultivated Vegetation - Woody
+12,Cultivated Terrestrial Vegetated: Woody Scattered (1 to 4 %),Cultivated Vegetation - Woody
+1,Cultivated Terrestrial Vegetated: Woody,Cultivated Vegetation - Woody
+21,Natural Terrestrial Vegetated: Closed (> 65 %),Natural Vegetation - General
+22,Natural Terrestrial Vegetated: Open (40 to 65 %),Natural Vegetation - General
+23,Natural Terrestrial Vegetated: Open (15 to 40 %),Natural Vegetation - General
+18,Natural Terrestrial Vegetated,Natural Vegetation - General
+20,Natural Terrestrial Vegetated: Herbaceous,Natural Vegetation - Herbaceous
+59,Natural Aquatic Vegetated: Herbaceous Closed (> 65 %),Natural Vegetation - Herbaceous
+38,Natural Aquatic Vegetated: Herbaceous,Natural Vegetation - Herbaceous
+62,Natural Aquatic Vegetated: Herbaceous Open (40 to 65 %),Natural Vegetation - Herbaceous
+35,Natural Terrestrial Vegetated: Herbaceous Scattered (1 to 4 %),Natural Vegetation - Herbaceous
+33,Natural Terrestrial Vegetated: Herbaceous Open (15 to 40 %),Natural Vegetation - Herbaceous
+32,Natural Terrestrial Vegetated: Herbaceous Open (40 to 65 %),Natural Vegetation - Herbaceous
+31,Natural Terrestrial Vegetated: Herbaceous Closed (> 65 %),Natural Vegetation - Herbaceous
+65,Natural Aquatic Vegetated: Herbaceous Open (15 to 40 %),Natural Vegetation - Herbaceous
+68,Natural Aquatic Vegetated: Herbaceous Sparse (4 to 15 %),Natural Vegetation - Herbaceous
+71,Natural Aquatic Vegetated: Herbaceous Scattered (1 to 4 %),Natural Vegetation - Herbaceous
+34,Natural Terrestrial Vegetated: Herbaceous Sparse (4 to 15 %),Natural Vegetation - Herbaceous
+77,Natural Surface: Very sparsely vegetated,Natural Vegetation - Sparse
+25,Natural Terrestrial Vegetated: Scattered (1 to 4 %),Natural Vegetation - Sparse
+24,Natural Terrestrial Vegetated: Sparse (4 to 15 %),Natural Vegetation - Sparse
+76,Natural Surface: Sparsely vegetated,Natural Vegetation - Sparse
+50,Natural Aquatic Vegetated: Woody Open (15 to 40 %),Natural Vegetation - Woody
+56,Natural Aquatic Vegetated: Woody Scattered (1 to 4 %),Natural Vegetation - Woody
+53,Natural Aquatic Vegetated: Woody Sparse (4 to 15 %),Natural Vegetation - Woody
+47,Natural Aquatic Vegetated: Woody Open (40 to 65 %),Natural Vegetation - Woody
+26,Natural Terrestrial Vegetated: Woody Closed (> 65 %),Natural Vegetation - Woody
+28,Natural Terrestrial Vegetated: Woody Open (15 to 40 %),Natural Vegetation - Woody
+30,Natural Terrestrial Vegetated: Woody Scattered (1 to 4 %),Natural Vegetation - Woody
+37,Natural Aquatic Vegetated: Woody,Natural Vegetation - Woody
+27,Natural Terrestrial Vegetated: Woody Open (40 to 65 %),Natural Vegetation - Woody
+19,Natural Terrestrial Vegetated: Woody,Natural Vegetation - Woody
+44,Natural Aquatic Vegetated: Woody Closed (> 65 %),Natural Vegetation - Woody
+29,Natural Terrestrial Vegetated: Woody Sparse (4 to 15 %),Natural Vegetation - Woody
+75,Natural Surface,Other
+86,No data,Other
+74,Artificial Surface,Urban/Artificial
+80,Water: (Water),Water
+70,Natural Aquatic Vegetated: Herbaceous Sparse (4 to 15 %) Water < 3 months (temporary or seasonal),Water
+81,Water: (Water) Tidal area,Water
+82,Water: (Water) Perennial (> 9 months),Water
+73,Natural Aquatic Vegetated: Herbaceous Scattered (1 to 4 %) Water < 3 months (temporary or seasonal),Water
+72,Natural Aquatic Vegetated: Herbaceous Scattered (1 to 4 %) Water > 3 months (semi-) permanent,Water
+83,Water: (Water) Non-perennial (7 to 9 months),Water
+84,Water: (Water) Non-perennial (4 to 6 months),Water
+79,Water,Water
+49,Natural Aquatic Vegetated: Woody Open (40 to 65 %) Water < 3 months (temporary or seasonal),Water
+48,Natural Aquatic Vegetated: Woody Open (40 to 65 %) Water > 3 months (semi-) permanent,Water
+46,Natural Aquatic Vegetated: Woody Closed (> 65 %) Water < 3 months (temporary or seasonal),Water
+51,Natural Aquatic Vegetated: Woody Open (15 to 40 %) Water > 3 months (semi-) permanent,Water
+52,Natural Aquatic Vegetated: Woody Open (15 to 40 %) Water < 3 months (temporary or seasonal),Water
+45,Natural Aquatic Vegetated: Woody Closed (> 65 %) Water > 3 months (semi-) permanent,Water
+54,Natural Aquatic Vegetated: Woody Sparse (4 to 15 %) Water > 3 months (semi-) permanent,Water
+55,Natural Aquatic Vegetated: Woody Sparse (4 to 15 %) Water < 3 months (temporary or seasonal),Water
+69,Natural Aquatic Vegetated: Herbaceous Sparse (4 to 15 %) Water > 3 months (semi-) permanent,Water
+57,Natural Aquatic Vegetated: Woody Scattered (1 to 4 %) Water > 3 months (semi-) permanent,Water
+85,Water: (Water) Non-perennial (1 to 3 months),Water
+60,Natural Aquatic Vegetated: Herbaceous Closed (> 65 %) Water > 3 months (semi-) permanent,Water
+61,Natural Aquatic Vegetated: Herbaceous Closed (> 65 %) Water < 3 months (temporary or seasonal),Water
+63,Natural Aquatic Vegetated: Herbaceous Open (40 to 65 %) Water > 3 months (semi-) permanent,Water
+64,Natural Aquatic Vegetated: Herbaceous Open (40 to 65 %) Water < 3 months (temporary or seasonal),Water
+66,Natural Aquatic Vegetated: Herbaceous Open (15 to 40 %) Water > 3 months (semi-) permanent,Water
+58,Natural Aquatic Vegetated: Woody Scattered (1 to 4 %) Water < 3 months (temporary or seasonal),Water
+67,Natural Aquatic Vegetated: Herbaceous Open (15 to 40 %) Water < 3 months (temporary or seasonal),Water

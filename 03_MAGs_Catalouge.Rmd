@@ -1,3 +1,4 @@
+
 # MAG catalogue
 
 ## Gut microbiota
@@ -9,10 +10,12 @@ load("data/data.Rdata")
 ### Genome phylogeny
 
 ```{r gut_genome_phylogeny, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE}
+
 # Generate the phylum color heatmap
 phylum_heatmap <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
     right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
     arrange(match(genome, genome_tree$tip.label)) %>%
+
     select(genome,phylum) %>%
     mutate(phylum = factor(phylum, levels = unique(phylum))) %>%
     column_to_rownames(var = "genome")
@@ -188,8 +191,6 @@ grid.arrange(grobs = list(genome_completeness,genome_biplot,genome_contamination
 
 ### Functional overview
 
-### Functional overview
-
 ***Predicted genes***
 ```{r predicted_stats_gut, message=FALSE, warning=FALSE}
 genome_annotations <- read_tsv("data/genome_annotations.tsv.xz") %>%
@@ -203,7 +204,7 @@ cat(pred_genes)
 ```
 
 ***Number of annotated genes and percentages***
-```{r annotation_stats_gut, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE}
+```{r annotation_stats, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE, eval = FALSE}
 
 # Some annotation
 genome_annota <- genome_annotations %>%
@@ -217,7 +218,7 @@ genome_annota*100/pred_genes
 ```
 
 ***Number of KEGG annotatated genes and percentages***
-```{r kegg_stats_gut, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE}
+```{r kegg_stats, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE, eval = FALSE}
 # KEGG annotation
 kegg_annota <- genome_annotations %>%
   filter(!is.na(kegg_id)) %>%
@@ -227,6 +228,7 @@ cat(kegg_annota)
 # KEGG annotation percentage
 kegg_annota*100/genome_annota
 ```
+
 ```{r function_heatmap, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE}
 
 # Aggregate basal GIFT into elements

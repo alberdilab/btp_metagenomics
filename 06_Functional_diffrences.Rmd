@@ -1,3 +1,4 @@
+
 # Beta diversity
 ## Gut microbiota
 ```{r load_data_beta}
@@ -88,7 +89,7 @@ save(beta_q0n,
 
 ```{r seed, comment="", message=FALSE,echo=FALSE,warning=FALSE, eval=FALSE}
 
-set.seed(2024)
+set.seed(2025)
 ```
 
 ### Permanova
@@ -146,7 +147,7 @@ run_permanova <- function(beta_matrix, metadata, sample_col = "sample", group_co
 
 # Richness
 
-```{r permanova_richness, comment="", message=FALSE, warning=FALSE}
+```{r permanova_richness, comment="", message=FALSE, warning=FALSE, eval = FALSE}
 
 run_permanova(
   beta_matrix = beta_q0n$S,
@@ -161,7 +162,7 @@ run_permanova(
 
 #Neutral diversity
 
-```{r permanova_neutral, comment="", message=FALSE, warning=FALSE}
+```{r permanova_neutral, comment="", message=FALSE, warning=FALSE, eval = FALSE}
 run_permanova(
   beta_matrix = beta_q1n,
   metadata = sample_metadata_without_NA,
@@ -174,7 +175,7 @@ run_permanova(
 
 # Phylogenetic diversity (beta_q1p)
 
-```{r permanova_phylo, comment="", message=FALSE, warning=FALSE}
+```{r permanova_phylo, comment="", message=FALSE, warning=FALSE, eval = FALSE}
 
 run_permanova(
   beta_matrix = beta_q1p,
@@ -188,7 +189,7 @@ run_permanova(
 
 # Functional diversity (beta_q1f)
 
-```{r permanova_func, comment="", message=FALSE, warning=FALSE}
+```{r permanova_func, comment="", message=FALSE, warning=FALSE, eval = FALSE}
 
 run_permanova(
   beta_matrix = beta_q1f,
@@ -314,3 +315,4 @@ beta_q1f$S %>%
     ) +
     labs(color="broad_environment", shape="sex")+geom_text_repel(aes(label = sample), size=3)
 ```
+
