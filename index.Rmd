@@ -1,49 +1,21 @@
 ---
-title: "AlberdiLab | Manuscript in prep"
+title: "AlberdiLab | Fix et al 2025"
 subtitle: "Brush-tail possum metagenomics"
 author:
-  - Lukas Fix, Antton Alberdi, Raphael Eisenhofer[University of Copenhagen, raphael.eisenhofer@sund.ku.dk]
-date: "`r Sys.Date()`"
+  - Lukas Fix, Antton Alberdi, Raphael Eisenhofer 
+date: "Last update: `r Sys.Date()`"
 site: bookdown::bookdown_site
 documentclass: book
 bibliography: [book.bib, packages.bib]
-url: https://alberdilab.github.io/btp_metagenomics
+url: https://alberdilab.github.io/calotriton_metagenomics
 description: |
-  Data analysis code for the study of Tasmanian brush-tail possums.
+  Data analysis code for the study on the gut microbiomes of brushtail possums in tasmania.
 link-citations: yes
-github-repo: alberdilab/btp_metagenomics
+github-repo: https://github.com/alberdilab/btp_metagenomics.git
 ---
 
-```{r knitr_opts, echo=FALSE}
-knitr::opts_chunk$set(
-    class.source = "script-source",
-    class.output = "script-output",
-    comment = NA)
-```
-
-# Introduction
-
-## Prepare the R environment
-
-### Environment
-
-To reproduce all the analyses locally, clone this repository in your computer using:
-
-```
-RStudio > New Project > Version Control > Git
-```
-
-And indicating the following git repository:
-
-> https://github.com/alberdilab/btp_metagenomics.git
-
-Once the R project has been created, follow the instructions and code chunks shown in this webbook.
-
-### Libraries
-
-The following R packages are required for the data analysis.
-
-```{r load_libraries, warning=FALSE, comments="", message=FALSE}
+## Libaries 
+```{r}
 # Base
 library(R.utils)
 library(knitr)
@@ -51,6 +23,7 @@ library(tidyverse)
 library(devtools)
 library(tinytable)
 library(rairtable)
+library(readxl)
 
 # For tree handling
 library(ape)
@@ -58,7 +31,7 @@ library(phyloseq)
 library(phytools)
 
 # For plotting
-library(ggplot2)
+library(ggplot2)  # Begin plotting using ggplot2
 library(ggrepel)
 library(ggpubr)
 library(ggnewscale)
@@ -66,6 +39,7 @@ library(gridExtra)
 library(ggtreeExtra)
 library(ggtree)
 library(ggh4x)
+library(GGally)
 
 # For statistics
 library(spaa)
@@ -83,10 +57,10 @@ library(corrplot)
 library(lme4)
 library(nlme)
 library(ANCOMBC)
+
 #map visualtisation
 library(rnaturalearth)
 library(rnaturalearthdata)
 library(patchwork)
-
-
 ```
+
