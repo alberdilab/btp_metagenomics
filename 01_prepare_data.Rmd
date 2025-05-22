@@ -1,3 +1,4 @@
+# Prepare data
 
 ## Load data
 
@@ -11,14 +12,14 @@ sample_metadata <- read_tsv("data/merged_metadata.tsv") %>%
 ```
 
 ## load_read_counts
-```{r load_read_counts, warning=FALSE, comments="", message=FALSE}
+```{r load_read_counts, warning=FALSE, comments="", message=FALSE, eval=FALSE}
 read_counts <- read_tsv("data/DMB0167_counts.tsv.gz") %>%
     rename(genome=1) %>% 
     select(one_of(c("genome",sample_metadata$sample)))  # Select specific columns from the data
 ```
 
 ## load_genome_metadata
-```{r load_genome_metadata, warning=FALSE, comments="", message=FALSE}
+```{r load_genome_metadata, warning=FALSE, comments="", message=FALSE, eval=FALSE}
 genome_metadata <- read_tsv("data/DMB0167_mag_info.tsv.gz") %>%
     rename(length=mag_size)%>%
   semi_join(., read_counts, by = "genome") %>% 
@@ -26,7 +27,7 @@ genome_metadata <- read_tsv("data/DMB0167_mag_info.tsv.gz") %>%
 ```
 
 ##  Genome base hits
-```{r load_genome_hits, warning=FALSE, comments="", message=FALSE}
+```{r load_genome_hits, warning=FALSE, comments="", message=FALSE, eval=FALSE}
 genome_coverage <- read_tsv("data/DMB0167_coverage.tsv.gz") %>%
     rename(genome=1) %>% 
     select(one_of(c("genome",sample_metadata$sample)))%>%   # Select specific columns from the data
@@ -35,7 +36,7 @@ genome_coverage <- read_tsv("data/DMB0167_coverage.tsv.gz") %>%
 ```
 
 ## Genome tree
-```{r load_genome_tree, warning=FALSE, comments="", message=FALSE}
+```{r load_genome_tree, warning=FALSE, comments="", message=FALSE, eval=FALSE}
 genome_tree <- read_tree("data/DMB0167.tree.gz")
 genome_tree$tip.label <- str_replace_all(genome_tree$tip.label,"'", "") #remove single quotes in MAG names
 genome_tree <- keep.tip(genome_tree, tip=genome_metadata$genome) # keep only MAG tips
@@ -57,13 +58,13 @@ airtable("MAGs", "appWbHBNLE6iAsMRV") %>% #get base ID from Airtable browser URL
 ```
 
 
-```{r load_genome_annotations, warning=FALSE, comments="", message=FALSE}
+```{r load_genome_annotations, warning=FALSE, comments="", message=FALSE, eval=FALSE}
 genome_annotations <- read_tsv("data/genome_annotations.tsv.xz") %>%
     rename(gene=1, genome=2, contig=3)
 ```
 
 ## Filter reads by coverage
-```{r filter_coverage, warning=FALSE, comments="", message=FALSE}
+```{r filter_coverage, warning=FALSE, comments="", message=FALSE, eval=FALSE}
 min_coverage=0.3
 read_counts_filt <- genome_coverage %>%
   mutate(across(where(is.numeric), ~ ifelse(. > min_coverage, 1, 0))) %>%  # Add or modify columns in the dataset
@@ -71,13 +72,13 @@ read_counts_filt <- genome_coverage %>%
 ```
 
 ## Transform reads into genome counts
-```{r calculate_genome_counts_unfiltered, warning=FALSE, comments="", message=FALSE}
+```{r calculate_genome_counts_unfiltered, warning=FALSE, comments="", message=FALSE, eval=FALSE}
 readlength=150
 genome_counts <- read_counts %>%
   mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))  # Add or modify columns in the dataset
 ```
 
-```{r calculate_genome_counts_filtered_gut, warning=FALSE, comments="", message=FALSE}
+```{r calculate_genome_counts_filtered_gut, warning=FALSE, comments="", message=FALSE, eval=FALSE}
 readlength=150
 genome_counts_filt <- read_counts_filt %>%
   mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))  # Add or modify columns in the dataset
@@ -91,7 +92,7 @@ genome_counts_filt <- read_counts_filt %>%
 
 
 ## Prepare color scheme
-```{r get_ehi_colors, warning=FALSE, comments="", message=FALSE}
+```{r get_ehi_colors, warning=FALSE, comments="", message=FALSE, eval=FALSE}  
 phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
     right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
     arrange(match(genome, genome_tree$tip.label)) %>%
@@ -105,8 +106,8 @@ phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI
 
 All working objects are wrapped into a single Rdata object to facilitate downstream usage.
 
-```{r wrap_working_objects, warning=FALSE, comments="", message=FALSE}
-save(sample_metadata,
+```{r wrap_working_objects, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+  save(sample_metadata,
      genome_metadata,
      read_counts,
      genome_counts,

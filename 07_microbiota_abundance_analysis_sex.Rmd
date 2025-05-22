@@ -388,6 +388,7 @@ ancom_rand_output_mag_Struc$res %>%
 #### Phylum level
 
 ```{r ancom_phylum, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+
 ancom_rand_output_phylum = ancombc2(data = physeq_genome_filtered, 
                   assay_name = "counts", 
                   tax_level = "phylum", #change to agglomerate analysis to a higher taxonomic range
@@ -831,7 +832,7 @@ ancom_rand_output_gen_norand$res %>%
 ```
 
 ```{r ancom_save, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
-save(ancom_rand_output,
+ save(ancom_rand_output,
      ancom_rand_output_mag_Struc,
      ancom_rand_output_phylum,
      ancom_rand_output_family,

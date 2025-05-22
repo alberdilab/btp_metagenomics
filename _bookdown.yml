@@ -6,9 +6,9 @@ rmd_files:
   - index.Rmd
   - 01_prepare_data.Rmd
   - 02_data_statistics.Rmd
-  - 03_MAGs_Catalouge.Rmd
-  - 04_Community.Rmd
-  - 05_Differential_abundance.Rmd
-  - 06_Functional_diffrences.Rmd
+  - 03_mag_catalogue.Rmd
+  - 04_community_composition.Rmd
+  - 05_alpha_diversity.Rmd
+  - 06_functional_diffrences.Rmd
   - 07_microbiota_abundance_analysis_sex.Rmd
   - 08_microbiota_functional_analysis.Rmd
