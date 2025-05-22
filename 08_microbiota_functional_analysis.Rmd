@@ -1,5 +1,5 @@
 
-# Gut microbiota: functional analysis
+# functional analysis
 
 ```{r load_data_func,comment="", echo=FALSE, message=FALSE, warning=FALSE}
 load("data/data.Rdata")

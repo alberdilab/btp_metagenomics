@@ -1,4 +1,4 @@
-# Gut microbiota: Differential abundance analysis
+# Differential abundance analysis
 
 ```{r load_data_mag_filtdamr_diffe, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 load("data/data.Rdata")
@@ -30,7 +30,6 @@ physeq_all = phyloseq(count_phy, TAX, sample_info_tab_phy, tree)
 ```
 
 ## Structural zeros
-#complett absence of a microbe/genome/function in one group
 
 ```{r struct_zero, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 Female_samples <- sample_metadata %>% 
@@ -134,8 +133,8 @@ upset(as.data.frame(table_upset_analysis),
   mb.ratio = c(0.55, 0.45), order.by = "freq")
 #dev.off()
 ```
-
-## Enrichment analysis between male and female: Ancombc2
+## Ancomb2
+### Enrichment analysis between male and female
 
 ```{r zero_phylo, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 #phyloseq object considering structual zeros
@@ -277,7 +276,7 @@ ancom_rand_output$res %>%
 #dev.off()
 ```
 
-##### Controling structural components in Ancombc
+#### Controling structural components
 ```{r ancom_rand_season, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
 set.seed(1234) #set seed for reproducibility
 ancom_rand_output_mag_Struc = ancombc2(data = physeq_all, 
@@ -615,7 +614,7 @@ ancom_rand_output_norand$res %>%
 #dev.off()
 ```
 
-##### Controling structural components in Ancombc
+#### Controling structural components
 ```{r ancom_rand_struct12, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
 ancom_rand_output_mag_Struc_norand = ancombc2(data = physeq_all, 
                   assay_name = "counts", 
@@ -722,7 +721,7 @@ ancom_rand_output_mag_Struc_norand$res %>%
 #dev.off()
 ```
 
-### Phylum level
+#### Phylum level
 
 ```{r ancom_phylum2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
 ancom_rand_output_phylum_norand = ancombc2(data = physeq_genome_filtered, 
@@ -759,7 +758,7 @@ ancom_rand_output_phylum_norand$res %>%
   dplyr::arrange(p_sexMale) 
 ```
 
-### Family level
+#### Family level
 ```{r ancom_family2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
 ancom_rand_output_family_norand = ancombc2(data = physeq_genome_filtered, 
                   assay_name = "counts", 
@@ -795,7 +794,7 @@ ancom_rand_output_family_norand$res %>%
   dplyr::arrange(p_sexMale) 
 ```
 
-### Genera
+#### Genera
 ```{r ancom_genera2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
 ancom_rand_output_gen_norand = ancombc2(data = physeq_genome_filtered, 
                   assay_name = "counts", 
