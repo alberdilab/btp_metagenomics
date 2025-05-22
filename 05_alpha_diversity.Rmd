@@ -1,13 +1,15 @@
 
 # Alpha diversity
 
-## Gut microbiota
+## microbiota
 
 ```{r load_data_alpha}
 load("data/data.Rdata")
 treatment_colors <- c("#f56042","#429ef5", "#42f58d", "#b142f5")
 sample_metadata$broad_environment <- factor(sample_metadata$broad_environment, levels=c("1000198 - Mixed forest", "1000221 - Temperate woodland", "1000218 - Xeric shrubland", "1000245 - Cropland"))
 ```
+
+### Hill numbers
 
 ```{r alpha_div, comment="", message=FALSE, warning=FALSE}
 # Calculate Hill numbers
