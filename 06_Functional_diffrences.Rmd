@@ -1,6 +1,6 @@
 
 # Beta diversity
-## Gut microbiota
+
 ```{r load_data_beta}
 load("data/data.Rdata")
 
@@ -91,7 +91,7 @@ save(beta_q0n,
 set.seed(2025)
 ```
 
-### Permanova
+## Permanova
 
 ```{r Funktion für PERMANOVA Analysen, comment="", message=FALSE, warning=FALSE}
 run_permanova <- function(beta_matrix, metadata, sample_col = "sample", group_col, group_vars, pairwise = FALSE) {
@@ -144,7 +144,7 @@ run_permanova <- function(beta_matrix, metadata, sample_col = "sample", group_co
 }
 ```
 
-# Richness
+### Richness
 
 ```{r permanova_richness, comment="", message=FALSE, warning=FALSE, eval = FALSE}
 
@@ -159,7 +159,7 @@ run_permanova(
 
 ```
 
-#Neutral diversity
+### Neutral diversity
 
 ```{r permanova_neutral, comment="", message=FALSE, warning=FALSE, eval = FALSE}
 run_permanova(
@@ -172,7 +172,7 @@ run_permanova(
 )
 ```
 
-# Phylogenetic diversity (beta_q1p)
+### Phylogenetic diversity (beta_q1p)
 
 ```{r permanova_phylo, comment="", message=FALSE, warning=FALSE, eval = FALSE}
 
@@ -186,7 +186,7 @@ run_permanova(
 )
 ```
 
-# Functional diversity (beta_q1f)
+### Functional diversity (beta_q1f)
 
 ```{r permanova_func, comment="", message=FALSE, warning=FALSE, eval = FALSE}
 
@@ -200,8 +200,9 @@ run_permanova(
 )
 ```
 
-### NMDS
-####Richness
+## NMDS
+
+###Richness
 ```{r beta_div_nmds_richness_plot, comment="", message=FALSE, warning=FALSE, fig.height=7, fig.width=10, fig.fullwidth=TRUE}
 beta_q0n$S %>%
   vegan::metaMDS(., trymax = 500, k = 2, trace=0) %>%
@@ -230,7 +231,7 @@ beta_q0n$S %>%
 ```
 
 
-#### Neutral diversity
+### Neutral diversity
 
 ```{r beta_div_nmds_neutral_plot, comment="", message=FALSE, warning=FALSE, fig.height=7, fig.width=10, fig.fullwidth=TRUE}
 beta_q1n$S %>%
@@ -258,7 +259,7 @@ beta_q1n$S %>%
     labs(color="Evironmental context", shape="sex")
 ```
 
-#### Phylogenetic diversity
+### Phylogenetic diversity
 
 ```{r beta_div_nmds_phylo_plot, comment="", message=FALSE, warning=FALSE, fig.height=7, fig.width=10, fig.fullwidth=TRUE}
 beta_q1p$S %>%
@@ -287,7 +288,7 @@ beta_q1p$S %>%
 ```
 
 
-#### Functional diversity
+### Functional diversity
 
 ```{r beta_div_nmds_funct_plot, comment="", message=FALSE, warning=FALSE, fig.height=7, fig.width=10, fig.fullwidth=TRUE}
  beta_q1f$S %>%

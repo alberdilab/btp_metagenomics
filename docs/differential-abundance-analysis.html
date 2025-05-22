@@ -4,18 +4,18 @@
 
   <meta charset="utf-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <title>AlberdiLab | Fix et al 2025</title>
+  <title>Chapter 8 Differential abundance analysis | AlberdiLab | Fix et al 2025</title>
   <meta name="description" content="&lt;p&gt;Data analysis code for the study on the gut microbiomes of brushtail possums in tasmania.&lt;/p&gt;" />
   <meta name="generator" content="bookdown 0.42 and GitBook 2.6.7" />
 
-  <meta property="og:title" content="AlberdiLab | Fix et al 2025" />
+  <meta property="og:title" content="Chapter 8 Differential abundance analysis | AlberdiLab | Fix et al 2025" />
   <meta property="og:type" content="book" />
   
   <meta property="og:description" content="&lt;p&gt;Data analysis code for the study on the gut microbiomes of brushtail possums in tasmania.&lt;/p&gt;" />
   <meta name="github-repo" content="&lt;a href=" https: github.com alberdilab btp_metagenomics.git" class="uri">https://github.com/alberdilab/btp_metagenomics.git</a>&quot; /&gt;
 
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="AlberdiLab | Fix et al 2025" />
+  <meta name="twitter:title" content="Chapter 8 Differential abundance analysis | AlberdiLab | Fix et al 2025" />
   
   <meta name="twitter:description" content="&lt;p&gt;Data analysis code for the study on the gut microbiomes of brushtail possums in tasmania.&lt;/p&gt;" />
   
@@ -29,8 +29,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black" />
   
   
-
-<link rel="next" href="prepare-data.html"/>
+<link rel="prev" href="beta-diversity.html"/>
+<link rel="next" href="functional-analysis.html"/>
 
 
 
@@ -2101,63 +2101,56 @@ div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
           <div class="page-inner">
 
             <section class="normal" id="section-">
-<div id="header">
-<h1 class="title">AlberdiLab | Fix et al 2025</h1>
-<h2 class="subtitle"><em>Brush-tail possum metagenomics</em></h2>
-<p class="author"><em>Lukas Fix, Antton Alberdi, Raphael Eisenhofer</em></p>
-<p class="date"><em>Last update: 2025-05-22</em></p>
+<div id="differential-abundance-analysis" class="section level1 hasAnchor" number="8">
+<h1><span class="header-section-number">Chapter 8</span> Differential abundance analysis<a href="differential-abundance-analysis.html#differential-abundance-analysis" class="anchor-section" aria-label="Anchor link to header"></a></h1>
+<div id="structural-zeros" class="section level2 hasAnchor" number="8.1">
+<h2><span class="header-section-number">8.1</span> Structural zeros<a href="differential-abundance-analysis.html#structural-zeros" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 </div>
-<div id="introduction" class="section level1 hasAnchor" number="1">
-<h1><span class="header-section-number">Chapter 1</span> Introduction<a href="index.html#introduction" class="anchor-section" aria-label="Anchor link to header"></a></h1>
-<div id="libaries" class="section level2 hasAnchor" number="1.1">
-<h2><span class="header-section-number">1.1</span> Libaries<a href="index.html#libaries" class="anchor-section" aria-label="Anchor link to header"></a></h2>
-<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="index.html#cb1-1" tabindex="-1"></a><span class="co"># Base</span></span>
-<span id="cb1-2"><a href="index.html#cb1-2" tabindex="-1"></a><span class="fu">library</span>(R.utils)</span>
-<span id="cb1-3"><a href="index.html#cb1-3" tabindex="-1"></a><span class="fu">library</span>(knitr)</span>
-<span id="cb1-4"><a href="index.html#cb1-4" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
-<span id="cb1-5"><a href="index.html#cb1-5" tabindex="-1"></a><span class="fu">library</span>(devtools)</span>
-<span id="cb1-6"><a href="index.html#cb1-6" tabindex="-1"></a><span class="fu">library</span>(tinytable)</span>
-<span id="cb1-7"><a href="index.html#cb1-7" tabindex="-1"></a><span class="fu">library</span>(rairtable)</span>
-<span id="cb1-8"><a href="index.html#cb1-8" tabindex="-1"></a><span class="fu">library</span>(readxl)</span>
-<span id="cb1-9"><a href="index.html#cb1-9" tabindex="-1"></a></span>
-<span id="cb1-10"><a href="index.html#cb1-10" tabindex="-1"></a><span class="co"># For tree handling</span></span>
-<span id="cb1-11"><a href="index.html#cb1-11" tabindex="-1"></a><span class="fu">library</span>(ape)</span>
-<span id="cb1-12"><a href="index.html#cb1-12" tabindex="-1"></a><span class="fu">library</span>(phyloseq)</span>
-<span id="cb1-13"><a href="index.html#cb1-13" tabindex="-1"></a><span class="fu">library</span>(phytools)</span>
-<span id="cb1-14"><a href="index.html#cb1-14" tabindex="-1"></a></span>
-<span id="cb1-15"><a href="index.html#cb1-15" tabindex="-1"></a><span class="co"># For plotting</span></span>
-<span id="cb1-16"><a href="index.html#cb1-16" tabindex="-1"></a><span class="fu">library</span>(ggplot2)  <span class="co"># Begin plotting using ggplot2</span></span>
-<span id="cb1-17"><a href="index.html#cb1-17" tabindex="-1"></a><span class="fu">library</span>(ggrepel)</span>
-<span id="cb1-18"><a href="index.html#cb1-18" tabindex="-1"></a><span class="fu">library</span>(ggpubr)</span>
-<span id="cb1-19"><a href="index.html#cb1-19" tabindex="-1"></a><span class="fu">library</span>(ggnewscale)</span>
-<span id="cb1-20"><a href="index.html#cb1-20" tabindex="-1"></a><span class="fu">library</span>(gridExtra)</span>
-<span id="cb1-21"><a href="index.html#cb1-21" tabindex="-1"></a><span class="fu">library</span>(ggtreeExtra)</span>
-<span id="cb1-22"><a href="index.html#cb1-22" tabindex="-1"></a><span class="fu">library</span>(ggtree)</span>
-<span id="cb1-23"><a href="index.html#cb1-23" tabindex="-1"></a><span class="fu">library</span>(ggh4x)</span>
-<span id="cb1-24"><a href="index.html#cb1-24" tabindex="-1"></a><span class="fu">library</span>(GGally)</span>
-<span id="cb1-25"><a href="index.html#cb1-25" tabindex="-1"></a></span>
-<span id="cb1-26"><a href="index.html#cb1-26" tabindex="-1"></a><span class="co"># For statistics</span></span>
-<span id="cb1-27"><a href="index.html#cb1-27" tabindex="-1"></a><span class="fu">library</span>(spaa)</span>
-<span id="cb1-28"><a href="index.html#cb1-28" tabindex="-1"></a><span class="fu">library</span>(vegan)</span>
-<span id="cb1-29"><a href="index.html#cb1-29" tabindex="-1"></a><span class="fu">library</span>(Rtsne)</span>
-<span id="cb1-30"><a href="index.html#cb1-30" tabindex="-1"></a><span class="fu">library</span>(geiger)</span>
-<span id="cb1-31"><a href="index.html#cb1-31" tabindex="-1"></a><span class="fu">library</span>(hilldiv2)</span>
-<span id="cb1-32"><a href="index.html#cb1-32" tabindex="-1"></a><span class="fu">library</span>(distillR)</span>
-<span id="cb1-33"><a href="index.html#cb1-33" tabindex="-1"></a><span class="fu">library</span>(broom.mixed)</span>
-<span id="cb1-34"><a href="index.html#cb1-34" tabindex="-1"></a><span class="fu">library</span>(emmeans)</span>
-<span id="cb1-35"><a href="index.html#cb1-35" tabindex="-1"></a><span class="fu">library</span>(vegan)</span>
-<span id="cb1-36"><a href="index.html#cb1-36" tabindex="-1"></a><span class="co">#library(lmerTest)</span></span>
-<span id="cb1-37"><a href="index.html#cb1-37" tabindex="-1"></a><span class="fu">library</span>(Hmsc)</span>
-<span id="cb1-38"><a href="index.html#cb1-38" tabindex="-1"></a><span class="fu">library</span>(corrplot)</span>
-<span id="cb1-39"><a href="index.html#cb1-39" tabindex="-1"></a><span class="fu">library</span>(lme4)</span>
-<span id="cb1-40"><a href="index.html#cb1-40" tabindex="-1"></a><span class="fu">library</span>(nlme)</span>
-<span id="cb1-41"><a href="index.html#cb1-41" tabindex="-1"></a><span class="fu">library</span>(ANCOMBC)</span>
-<span id="cb1-42"><a href="index.html#cb1-42" tabindex="-1"></a></span>
-<span id="cb1-43"><a href="index.html#cb1-43" tabindex="-1"></a><span class="co">#map visualtisation</span></span>
-<span id="cb1-44"><a href="index.html#cb1-44" tabindex="-1"></a><span class="fu">library</span>(rnaturalearth)</span>
-<span id="cb1-45"><a href="index.html#cb1-45" tabindex="-1"></a><span class="fu">library</span>(rnaturalearthdata)</span>
-<span id="cb1-46"><a href="index.html#cb1-46" tabindex="-1"></a><span class="fu">library</span>(patchwork)</span></code></pre></div>
+<div id="mags-in-different-locations-and-shared-among-locations" class="section level2 hasAnchor" number="8.2">
+<h2><span class="header-section-number">8.2</span> MAGs in different locations and shared among locations<a href="differential-abundance-analysis.html#mags-in-different-locations-and-shared-among-locations" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+</div>
+<div id="ancomb2" class="section level2 hasAnchor" number="8.3">
+<h2><span class="header-section-number">8.3</span> Ancomb2<a href="differential-abundance-analysis.html#ancomb2" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<div id="enrichment-analysis-between-male-and-female" class="section level3 hasAnchor" number="8.3.1">
+<h3><span class="header-section-number">8.3.1</span> Enrichment analysis between male and female<a href="differential-abundance-analysis.html#enrichment-analysis-between-male-and-female" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+</div>
+<div id="with-random-effect" class="section level3 hasAnchor" number="8.3.2">
+<h3><span class="header-section-number">8.3.2</span> With random effect<a href="differential-abundance-analysis.html#with-random-effect" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<div id="mag-level" class="section level4 hasAnchor" number="8.3.2.1">
+<h4><span class="header-section-number">8.3.2.1</span> MAG level<a href="differential-abundance-analysis.html#mag-level" class="anchor-section" aria-label="Anchor link to header"></a></h4>
+</div>
+<div id="controling-structural-components" class="section level4 hasAnchor" number="8.3.2.2">
+<h4><span class="header-section-number">8.3.2.2</span> Controling structural components<a href="differential-abundance-analysis.html#controling-structural-components" class="anchor-section" aria-label="Anchor link to header"></a></h4>
+</div>
+<div id="phylum-level-1" class="section level4 hasAnchor" number="8.3.2.3">
+<h4><span class="header-section-number">8.3.2.3</span> Phylum level<a href="differential-abundance-analysis.html#phylum-level-1" class="anchor-section" aria-label="Anchor link to header"></a></h4>
+</div>
+<div id="family-level-1" class="section level4 hasAnchor" number="8.3.2.4">
+<h4><span class="header-section-number">8.3.2.4</span> Family level<a href="differential-abundance-analysis.html#family-level-1" class="anchor-section" aria-label="Anchor link to header"></a></h4>
+</div>
+<div id="genera" class="section level4 hasAnchor" number="8.3.2.5">
+<h4><span class="header-section-number">8.3.2.5</span> Genera<a href="differential-abundance-analysis.html#genera" class="anchor-section" aria-label="Anchor link to header"></a></h4>
+</div>
+</div>
+<div id="without-random-effect" class="section level3 hasAnchor" number="8.3.3">
+<h3><span class="header-section-number">8.3.3</span> Without random effect<a href="differential-abundance-analysis.html#without-random-effect" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<div id="mag-level-1" class="section level4 hasAnchor" number="8.3.3.1">
+<h4><span class="header-section-number">8.3.3.1</span> MAG level<a href="differential-abundance-analysis.html#mag-level-1" class="anchor-section" aria-label="Anchor link to header"></a></h4>
+</div>
+<div id="controling-structural-components-1" class="section level4 hasAnchor" number="8.3.3.2">
+<h4><span class="header-section-number">8.3.3.2</span> Controling structural components<a href="differential-abundance-analysis.html#controling-structural-components-1" class="anchor-section" aria-label="Anchor link to header"></a></h4>
+</div>
+<div id="phylum-level-2" class="section level4 hasAnchor" number="8.3.3.3">
+<h4><span class="header-section-number">8.3.3.3</span> Phylum level<a href="differential-abundance-analysis.html#phylum-level-2" class="anchor-section" aria-label="Anchor link to header"></a></h4>
+</div>
+<div id="family-level-2" class="section level4 hasAnchor" number="8.3.3.4">
+<h4><span class="header-section-number">8.3.3.4</span> Family level<a href="differential-abundance-analysis.html#family-level-2" class="anchor-section" aria-label="Anchor link to header"></a></h4>
+</div>
+<div id="genera-1" class="section level4 hasAnchor" number="8.3.3.5">
+<h4><span class="header-section-number">8.3.3.5</span> Genera<a href="differential-abundance-analysis.html#genera-1" class="anchor-section" aria-label="Anchor link to header"></a></h4>
 
+</div>
+</div>
 </div>
 </div>
             </section>
@@ -2165,8 +2158,8 @@ div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
           </div>
         </div>
       </div>
-
-<a href="prepare-data.html" class="navigation navigation-next navigation-unique" aria-label="Next page"><i class="fa fa-angle-right"></i></a>
+<a href="beta-diversity.html" class="navigation navigation-prev " aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
+<a href="functional-analysis.html" class="navigation navigation-next " aria-label="Next page"><i class="fa fa-angle-right"></i></a>
     </div>
   </div>
 <script>/*! jQuery v3.6.0 | (c) OpenJS Foundation and other contributors | jquery.org/license */
