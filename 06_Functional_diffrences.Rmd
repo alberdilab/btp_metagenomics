@@ -200,7 +200,8 @@ run_permanova(
 )
 ```
 
-## NMDS
+## NMDS 
+non-metric multidimensional scaling on species-richness - environment clusters
 
 ###Richness
 ```{r beta_div_nmds_richness_plot, comment="", message=FALSE, warning=FALSE, fig.height=7, fig.width=10, fig.fullwidth=TRUE}
