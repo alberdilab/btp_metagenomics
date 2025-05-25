@@ -10,7 +10,7 @@ sample_metadata$broad_environment <- factor(sample_metadata$broad_environment, l
 ```
 
 ### Hill numbers
-
+Richness of microbiotic species in samples
 ```{r alpha_div, comment="", message=FALSE, warning=FALSE}
 # Calculate Hill numbers
 richness <- genome_counts_filt %>%
@@ -87,7 +87,7 @@ alpha_div %>%
     dplyr::select(alpha,Total,Xeric_shrubland,Temperate_woodland,Cropland,Mixed_forest) %>% 
   tt()
 ```
-
+Richness of microbiotic species - environment clusters
 ```{r alpha_div_boxplot, comment="", message=FALSE, warning=FALSE, fig.height=3, fig.width=10, fig.fullwidth=TRUE}
 #Richness
 plot1 <- alpha_div %>%
@@ -183,7 +183,7 @@ plot4 <- alpha_div %>%
 ```{r div_plot_together, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
 grid.arrange(arrangeGrob(plot1,plot2,plot3, plot4, ncol = 2))
 ```
-
+Richness of microbiotic species - sex clusters
 ```{r alpha_div_boxplot_sex, comment="", message=FALSE, warning=FALSE, fig.height=3, fig.width=10, fig.fullwidth=TRUE}
 #Richness
 plot1 <- alpha_div %>%

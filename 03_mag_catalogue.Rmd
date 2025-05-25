@@ -1,15 +1,15 @@
 
 # MAG catalogue
 
-## Gut microbiota
+## Microbiota data
 
-```{r gut_load_data_mag}
+```{r load_data_mag}
 load("data/data.Rdata")
 ```
 
 ### Genome phylogeny
 
-```{r gut_genome_phylogeny, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE}
+```{r genome_phylogeny, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE}
 
 # Generate the phylum color heatmap
 phylum_heatmap <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%

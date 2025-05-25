@@ -12,3 +12,4 @@ rmd_files:
   - 06_functional_diffrences.Rmd
   - 07_microbiota_abundance_analysis_sex.Rmd
   - 08_microbiota_functional_analysis.Rmd
+  - 09_Enviroment_types.Rmd

@@ -4,7 +4,7 @@
 load("data/data.Rdata")
 ```
 
-#Visualisation of geographical location of samples and their respectiv envirotypes
+Visualisation of geographical location of samples and their respectiv enviroment
 
 ## Filter Data
 
@@ -44,6 +44,8 @@ australia_map <- ne_countries(scale = "medium", returnclass = "sf") %>%
 ```
 
 ## Plot Possum Locations
+
+Grouping based on broad environment clusters
 
 ```{r plot_maps, warning=FALSE, message=FALSE}
 
@@ -121,6 +123,7 @@ australia_map <- ne_countries(scale = "medium", returnclass = "sf") %>%
 ```
 
 ## Plot Possum Locations
+Grouping based on fine enviroment clusters
 
 ```{r plot_maps2, warning=FALSE, message=FALSE}
 library(RColorBrewer)

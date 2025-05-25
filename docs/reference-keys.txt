@@ -23,7 +23,7 @@ sequencing-reads-statistics
 dna-fractions
 recovered-microbial-fraction
 mag-catalogue
-gut-microbiota
+microbiota-data
 genome-phylogeny
 taxonomy-overview
 mag-size-mb
@@ -31,7 +31,6 @@ genome-quality
 functional-overview
 functional-ordination
 taxonomic-composition
-gut-microbiota-1
 taxonomy-overview-1
 phylum-level
 family-level

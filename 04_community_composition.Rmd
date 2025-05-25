@@ -1,15 +1,13 @@
 
 # Taxonomic composition
 
-## Gut microbiota
-
 ```{r gut_load_data_tax}
 load("data/data.Rdata")
 ```
 
-### Taxonomy overview 
+## Taxonomy overview 
 
-#### Phylum level
+### Phylum level
 
 ```{r taxonomy_barplot, fig.height=6, fig.width=10, fig.fullwidth=TRUE}
 genome_counts_filt %>%
@@ -34,6 +32,7 @@ genome_counts_filt %>%
           axis.line = element_line(linewidth = 0.5, linetype = "solid", colour = "black")) +
    labs(fill="Phylum",y = "Relative abundance",x="Samples")
 ```
+                                              Relative abundance of microbiota phylum per sample
 
 **Number of MAGs**
 ```{r mag, comment="", echo=FALSE, message=FALSE, warning=FALSE}
@@ -90,6 +89,7 @@ phylum_summary %>%
 
 ```
 
+phylum relativ abundance - total
 ```{r taxonomy_jitterplot_phylum, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
 phylum_arrange <- phylum_summary %>%
     group_by(phylum) %>%
@@ -138,6 +138,7 @@ genome_metadata %>%
   cat()
 ```
 
+**Bacteria phyla in individuals from males**
 ```{r phyla_nat_male, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 
 male_sample <- sample_metadata %>% 
@@ -163,8 +164,6 @@ genome_metadata %>%
   length() %>% 
   cat()
 ```
-
-
 
 **Bacteria phyla in individuals from Temperate woodland**
 
@@ -276,6 +275,7 @@ genome_metadata %>%
   cat()
 ```
 
+phylum relativ abundance - broad enviroment clusters
 ```{r taxonomy_phylum_summary_broad_environment, warning=FALSE, comments="", message=FALSE}
 phylum_summary %>%
   group_by(phylum) %>%
@@ -302,7 +302,7 @@ phylum_summary %>%
   select(phylum, Total, Cropland, Temperate_woodland, Mixed_forest, Xeric_shrubland)
 
 ```
-
+phylum relativ abundance - sex
 ```{r taxonomy_phylum_summary_sex, warning=FALSE, comments="", message=FALSE}
 phylum_summary %>%
   group_by(phylum) %>%
@@ -324,9 +324,9 @@ phylum_summary %>%
 
 ```
 
-#### Family level
+### Family level
 
-***Percentange of families in each group of environment***
+***family relative abundance - broad environment clusters***
 
 ```{r taxonomy_family_summary, warning=FALSE, comments="", message=FALSE}
 family_summary <- genome_counts_filt %>%
@@ -470,7 +470,7 @@ family_summary %>%
   arrange(-total_mean) %>%
     dplyr::select(family,Total,Female, Male)
 ```
-#### Genus level
+### Genus level
 
 *** Percetange of genera in each group of environment***
 
