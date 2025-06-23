@@ -1,8 +1,5 @@
-#Enviromentypes
 
-##Landcover percentage
-
-**Load libraries**
+# Enviromentypes
 
 ```{r setup, message=FALSE, warning=FALSE}
 # 0. Libraries
@@ -15,6 +12,7 @@ library(xml2)
 library(tibble)
 ```
 
+## Landcover percentage
 **Sample Points**
 ```{r load-sample-points}
 sample_points <- read.csv(
@@ -28,7 +26,7 @@ points_proj <- st_transform(points_sf, 28355)
 ```
 
 **Virtual-mosaic of Tifs**
-```{r build-virtual-mosaic, warning=FALSE, message=FALSE}
+```{r build-virtual-mosaic, warning=FALSE, message=FALSE, eval = FALSE}
 # 2. Build an in-R mosaic of all your Landcover tiles and reproject
 tile_files <- list.files(
   "C:/Users/Lukas/Documents/GitHub/btp_metagenomics/Landcover/Tif",
@@ -41,7 +39,7 @@ landcover_proj <- project(mosaic_all, "EPSG:28355")
 ```
 
 **Generate Bufferzones**
-```{r extract-buffer}
+```{r extract-buffer, eval = FALSE}
 # 3 Buffer zones & exact extraction
 buffers   <- st_buffer(points_proj, dist = 150)
 extracted <- exact_extract(landcover_proj, buffers)
@@ -58,8 +56,8 @@ summary_list <- lapply(seq_along(extracted), function(i) {
 })
 result_df <- bind_rows(summary_list)
 ```
-**Fit style**
-```{r parse-qml-style}
+
+```{r landcover_plot_fixed, warning=FALSE, message=FALSE}
 # 4. Parse your QGIS .qml style for class → label → color
 qml_path <- "C:/Users/Lukas/Documents/GitHub/btp_metagenomics/Landcover/ga_ls_landcover_class_cyear_4_style (3).qml"
 qml      <- read_xml(qml_path)
@@ -69,9 +67,7 @@ style_df <- tibble(
   label            = xml_attr(items, "label"),
   color            = xml_attr(items, "color")
 )
-```
 
-```{r compute continuous totals}
 # 5. Join style to stats, pivot to wide, compute continuous totals
 # Join style, pivot to wide, then compute only the three summary totals
 result_df <- result_df %>%
@@ -100,10 +96,7 @@ landcover_wide <- landcover_wide %>%
                                  na.rm = TRUE
                                )
   )
-```
 
-**Plot Stackedbarplot**
-```{r plot-continuous-groups}
 # 7. Plot stacked bar of your continuous group totals
 # define your group colours
 group_colors <- c(
@@ -150,12 +143,112 @@ p <- ggplot(melted, aes(x=factor(id), y=pct, fill=group)) +
   )
 
 print(p)
+
 ggsave("landcover_continuous_groups.png", p, width=12, height=6, dpi=300)
+```
+
+```{r landcover_proportion matrix}
+landcover_props <- landcover_wide %>%
+  mutate(across(-id, ~ . / 100))
+# Remove id column for calculations
+props_matrix <- landcover_props %>% select(-id) %>% as.matrix()
+```
+
+```{r landcover_diversity}
+# Calculate indices for each sample (row)
+shannon <- diversity(props_matrix, index = "shannon")
+simpson <- diversity(props_matrix, index = "simpson")
+richness <- specnumber(props_matrix)
+
+# Hill numbers: effective number of landcover types
+hill_q0 <- richness                    # q = 0 (species richness)
+hill_q1 <- exp(shannon)                # q = 1 (exponential Shannon)
+hill_q2 <- 1 / (1 - simpson)           # q = 2 (inverse Simpson). 
+# Note: for vegan, simpson index = 1 - D, where D is Simpson's index
+
+save(hill_q0, 
+     hill_q1, 
+     hill_q1, 
+     file = "data/hill.Rdata")
+
+# Combine with original data
+landcover_wide <- landcover_wide %>%
+  mutate(
+    shannon = shannon,
+    simpson = simpson,
+    hill_q0 = hill_q0,
+    hill_q1 = hill_q1,
+    hill_q2 = hill_q2
+  )
+```
+
+**hill visualisation**
+```{r hill_visualisation}
+
+hill_long <- landcover_wide %>%
+  select(id, hill_q0, hill_q1, hill_q2) %>%
+  pivot_longer(cols = starts_with("hill_q"),
+               names_to = "q",
+               values_to = "value")
+
+ggplot(hill_long, aes(x = q, y = value, group = id, color = id)) +
+  geom_line(alpha = 0.3) +
+  geom_point() +
+  labs(
+    title = "Hill Numbers per Sample (Landcover Types)",
+    x = "Hill Order (q)",
+    y = "Effective Diversity (# Landcover Types)"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+```{r dominante_landcover}
+# Pivot to long for easier processing
+landcover_long <- continuous_df %>%
+  pivot_longer(
+    cols = -id,
+    names_to = "landcover_type",
+    values_to = "percent_cover"
+  )
+
+# Find the dominant (highest percent_cover) per sample
+dominant_by_sample <- landcover_long %>%
+  group_by(id) %>%
+  filter(percent_cover == max(percent_cover, na.rm = TRUE)) %>%
+  slice(1) %>%     # In case of ties
+  ungroup() %>%
+  select(id, dominant_landcover = landcover_type, dom_percent_cover = percent_cover)
+
+# Merge with your diversity measures
+continuous_df <- continuous_df %>%
+  left_join(dominant_by_sample, by = "id")
+```
+
+```{r dominant_boxplot}
+
+ggplot(continuous_df, aes(x=dominant_landcover, y=shannon, fill=dominant_landcover)) +
+  geom_boxplot(alpha=.8, outlier.color="red", outlier.size=1.5) +
+  theme_minimal(base_size=14) +
+  labs(
+    title = "Diversity (Shannon) by Dominant Landcover Type",
+    x = "Dominant Landcover",
+    y = "Shannon Diversity Index"
+  ) +
+  theme(axis.text.x = element_text(angle=45, hjust=1, vjust=1),
+        legend.position = "none")
+```
+
+```{r dominant_summary}
+dominant_summary <- continuous_df %>%
+  count(dominant_landcover, sort = TRUE) %>%
+  mutate(perc = 100 * n / sum(n))
+
+print(dominant_summary)
 ```
 
 ```{r merge-with-metadata, warning=FALSE, message=FALSE}
 # 8. Merge totals & groups into metadata
-# bring in only the three summary totals
+
 NaturalvsCultivated <- left_join(sample_metadata, landcover_wide, by = c("sample" = "id"))
 ```
 
@@ -259,62 +352,3 @@ ggplot(NaturalvsCultivated, aes(x = cultivated_group, y = diversity)) +
 
 ```
 
-
-**PCA enviromental-gradient**
-
-```{r pca-environmental-gradient, warning=FALSE, message=FALSE, eval = FALSE}
-## 12. Environmental gradient (PCA if possible, else Naturalness)
-library(dplyr)
-library(ggplot2)
-
-# Ensure your four summary totals exist
-cover_totals <- c("Cultivated_Total",
-                  "Native_Terrestrial_Total",
-                  "Water",
-                  "Artificial_Bare")
-for(v in cover_totals) {
-  if (!v %in% names(NaturalvsCultivated)) {
-    NaturalvsCultivated[[v]] <- 0
-  }
-}
-
-# PCA on totals if possible
-vars_var <- sapply(NaturalvsCultivated[cover_totals], var, na.rm = TRUE)
-vars_pos <- names(vars_var)[vars_var > 0]
-if (length(vars_pos) >= 2) {
-  pca_res <- prcomp(scale(NaturalvsCultivated[vars_pos]), center = TRUE, scale. = TRUE)
-  NaturalvsCultivated$EnvGradient_PC1 <- pca_res$x[, 1]
-  print(summary(pca_res))
-  p <- ggplot(NaturalvsCultivated, aes(x = EnvGradient_PC1, y = diversity)) +
-    geom_point() +
-    geom_smooth(method = "lm") +
-    labs(
-      title = "Diversity vs. Environmental Gradient (PC1)",
-      x     = "Env Gradient PC1",
-      y     = "Diversity"
-    )
-  print(p)
-} else {
-  NaturalvsCultivated <- NaturalvsCultivated %>%
-    mutate(
-      Natural_Cover = Native_Total + Water,
-      Total_Cover   = Cultivated_Total + Natural_Cover + Artificial_Bare,
-      Naturalness   = if_else(Total_Cover > 0,
-                              Natural_Cover / Total_Cover,
-                              NA_real_)
-    )
-  p <- ggplot(NaturalvsCultivated, aes(x = Naturalness, y = diversity)) +
-    geom_point() +
-    geom_smooth(method = "lm") +
-    labs(
-      title = "Diversity vs. Naturalness",
-      x     = "Naturalness",
-      y     = "Diversity"
-    )
-  print(p)
-}
-
-# Weighted cover scatterplots
-weighted <- NaturalvsCultivated %>%
-
-```
