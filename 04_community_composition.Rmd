@@ -196,7 +196,7 @@ genome_metadata %>%
 
 **Bacteria phyla in individuals from Xeric shrubland**
 
-```{r phyla_cap_xeric, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+```{r phyla_cap_xeric, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
 
 xeric_shrubland_samples <- sample_metadata %>% 
   filter(broad_environment=="1000218 - Xeric shrubland") %>% 

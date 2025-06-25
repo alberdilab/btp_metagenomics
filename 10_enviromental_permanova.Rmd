@@ -140,8 +140,39 @@ plot(nmds)
 plot(fit, p.max = 0.05) 
 ```
 
-```{r envfit, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+```{r env_fit, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 bd <- betadisper(bray_dist0n, cut_number(meta_order0n$env_hill_qhill_q0, 3))
 plot(bd)
 anova(bd)
 ```
+
+```{r env_tertiles split}
+
+meta$env_hill_q0_group <- cut_number(meta$env_hill_qhill_q0, n=3, labels = c("Low", "Mid", "High"))
+table(meta$env_hill_q0_group)
+
+meta$env_hill_q1_group <- cut_number(meta$env_hill_qhill_q1, n=3, labels = c("Low", "Mid", "High"))
+table(meta$env_hill_q1_group)
+
+meta$env_hill_q2_group <- cut_number(meta$env_hill_qhill_q2, n=3, labels = c("Low", "Mid", "High"))
+table(meta$env_hill_q2_group)
+
+```
+
+```{r env_median, split}
+# For Hill number q0
+threshold_q0 <- median(meta$env_hill_qhill_q0, na.rm = TRUE)
+meta$env_hill_q0_group <- ifelse(meta$env_hill_qhill_q0 <= threshold_q0, "Low", "High")
+table(meta$env_hill_q0_group)
+
+# For Hill number q1
+threshold_q1 <- median(meta$env_hill_qhill_q1, na.rm = TRUE)
+meta$env_hill_q1_group <- ifelse(meta$env_hill_qhill_q1 <= threshold_q1, "Low", "High")
+table(meta$env_hill_q1_group)
+
+# For Hill number q2
+threshold_q2 <- median(meta$env_hill_qhill_q1, na.rm = TRUE)
+meta$env_hill_q2_group <- ifelse(meta$env_hill_qhill_q2 <= threshold_q2, "Low", "High")
+table(meta$env_hill_q2_group)
+```
+
