@@ -148,28 +148,23 @@ ggsave("landcover_continuous_groups.png", p, width=12, height=6, dpi=300)
 ```
 
 ```{r landcover_proportion matrix}
-landcover_props <- landcover_wide %>%
+landcover_prop <- landcover_wide %>%
   mutate(across(-id, ~ . / 100))
 # Remove id column for calculations
-props_matrix <- landcover_props %>% select(-id) %>% as.matrix()
+prop_matrix <- landcover_prop %>% select(-id) %>% as.matrix()
 ```
 
 ```{r landcover_diversity}
 # Calculate indices for each sample (row)
-shannon <- diversity(props_matrix, index = "shannon")
-simpson <- diversity(props_matrix, index = "simpson")
-richness <- specnumber(props_matrix)
+shannon <- diversity(prop_matrix, index = "shannon")
+simpson <- diversity(prop_matrix, index = "simpson")
+richness <- specnumber(prop_matrix)
 
 # Hill numbers: effective number of landcover types
 hill_q0 <- richness                    # q = 0 (species richness)
 hill_q1 <- exp(shannon)                # q = 1 (exponential Shannon)
 hill_q2 <- 1 / (1 - simpson)           # q = 2 (inverse Simpson). 
-# Note: for vegan, simpson index = 1 - D, where D is Simpson's index
 
-save(hill_q0, 
-     hill_q1, 
-     hill_q1, 
-     file = "data/hill.Rdata")
 
 # Combine with original data
 landcover_wide <- landcover_wide %>%
@@ -190,6 +185,9 @@ hill_long <- landcover_wide %>%
   pivot_longer(cols = starts_with("hill_q"),
                names_to = "q",
                values_to = "value")
+
+save(hill_long, 
+     file = "data/hill.Rdata")
 
 ggplot(hill_long, aes(x = q, y = value, group = id, color = id)) +
   geom_line(alpha = 0.3) +
