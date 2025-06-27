@@ -10,6 +10,9 @@ library(dplyr)
 library(tidyr)
 library(xml2)
 library(tibble)
+library(geodata)       
+
+library(purrr)         
 ```
 
 ## Landcover percentage
@@ -26,7 +29,7 @@ points_proj <- st_transform(points_sf, 28355)
 ```
 
 **Virtual-mosaic of Tifs**
-```{r build-virtual-mosaic, warning=FALSE, message=FALSE, eval = FALSE}
+```{r build-virtual-mosaic, warning=FALSE, message=FALSE}
 # 2. Build an in-R mosaic of all your Landcover tiles and reproject
 tile_files <- list.files(
   "C:/Users/Lukas/Documents/GitHub/btp_metagenomics/Landcover/Tif",
@@ -39,7 +42,7 @@ landcover_proj <- project(mosaic_all, "EPSG:28355")
 ```
 
 **Generate Bufferzones**
-```{r extract-buffer, eval = FALSE}
+```{r extract-buffer}
 # 3 Buffer zones & exact extraction
 buffers   <- st_buffer(points_proj, dist = 150)
 extracted <- exact_extract(landcover_proj, buffers)
@@ -57,45 +60,114 @@ summary_list <- lapply(seq_along(extracted), function(i) {
 result_df <- bind_rows(summary_list)
 ```
 
-```{r landcover_plot_fixed, warning=FALSE, message=FALSE}
-# 4. Parse your QGIS .qml style for class → label → color
-qml_path <- "C:/Users/Lukas/Documents/GitHub/btp_metagenomics/Landcover/ga_ls_landcover_class_cyear_4_style (3).qml"
-qml      <- read_xml(qml_path)
-items    <- xml_find_all(qml, ".//rasterShader/item")
-style_df <- tibble(
-  land_cover_class = as.integer(xml_attr(items, "value")),
-  label            = xml_attr(items, "label"),
-  color            = xml_attr(items, "color")
+```{r climate variable data}
+
+# 5a. Grab the Australia bioclim variables (returns a SpatRaster)
+wc_aus <- worldclim_country(
+  country = "AUS",    # ISO code
+  var     = "bio",    # all 19 BIO variables
+  res     = 0.5,      # 30″ resolution
+  path    = "data/aus"
 )
 
-# 5. Join style to stats, pivot to wide, compute continuous totals
-# Join style, pivot to wide, then compute only the three summary totals
+# 5b. Rename the layers to "bio1"…"bio19" so we can index 1–12
+orig <- names(wc_aus)
+new  <- sub(".*bio[_~\\.](\\d+)$", "bio\\1", orig)
+names(wc_aus) <- new
+
+# 5c. Reproject your 150 m buffers into geographic coords (lon/lat)
+buffers_ll <- st_transform(buffers, st_crs(wc_aus))
+
+# 5d. Extract weighted means for bio1…bio12 and give them proper names ----
+
+# a) Define the codes and descriptive names
+bio_codes <- paste0("bio", 1:12)
+bio_names <- c(
+  annual_mean_temp           = "bio1",
+  mean_diurnal_range         = "bio2",
+  isothermality              = "bio3",
+  temp_seasonality           = "bio4",
+  max_temp_warmest_month     = "bio5",
+  min_temp_coldest_month     = "bio6",
+  temp_annual_range          = "bio7",
+  mean_temp_wettest_quarter  = "bio8",
+  mean_temp_driest_quarter   = "bio9",
+  mean_temp_warmest_quarter  = "bio10",
+  mean_temp_coldest_quarter  = "bio11",
+  annual_precipitation       = "bio12"
+)
+
+# b) Pull out each layer’s weighted mean into a list
+means_list <- purrr::map(bio_codes, function(code) {
+  exactextractr::exact_extract(
+    wc_aus[[code]],
+    buffers_ll,
+    fun = function(vals, coverage_fraction) {
+      weighted.mean(vals, coverage_fraction, na.rm = TRUE)
+    }
+  )
+})
+
+# c) Build a tibble: sample IDs + one column per bio
+clim_df <- tibble::tibble(id = sample_points$id) %>%
+  dplyr::bind_cols(as_tibble(purrr::set_names(means_list, bio_codes))) %>%
+  # d) Rename from bio# → descriptive
+  dplyr::rename(!!!bio_names)
+
+print(clim_df)
+
+```
+
+```{r population variable data, eva}
+# 1. Download & load the 1 km WorldPop density for Australia -------------
+out1km <- "data/pop1km/aus_pd_2020_1km.tif"
+dir.create(dirname(out1km), recursive = TRUE, showWarnings = FALSE)
+
+download.file(
+  "https://data.worldpop.org/GIS/Population_Density/Global_2000_2020_1km/2020/AUS/aus_pd_2020_1km.tif",
+  out1km, mode = "wb"
+)
+pop1km_rast <- rast(out1km)
+
+# 2. Reproject your 150 m buffers into the raster’s CRS (WGS84 lon/lat)
+buffers_ll <- st_transform(buffers, st_crs(pop1km_rast))
+
+# 3. For each buffer, compute the mean density (people / km²)
+pop1km_mean <- exact_extract(pop1km_rast, buffers_ll, fun = "mean")
+
+# 4. Assemble into a data‐frame
+pop1km_df <- tibble(
+  id              = sample_points$id,
+  pop_density_1km = pop1km_mean
+)
+
+print(pop1km_df)
+```
+
+```{r landcover_plot_fixed, warning=FALSE, message=FALSE}
+# 1. Read style file and extract labels
+qml_path <- "C:/Users/Lukas/Documents/GitHub/btp_metagenomics/Landcover/landcover_class_cyear_4_style.qml"
+stopifnot(file.exists(qml_path))
+
+qml_raw <- read_xml(qml_path)
+qml      <- xml_ns_strip(qml_raw)
+
+# 2) Grab every <paletteEntry> (that’s where your value/label/color live)
+entries <- xml_find_all(qml, ".//paletteEntry")
+
+style_df <- tibble(
+  land_cover_class       = as.integer(xml_attr(entries, "value")),
+  land_cover_description = xml_attr(entries, "label"),
+  color                  = xml_attr(entries, "color")
+)
+
+# 2. Join descriptions onto your result_df
 result_df <- result_df %>%
-  left_join(legend[, c("land_cover_class", "land_cover_description")], by = "land_cover_class")
-
-# Pivot to wide format using full land cover descriptions
-landcover_wide <- result_df_clean %>%
-  pivot_wider(
-    id_cols = id,
-    names_from = land_cover_description,
-    values_from = percent,
-    values_fill = list(percent = 0)
+  left_join(
+    style_df %>% select(land_cover_class, land_cover_description),
+    by = "land_cover_class"
   )
 
-landcover_wide <- landcover_wide %>%
-  mutate(
-    Cultivated_Total         = rowSums(select(., starts_with("Cultivated Terrestrial")),         na.rm = TRUE),
-    Native_Total = rowSums(select(., starts_with("Natural Terrestrial"),("Natural Aquatic Vegetated")),           na.rm = TRUE),
-    Water                    = rowSums(select(., starts_with("Water:")),             na.rm = TRUE),
-    Artificial_Bare          = rowSums(
-                                 select(
-                                   .,
-                                   starts_with("Natural Surface:"),
-                                   starts_with("Artificial Surface:")
-                                 ),
-                                 na.rm = TRUE
-                               )
-  )
 
 # 7. Plot stacked bar of your continuous group totals
 # define your group colours
@@ -113,38 +185,44 @@ group_colors <- c(
   "Other"                              = "#cccccc"
 )
 
-# ensure factor order
-continuous_df <- continuous_df %>%
-  mutate(across(
-    where(is.numeric),
-    ~ .  # no-op, keeps numeric
-  ))
+summary_df <- result_df %>%
+  filter(!is.na(land_cover_description)) %>%
+  group_by(id) %>%
+  summarise(
+    Cultivated_Total   = sum(percent[grepl("^Cultivated", land_cover_description)], na.rm=TRUE),
+    Native_Total       = sum(percent[grepl("^Natural Terrestrial", land_cover_description)], na.rm=TRUE),
+    Aquatic_Vegetation = sum(percent[grepl("Aquatic", land_cover_description)], na.rm=TRUE),
+    Water              = sum(percent[grepl("^Water", land_cover_description)], na.rm=TRUE),
+    Artificial_Bare    = sum(percent[grepl("Surface", land_cover_description)], na.rm=TRUE),
+    .groups = "drop"
+  )
 
-melted <- continuous_df %>%
+# 2) Pivot to long for plotting
+plot_df <- summary_df %>%
   pivot_longer(-id, names_to="group", values_to="pct") %>%
-  mutate(group = factor(group, levels=names(group_colors)))
+  mutate(group = factor(group, levels = names(group_colors)))
 
-p <- ggplot(melted, aes(x=factor(id), y=pct, fill=group)) +
-  geom_bar(stat="identity", width=0.8) +
-  scale_fill_manual(values=group_colors, na.value="gray90") +
+# 3) Plot exactly as before
+p <- ggplot(summary_df, aes(x = factor(id), y = pct, fill = group)) +
+  geom_col(width = 0.8) +
+  scale_fill_manual(values = group_colors, na.value = "gray90") +
   labs(
     title = "Landcover Continuous Groups per Sample",
     x     = "Sample ID",
     y     = "Percent Cover",
     fill  = "Category"
   ) +
-  theme_minimal(base_size=14) +
+  theme_minimal(base_size = 14) +
   theme(
-    axis.text.x        = element_text(angle=90, hjust=1, vjust=0.5),
-    legend.title       = element_text(face="bold"),
-    legend.text        = element_text(size=10),
-    plot.title         = element_text(face="bold", size=16, hjust=0.5),
+    axis.text.x        = element_text(angle = 90, hjust = 1, vjust = 0.5),
+    legend.title       = element_text(face = "bold"),
+    legend.text        = element_text(size = 10),
+    plot.title         = element_text(face = "bold", size = 16, hjust = 0.5),
     panel.grid.major.x = element_blank()
   )
 
 print(p)
-
-ggsave("landcover_continuous_groups.png", p, width=12, height=6, dpi=300)
+ggsave("landcover_continuous_groups.png", p, width = 12, height = 6, dpi = 300)
 ```
 
 ```{r landcover_proportion matrix}
@@ -200,6 +278,7 @@ ggplot(hill_long, aes(x = q, y = value, group = id, color = id)) +
   theme_minimal() +
   theme(legend.position = "none")
 ```
+
 ```{r dominante_landcover}
 # Pivot to long for easier processing
 landcover_long <- continuous_df %>%
@@ -350,3 +429,17 @@ ggplot(NaturalvsCultivated, aes(x = cultivated_group, y = diversity)) +
 
 ```
 
+```{r variables fusion, warning=FALSE, message=FALSE}
+load("data/hill.Rdata")
+hill_wide <- hill_long %>%
+  pivot_wider(
+    id_cols     = id,        # the column that identifies each row
+    names_from  = q,    # the column whose values become new column names
+    values_from = value      # the column that fills those new cells
+  )
+
+variables_df <- hill_wide %>%
+  left_join(pop1km_df,     by = "id") %>%
+  left_join(clim_df, by = "id")
+
+```

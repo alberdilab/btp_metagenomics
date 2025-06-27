@@ -23,7 +23,7 @@ meta <- sample_metadata %>%
   left_join(env_hill_df, by = "sample")
 ```
 
-```{r alligning betamatrix, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+```{r env0n alligning betamatrix, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 dist_obj <- beta_q0n$S
 samples <- attr(dist_obj, "Labels")
 meta_aligned <- meta %>%
@@ -44,7 +44,7 @@ for (v in hill_vars) {
 }
 ```
 
-```{r alligning betamatrix, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+```{r env1n alligning betamatrix, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 dist_obj <- beta_q1n$S
 samples <- attr(dist_obj, "Labels")
 meta_aligned <- meta %>%
@@ -66,7 +66,7 @@ for (v in hill_vars) {
 ```
 
 
-```{r alligning betamatrix, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+```{r env1f alligning betamatrix, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 dist_obj <- beta_q1f$S
 samples <- attr(dist_obj, "Labels")
 meta_aligned <- meta %>%
@@ -87,7 +87,7 @@ for (v in hill_vars) {
 }
 ```
 
-```{r visualisation connection1, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+```{r visualisation0n connection1, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 
 nmds <- metaMDS(bray_dist0n, k = 2)
 p1 <- as.data.frame(nmds$points)
@@ -100,7 +100,7 @@ ggplot(nmds_points, aes(MDS1, MDS2, color = env_hill_q0)) +
   labs(color = "Environmental Hill q0")
 ```
 
-```{r visualisation connection2, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+```{r visualisation1n connection2, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 nmds <- metaMDS(bray_dist0n, k = 2)
 p2 <- as.data.frame(nmds$points)
 nmds_points$env_hill_q1 <- meta_order0n$env_hill_qhill_q1  
@@ -112,7 +112,7 @@ ggplot(nmds_points, aes(MDS1, MDS2, color = env_hill_q1)) +
   labs(color = "Environmental Hill q1")
 ```
 
-```{r visualisation connection3, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+```{r visualisation1f connection3, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 nmds <- metaMDS(bray_dist0n, k = 2)
 p3 <- as.data.frame(nmds$points)
 nmds_points$env_hill_q2 <- meta_order0n$env_hill_qhill_q2  

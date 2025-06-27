@@ -2282,10 +2282,10 @@ ancom_rand_output = ancombc2(data = physeq_genome_filtered,
                   pseudo_sens = TRUE,
                   prv_cut =0, 
                   lib_cut = 0, 
-                  s0_perc = 0.05,
                   group = NULL, 
                   struc_zero = FALSE, 
                   neg_lb = FALSE,
+                  s0_perc = 0.05,
                   alpha = 0.05, 
                   n_cl = 2, 
                   verbose = TRUE,
@@ -3589,28 +3589,23 @@ ggsave("landcover_continuous_groups.png", p, width=12, height=6, dpi=300)
 ```
 
 ```{r landcover_proportion matrix}
-landcover_props <- landcover_wide %>%
+landcover_prop <- landcover_wide %>%
   mutate(across(-id, ~ . / 100))
 # Remove id column for calculations
-props_matrix <- landcover_props %>% select(-id) %>% as.matrix()
+prop_matrix <- landcover_prop %>% select(-id) %>% as.matrix()
 ```
 
 ```{r landcover_diversity}
 # Calculate indices for each sample (row)
-shannon <- diversity(props_matrix, index = "shannon")
-simpson <- diversity(props_matrix, index = "simpson")
-richness <- specnumber(props_matrix)
+shannon <- diversity(prop_matrix, index = "shannon")
+simpson <- diversity(prop_matrix, index = "simpson")
+richness <- specnumber(prop_matrix)
 
 # Hill numbers: effective number of landcover types
 hill_q0 <- richness                    # q = 0 (species richness)
 hill_q1 <- exp(shannon)                # q = 1 (exponential Shannon)
 hill_q2 <- 1 / (1 - simpson)           # q = 2 (inverse Simpson). 
-# Note: for vegan, simpson index = 1 - D, where D is Simpson's index
 
-save(hill_q0, 
-     hill_q1, 
-     hill_q1, 
-     file = "data/hill.Rdata")
 
 # Combine with original data
 landcover_wide <- landcover_wide %>%
@@ -3631,6 +3626,9 @@ hill_long <- landcover_wide %>%
   pivot_longer(cols = starts_with("hill_q"),
                names_to = "q",
                values_to = "value")
+
+save(hill_long, 
+     file = "data/hill.Rdata")
 
 ggplot(hill_long, aes(x = q, y = value, group = id, color = id)) +
   geom_line(alpha = 0.3) +
@@ -3795,4 +3793,185 @@ ggplot(NaturalvsCultivated, aes(x = cultivated_group, y = diversity)) +
 
 
 <!--chapter:end:09_Enviroment_types.Rmd-->
+
+
+```{r load_data_comparison, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+load("data/data.Rdata")
+load("data/beta.Rdata")
+load("data/hill.Rdata")
+```
+
+```{r configurating, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyr)
+library(dplyr)
+library(vegan)
+
+env_hill_df <- hill_long %>%
+  rename(sample = id) %>%               # <-- Add this line if hill_long uses 'id'
+  pivot_wider(
+    id_cols      = sample,
+    names_from   = q,
+    values_from  = value,
+    names_prefix = "env_hill_q"
+  )
+
+meta <- sample_metadata %>%
+  left_join(env_hill_df, by = "sample")
+```
+
+```{r env0n alligning betamatrix, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+dist_obj <- beta_q0n$S
+samples <- attr(dist_obj, "Labels")
+meta_aligned <- meta %>%
+  filter(sample %in% samples) %>%
+  arrange(match(sample, samples))
+stopifnot(identical(meta_aligned$sample, samples))
+hill_vars <- c("env_hill_qhill_q0", "env_hill_qhill_q1", "env_hill_qhill_q2")
+for (v in hill_vars) {
+  meta_tmp <- meta_aligned[, v, drop = FALSE]
+  colnames(meta_tmp) <- "alpha"
+  res <- adonis2(
+    dist_obj ~ alpha,
+    data = meta_tmp,
+    permutations = 999
+  )
+  cat("\n--- PERMANOVA for", v, "---\n")
+  print(res)
+}
+```
+
+```{r env1n alligning betamatrix, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+dist_obj <- beta_q1n$S
+samples <- attr(dist_obj, "Labels")
+meta_aligned <- meta %>%
+  filter(sample %in% samples) %>%
+  arrange(match(sample, samples))
+stopifnot(identical(meta_aligned$sample, samples))
+hill_vars <- c("env_hill_qhill_q0", "env_hill_qhill_q1", "env_hill_qhill_q2")
+for (v in hill_vars) {
+  meta_tmp <- meta_aligned[, v, drop = FALSE]
+  colnames(meta_tmp) <- "alpha"
+  res <- adonis2(
+    dist_obj ~ alpha,
+    data = meta_tmp,
+    permutations = 999
+  )
+  cat("\n--- PERMANOVA for", v, "---\n")
+  print(res)
+}
+```
+
+
+```{r env1f alligning betamatrix, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+dist_obj <- beta_q1f$S
+samples <- attr(dist_obj, "Labels")
+meta_aligned <- meta %>%
+  filter(sample %in% samples) %>%
+  arrange(match(sample, samples))
+stopifnot(identical(meta_aligned$sample, samples))
+hill_vars <- c("env_hill_qhill_q0", "env_hill_qhill_q1", "env_hill_qhill_q2")
+for (v in hill_vars) {
+  meta_tmp <- meta_aligned[, v, drop = FALSE]
+  colnames(meta_tmp) <- "alpha"
+  res <- adonis2(
+    dist_obj ~ alpha,
+    data = meta_tmp,
+    permutations = 999
+  )
+  cat("\n--- PERMANOVA for", v, "---\n")
+  print(res)
+}
+```
+
+```{r visualisation0n connection1, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+
+nmds <- metaMDS(bray_dist0n, k = 2)
+p1 <- as.data.frame(nmds$points)
+nmds_points$env_hill_q0 <- meta_order0n$env_hill_qhill_q0  
+
+ggplot(nmds_points, aes(MDS1, MDS2, color = env_hill_q0)) +
+  geom_point(size = 3) +
+  theme_minimal() +
+  scale_color_viridis_c() +
+  labs(color = "Environmental Hill q0")
+```
+
+```{r visualisation1n connection2, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+nmds <- metaMDS(bray_dist0n, k = 2)
+p2 <- as.data.frame(nmds$points)
+nmds_points$env_hill_q1 <- meta_order0n$env_hill_qhill_q1  
+
+ggplot(nmds_points, aes(MDS1, MDS2, color = env_hill_q1)) +
+  geom_point(size = 3) +
+  theme_minimal() +
+  scale_color_viridis_c() +
+  labs(color = "Environmental Hill q1")
+```
+
+```{r visualisation1f connection3, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+nmds <- metaMDS(bray_dist0n, k = 2)
+p3 <- as.data.frame(nmds$points)
+nmds_points$env_hill_q2 <- meta_order0n$env_hill_qhill_q2  
+
+ggplot(nmds_points, aes(MDS1, MDS2, color = env_hill_q2)) +
+  geom_point(size = 3) +
+  theme_minimal() +
+  scale_color_viridis_c() +
+  labs(color = "Environmental Hill q2")
+```
+
+```{r cowplot visu, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+
+combined_plot <- p1 + p2 + p3
+combined_plot
+
+combined_plot <- plot_grid(p1, p2, p3, ncol = 3)
+combined_plot
+```
+
+```{r envfit, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+nmds <- metaMDS(bray_dist0n, k=2)
+fit <- envfit(nmds, meta_order0n[, hill_vars], permutations=999)
+plot(nmds)
+plot(fit, p.max = 0.05) 
+```
+
+```{r env_fit, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+bd <- betadisper(bray_dist0n, cut_number(meta_order0n$env_hill_qhill_q0, 3))
+plot(bd)
+anova(bd)
+```
+
+```{r env_tertiles split}
+
+meta$env_hill_q0_group <- cut_number(meta$env_hill_qhill_q0, n=3, labels = c("Low", "Mid", "High"))
+table(meta$env_hill_q0_group)
+
+meta$env_hill_q1_group <- cut_number(meta$env_hill_qhill_q1, n=3, labels = c("Low", "Mid", "High"))
+table(meta$env_hill_q1_group)
+
+meta$env_hill_q2_group <- cut_number(meta$env_hill_qhill_q2, n=3, labels = c("Low", "Mid", "High"))
+table(meta$env_hill_q2_group)
+
+```
+
+```{r env_median, split}
+# For Hill number q0
+threshold_q0 <- median(meta$env_hill_qhill_q0, na.rm = TRUE)
+meta$env_hill_q0_group <- ifelse(meta$env_hill_qhill_q0 <= threshold_q0, "Low", "High")
+table(meta$env_hill_q0_group)
+
+# For Hill number q1
+threshold_q1 <- median(meta$env_hill_qhill_q1, na.rm = TRUE)
+meta$env_hill_q1_group <- ifelse(meta$env_hill_qhill_q1 <= threshold_q1, "Low", "High")
+table(meta$env_hill_q1_group)
+
+# For Hill number q2
+threshold_q2 <- median(meta$env_hill_qhill_q1, na.rm = TRUE)
+meta$env_hill_q2_group <- ifelse(meta$env_hill_qhill_q2 <= threshold_q2, "Low", "High")
+table(meta$env_hill_q2_group)
+```
+
+
+<!--chapter:end:10_enviromental_permanova.Rmd-->
 
