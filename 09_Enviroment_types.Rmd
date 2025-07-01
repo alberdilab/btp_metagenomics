@@ -16,8 +16,9 @@ library(purrr)
 ```
 
 ## Landcover percentage
-**Sample Points**
-```{r load-sample-points}
+**Generate Bufferzones**
+```{r extract-buffer, eval = FALSE}
+## — 0. Load sample points and buffers —
 sample_points <- read.csv(
   "C:/Users/Lukas/Documents/GitHub/btp_metagenomics/sample_points.csv",
   stringsAsFactors = FALSE
@@ -25,27 +26,23 @@ sample_points <- read.csv(
 points_sf   <- st_as_sf(sample_points,
                         coords = c("longitude", "latitude"),
                         crs    = 4326)
-points_proj <- st_transform(points_sf, 28355)
-```
+points_proj     <- st_transform(points_sf, 28355)
 
-**Virtual-mosaic of Tifs**
-```{r build-virtual-mosaic, warning=FALSE, message=FALSE}
-# 2. Build an in-R mosaic of all your Landcover tiles and reproject
-tile_files <- list.files(
+# — 1. Build virtual mosaic & reproject —
+tile_files   <- list.files(
   "C:/Users/Lukas/Documents/GitHub/btp_metagenomics/Landcover/Tif",
   pattern    = "\\.tif$",
   full.names = TRUE
 )
-rasters    <- lapply(tile_files, terra::rast)
-mosaic_all <- do.call(mosaic, c(rasters, list(fun = "first")))
-landcover_proj <- project(mosaic_all, "EPSG:28355")
+rasters      <- lapply(tile_files, terra::rast)
+mosaic_all   <- do.call(mosaic, c(rasters, list(fun = "first")))
+lc_proj      <- project(mosaic_all, "EPSG:28355")
+
+buffers   <- st_buffer(points_proj, dist = 150)
+extracted <- exact_extract(lc_proj, buffers)
 ```
 
-**Generate Bufferzones**
-```{r extract-buffer}
-# 3 Buffer zones & exact extraction
-buffers   <- st_buffer(points_proj, dist = 150)
-extracted <- exact_extract(landcover_proj, buffers)
+```{r style, eval = false   }
 
 summary_list <- lapply(seq_along(extracted), function(i) {
   df  <- extracted[[i]]
@@ -58,9 +55,188 @@ summary_list <- lapply(seq_along(extracted), function(i) {
   agg
 })
 result_df <- bind_rows(summary_list)
+
+# 1) Read & strip ns
+qml  <- xml_ns_strip(read_xml(qml_path))
+
+# 2) Grab the palette entries
+entries <- xml_find_all(qml, ".//paletteEntry")
+stopifnot(length(entries) > 0)  # confirm you actually found some
+
+# 3) Build your style table from those entries
+style_df <- tibble(
+  land_cover_class       = as.integer(xml_attr(entries, "value")),
+  land_cover_label       = xml_attr(entries, "label"),
+  color                  = xml_attr(entries, "color")
+) %>%
+  mutate(
+    form = case_when(
+      str_detect(land_cover_label, "Cultivated Terrestrial Vegetated: Herbaceous")    ~ "Cultivated Herbaceous
+      ",
+      str_detect(land_cover_label, "Cultivated Terrestrial Vegetated: Woody")    ~ "Cultivated woody",
+      str_detect(land_cover_label, "Natural Terrestrial Vegetated: Woody")     ~ "Natural - Woody",
+      str_detect(land_cover_label, "Natural Terrestrial Vegetated: Herbaceous")~ "Natural - Herbaceous",
+      str_detect(land_cover_label, "Aquatic Vegetated")                        ~ "Aquatic",
+      str_detect(land_cover_label, "Natural Surface")                          ~ "Bare Surface",
+      str_detect(land_cover_label, "Artificial Surface")                       ~ "Urban/Artificial",
+      TRUE                                                                      ~ NA_character_
+    ),
+    density = case_when(
+      str_detect(land_cover_label, "Closed \\(greater than 65") ~ 80,
+      str_detect(land_cover_label, "Open \\(40 to 65")         ~ 52.5,
+      str_detect(land_cover_label, "Open \\(15 to 40")         ~ 27.5,
+      str_detect(land_cover_label, "Sparse \\(4 to 15")        ~ 9.5,
+      TRUE                                                     ~ NA_real_
+    )
+  ) %>%
+  select(land_cover_class, form, density, everything())
+
 ```
 
-```{r climate variable data}
+```{r pivot }
+
+# 1. Join in the density & labels
+result_df <- result_df %>%
+  left_join(
+    style_df %>% select(land_cover_class, density, land_cover_label),
+    by = "land_cover_class"
+  )
+
+# 2. Drop rows that can’t be assigned a class or label
+result_df_clean <- result_df %>%
+  filter(!is.na(land_cover_class), !is.na(land_cover_label))
+
+# 3. Compute class‐mean densities and impute missing
+class_means <- result_df_clean %>%
+  group_by(land_cover_label) %>%
+  summarize(mean_density = mean(density, na.rm = TRUE))
+
+result_df_imputed <- result_df_clean %>%
+  left_join(class_means, by = "land_cover_label") %>%
+  mutate(
+    # if density is already there, keep it; otherwise use the class mean
+    density = coalesce(density, mean_density)
+  ) %>%
+  select(-mean_density)  # drop the helper column
+
+# 4. Pivot, fill, and summarize
+landcover_wide <- result_df_imputed %>%
+  pivot_wider(
+    id_cols     = id,
+    names_from  = land_cover_label,
+    values_from = c(percent, density),
+    values_fill = list(percent = 0, density = 0)
+  ) %>%
+  mutate(
+    Cultivated_Total = rowSums(
+      select(., starts_with("percent_Cultivated Terrestrial")),
+      na.rm = TRUE
+    ),
+    Native_Total     = rowSums(
+      select(
+        .,
+        starts_with("percent_Natural Terrestrial"),
+        starts_with("percent_Natural Aquatic Vegetated")
+      ),
+      na.rm = TRUE
+    ),
+    Water            = rowSums(
+      select(., starts_with("percent_Water:")),
+      na.rm = TRUE
+    ),
+    # split your former Artificial_Bare into two pieces:
+    Bare_Surface      = rowSums(
+      select(., starts_with("percent_Natural Surface:")),
+      na.rm = TRUE
+    ),
+    Urban_Artificial  = rowSums(
+      select(., starts_with("percent_Artificial Surface:")),
+      na.rm = TRUE
+    )
+  ) %>%
+  rowwise() %>%
+  mutate(
+    Overall_Density = sum(
+      c_across(starts_with("percent_")) / 100 *
+      c_across(starts_with("density_")),
+      na.rm = TRUE
+    )
+  ) %>%
+  ungroup()
+
+```
+
+```{r barplot visualisation data, eval = FALSE}
+
+# 1) Define your exact colors
+group_colors <- c(
+  "Cultivated Vegetation - Woody"      = "#6a51a3",
+  "Cultivated Vegetation - Herbaceous" = "#9e9ac8",
+  "Natural Vegetation - Woody"         = "#006400",
+  "Natural Vegetation - Herbaceous"    = "#1b9e77",
+  "Natural Vegetation - General"       = "#b2df8a",
+  "Aquatic Vegetation"                 = "#41b6c4",
+  "Bare Surface"                       = "#e6ab02",
+  "Urban/Artificial"                   = "#757575",
+  "Other"                              = "#cccccc"
+)
+
+# 2) Start from your long, imputed data
+long_df <- result_df_imputed %>%
+  select(id, land_cover_label, percent)
+
+# 3) Bucket into exactly the groups you want
+long_df <- long_df %>%
+  mutate(
+    group = case_when(
+      str_detect(land_cover_label, "^Cultivated Terrestrial Vegetated: Woody")      ~ "Cultivated Vegetation - Woody",
+      str_detect(land_cover_label, "^Cultivated Terrestrial Vegetated: Herbaceous") ~ "Cultivated Vegetation - Herbaceous",
+      str_detect(land_cover_label, "^Natural Terrestrial Vegetated: Woody")         ~ "Natural Vegetation - Woody",
+      str_detect(land_cover_label, "^Natural Terrestrial Vegetated: Herbaceous")    ~ "Natural Vegetation - Herbaceous",
+      # anything else “Natural Terrestrial Vegetated” → general
+      str_detect(land_cover_label, "^Natural Terrestrial Vegetated:")               ~ "Natural Vegetation - General",
+      str_detect(land_cover_label, "Aquatic Vegetated")                             ~ "Aquatic Vegetation",
+      # Sparse/Scattered or bare surface labels
+      str_detect(land_cover_label, "Scattered|Sparse|Natural Surface:")             ~ "Bare Surface",
+      str_detect(land_cover_label, "^Artificial Surface:")                          ~ "Urban/Artificial",
+      TRUE                                                                          ~ "Other"
+    ),
+    group = factor(group, levels = names(group_colors))
+  )
+
+# 4) Drop NAs & Water, sum by id×group, then re-scale so each id sums to 100%
+plot_df <- long_df %>%
+  filter(!is.na(land_cover_label), group != "Water") %>%
+  group_by(id, group) %>%
+summarise(pct = sum(percent, na.rm = TRUE), .groups = "drop") %>%
+group_by(id) %>%
+mutate(pct = pct / sum(pct) * 100) %>%
+ungroup()
+
+# 5) Plot
+ggplot(plot_df, aes(x = factor(id), y = pct, fill = group)) +
+  geom_col(width = 0.8) +
+  scale_fill_manual(values = group_colors) +
+  labs(
+    title = "Landcover Breakdown per Sample (No Water, Normalized)",
+    x     = "Sample ID",
+    y     = "Percent Cover",
+    fill  = "Category"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x        = element_text(angle = 90, hjust = 1, vjust = 0.5),
+    legend.title       = element_text(face = "bold"),
+    legend.text        = element_text(size = 10),
+    plot.title         = element_text(face = "bold", size = 16, hjust = 0.5),
+    panel.grid.major.x = element_blank()
+  )
+
+plot_df_wide <- plot_df %>%
+  pivot_wider(names_from = group, values_from = pct)
+```
+
+```{r climate variable data, eval = FALSE}
 
 # 5a. Grab the Australia bioclim variables (returns a SpatRaster)
 wc_aus <- worldclim_country(
@@ -118,7 +294,7 @@ print(clim_df)
 
 ```
 
-```{r population variable data, eva}
+```{r population variable data, eval = FALSE}
 # 1. Download & load the 1 km WorldPop density for Australia -------------
 out1km <- "data/pop1km/aus_pd_2020_1km.tif"
 dir.create(dirname(out1km), recursive = TRUE, showWarnings = FALSE)
@@ -144,175 +320,225 @@ pop1km_df <- tibble(
 print(pop1km_df)
 ```
 
-```{r landcover_plot_fixed, warning=FALSE, message=FALSE}
-# 1. Read style file and extract labels
-qml_path <- "C:/Users/Lukas/Documents/GitHub/btp_metagenomics/Landcover/landcover_class_cyear_4_style.qml"
-stopifnot(file.exists(qml_path))
 
-qml_raw <- read_xml(qml_path)
-qml      <- xml_ns_strip(qml_raw)
-
-# 2) Grab every <paletteEntry> (that’s where your value/label/color live)
-entries <- xml_find_all(qml, ".//paletteEntry")
-
-style_df <- tibble(
-  land_cover_class       = as.integer(xml_attr(entries, "value")),
-  land_cover_description = xml_attr(entries, "label"),
-  color                  = xml_attr(entries, "color")
-)
-
-# 2. Join descriptions onto your result_df
-result_df <- result_df %>%
-  left_join(
-    style_df %>% select(land_cover_class, land_cover_description),
-    by = "land_cover_class"
-  )
-
-
-# 7. Plot stacked bar of your continuous group totals
-# define your group colours
-group_colors <- c(
-  "Cultivated Vegetation - Woody"      = "#6a51a3",
-  "Cultivated Vegetation - Herbaceous" = "#9e9ac8",
-  "Natural Vegetation - Woody"         = "#006400",
-  "Natural Vegetation - Herbaceous"    = "#1b9e77",
-  "Natural Vegetation - General"       = "#b2df8a",
-  "Natural Vegetation - Sparse"        = "#e6c229",
-  "Aquatic Vegetation"                 = "#41b6c4",
-  "Bare Surface"                       = "#e6ab02",
-  "Urban/Artificial"                   = "#757575",
-  "Water"                              = "#1f78b4",
-  "Other"                              = "#cccccc"
-)
-
-summary_df <- result_df %>%
-  filter(!is.na(land_cover_description)) %>%
-  group_by(id) %>%
-  summarise(
-    Cultivated_Total   = sum(percent[grepl("^Cultivated", land_cover_description)], na.rm=TRUE),
-    Native_Total       = sum(percent[grepl("^Natural Terrestrial", land_cover_description)], na.rm=TRUE),
-    Aquatic_Vegetation = sum(percent[grepl("Aquatic", land_cover_description)], na.rm=TRUE),
-    Water              = sum(percent[grepl("^Water", land_cover_description)], na.rm=TRUE),
-    Artificial_Bare    = sum(percent[grepl("Surface", land_cover_description)], na.rm=TRUE),
-    .groups = "drop"
-  )
-
-# 2) Pivot to long for plotting
-plot_df <- summary_df %>%
-  pivot_longer(-id, names_to="group", values_to="pct") %>%
-  mutate(group = factor(group, levels = names(group_colors)))
-
-# 3) Plot exactly as before
-p <- ggplot(summary_df, aes(x = factor(id), y = pct, fill = group)) +
-  geom_col(width = 0.8) +
-  scale_fill_manual(values = group_colors, na.value = "gray90") +
-  labs(
-    title = "Landcover Continuous Groups per Sample",
-    x     = "Sample ID",
-    y     = "Percent Cover",
-    fill  = "Category"
-  ) +
-  theme_minimal(base_size = 14) +
-  theme(
-    axis.text.x        = element_text(angle = 90, hjust = 1, vjust = 0.5),
-    legend.title       = element_text(face = "bold"),
-    legend.text        = element_text(size = 10),
-    plot.title         = element_text(face = "bold", size = 16, hjust = 0.5),
-    panel.grid.major.x = element_blank()
-  )
-
-print(p)
-ggsave("landcover_continuous_groups.png", p, width = 12, height = 6, dpi = 300)
-```
-
+**finegrade vs broad enviroment diversity**
 ```{r landcover_proportion matrix}
+# 1) Build proportions from landcover_wide
 landcover_prop <- landcover_wide %>%
+  select(id, starts_with("percent_")) %>%
   mutate(across(-id, ~ . / 100))
-# Remove id column for calculations
-prop_matrix <- landcover_prop %>% select(-id) %>% as.matrix()
-```
 
-```{r landcover_diversity}
-# Calculate indices for each sample (row)
-shannon <- diversity(prop_matrix, index = "shannon")
-simpson <- diversity(prop_matrix, index = "simpson")
-richness <- specnumber(prop_matrix)
+prop_matrix <- landcover_prop %>%
+  select(-id) %>%
+  as.matrix()
 
-# Hill numbers: effective number of landcover types
-hill_q0 <- richness                    # q = 0 (species richness)
-hill_q1 <- exp(shannon)                # q = 1 (exponential Shannon)
-hill_q2 <- 1 / (1 - simpson)           # q = 2 (inverse Simpson). 
+prop_matrix[is.na(prop_matrix)] <- 0
+
+# 2) Compute Hill numbers
+h0 <- rowSums(prop_matrix > 0)
+H  <- -rowSums(ifelse(prop_matrix > 0, prop_matrix * log(prop_matrix), 0))
+h1 <- exp(H)
+h2 <- 1 / rowSums(prop_matrix^2)
+
+# 3) Bind back to the matching ids
+hill_df_full <- data.frame(
+  id = landcover_prop$id,
+  h0 = h0,
+  h1 = h1,
+  h2 = h2
+)
+
+broad_prop <- plot_df_wide %>%
+  mutate(across(-id, ~ . / 100))    # convert % → proportions
+
+broad_mat <- broad_prop %>%
+  select(-id) %>%
+  as.matrix()
+broad_mat[is.na(broad_mat)] <- 0    # just in case
+
+# 2) Function to compute Hill numbers
+compute_hills <- function(mat) {
+  h0 <- rowSums(mat > 0)
+  H1 <- -rowSums(ifelse(mat > 0, mat * log(mat), 0), na.rm = TRUE)
+  h1 <- exp(H1)
+  h2 <- 1 / rowSums(mat^2)
+  tibble(h0 = h0, h1 = h1, h2 = h2)
+}
+
+# 3) Compute broad‐scale hills
+hills_broad <- compute_hills(broad_mat)
+
+# 4) Assemble into a data.frame with IDs
+hill_broad_df <- tibble(
+  id      = broad_prop$id,
+  h0_broad = hills_broad$h0,
+  h1_broad = hills_broad$h1,
+  h2_broad = hills_broad$h2
+)
+
+# 5) Combine with your existing fine‐scale hills
+hill_compare <- hill_df_full %>%
+  left_join(hill_broad_df, by = "id")
+
+# 6) Inspect & correlate
+print(hill_compare)
+
+# correlation between fine‐ and broad‐scale diversities
+cor_mat <- hill_compare %>%
+  select(h0, h0_broad, h1, h1_broad, h2, h2_broad) %>%
+  cor()
+print(cor_mat)
+
+# 1) Numerical correlations with significance
+tests <- list(
+  h0  = cor.test(hill_compare$h0,  hill_compare$h0_broad),
+  h1  = cor.test(hill_compare$h1,  hill_compare$h1_broad),
+  h2  = cor.test(hill_compare$h2,  hill_compare$h2_broad)
+)
+
+# extract the r and p‐value neatly
+corr_stats <- tibble(
+  order    = c("h0","h1","h2"),
+  r        = c(tests$h0$estimate,
+               tests$h1$estimate,
+               tests$h2$estimate),
+  p_value  = c(tests$h0$p.value,
+               tests$h1$p.value,
+               tests$h2$p.value)
+)
+print(corr_stats)
 
 
-# Combine with original data
-landcover_wide <- landcover_wide %>%
-  mutate(
-    shannon = shannon,
-    simpson = simpson,
-    hill_q0 = hill_q0,
-    hill_q1 = hill_q1,
-    hill_q2 = hill_q2
-  )
+# Inspect
+print(hill_df_full)
 ```
 
 **hill visualisation**
 ```{r hill_visualisation}
 
-hill_long <- landcover_wide %>%
-  select(id, hill_q0, hill_q1, hill_q2) %>%
-  pivot_longer(cols = starts_with("hill_q"),
-               names_to = "q",
-               values_to = "value")
+# 1) Compute a distance matrix on the 3 Hill numbers
+hill_mat <- hill_df %>% select(h0, h1, h2) %>% as.matrix()
+d       <- dist(hill_mat)          # Euclidean by default
 
-save(hill_long, 
-     file = "data/hill.Rdata")
+# 2) Hierarchical clustering
+hc      <- hclust(d, method = "ward.D2")
 
-ggplot(hill_long, aes(x = q, y = value, group = id, color = id)) +
-  geom_line(alpha = 0.3) +
+# 3) Cut the tree into k clusters (change k to taste)
+k       <- 4
+clusters <- cutree(hc, k = k)
+
+# 4) Attach cluster labels
+hill_df_cl <- hill_df %>%
+  mutate(cluster = factor(clusters))
+
+# 5) Plot colored by cluster
+ggplot(hill_df_cl %>% pivot_longer(h0:h2, names_to="q", values_to="value"),
+       aes(x=q, y=value, group=id, color=cluster)) +
+  geom_line(alpha=0.6) +
   geom_point() +
   labs(
-    title = "Hill Numbers per Sample (Landcover Types)",
-    x = "Hill Order (q)",
-    y = "Effective Diversity (# Landcover Types)"
+    title = paste("Hill Curves, clustered into", k, "groups"),
+    x     = "Hill order (q)",
+    y     = "Effective diversity",
+    color = "Cluster"
   ) +
-  theme_minimal() +
-  theme(legend.position = "none")
+  theme_minimal()
+
+plot(hc, labels = hill_df$id, main = "Dendrogram of Samples by Hill Numbers")
+rect.hclust(hc, k = k, border = 2:5)  # draws boxes around your k clusters
+
+
+```
+
+```{r variables fusion, warning=FALSE, message=FALSE}
+hill_wide <- hill_long %>%
+  pivot_wider(
+    id_cols     = id,       
+    names_from  = q,    
+    values_from = value      
+  )
+
+variables_df <- hill_wide %>%
+  left_join(pop1km_df,     by = "id") %>%
+  left_join(clim_df, by = "id")
+
+
+selected_variables_df <- variables_df %>%
+  select(
+    id,                         # sample identifier
+    h0,                    # chosen hillshade metric
+    pop_density_1km,            # human footprint
+    annual_mean_temp,           # may change to another more fitting temperature measurement to encapsul feb-july (time of sampling)
+    annual_precipitation        # water availability
+  )
 ```
 
 ```{r dominante_landcover}
+save(selected_variables_df, 
+     file = "data/enviromental_var.Rdata")
+```
+
+**visualisation work in progress**
+```{r dominante_landcover}
 # Pivot to long for easier processing
-landcover_long <- continuous_df %>%
+dominant_by_sample <- plot_df_wide %>%
   pivot_longer(
-    cols = -id,
-    names_to = "landcover_type",
-    values_to = "percent_cover"
-  )
-
-# Find the dominant (highest percent_cover) per sample
-dominant_by_sample <- landcover_long %>%
+    cols      = -id,
+    names_to  = "dominant_landcover",
+    values_to = "dom_percent_cover"
+  ) %>%
   group_by(id) %>%
-  filter(percent_cover == max(percent_cover, na.rm = TRUE)) %>%
-  slice(1) %>%     # In case of ties
-  ungroup() %>%
-  select(id, dominant_landcover = landcover_type, dom_percent_cover = percent_cover)
+  filter(dom_percent_cover == max(dom_percent_cover, na.rm = TRUE)) %>%
+  slice(1) %>%   # in case of ties, pick the first
+  ungroup()
 
-# Merge with your diversity measures
-continuous_df <- continuous_df %>%
+# 3) Join it back onto plot_df_wide
+plot_df_wide <- plot_df_wide %>%
   left_join(dominant_by_sample, by = "id")
+
 ```
 
 ```{r dominant_boxplot}
 
-ggplot(continuous_df, aes(x=dominant_landcover, y=shannon, fill=dominant_landcover)) +
-  geom_boxplot(alpha=.8, outlier.color="red", outlier.size=1.5) +
-  theme_minimal(base_size=14) +
+# 1) Compute fine-scale Shannon H per sample
+fine_shannon_df <- landcover_wide %>%
+  # convert % → proportions
+  select(id, starts_with("percent_")) %>%
+  mutate(across(starts_with("percent_"), ~ . / 100)) %>%
+  # compute H = –∑ p * log(p)
+  rowwise() %>%
+  mutate(
+    shannon = -sum(
+      c_across(starts_with("percent_")) * 
+      log(c_across(starts_with("percent_"))),
+      na.rm = TRUE
+    )
+  ) %>%
+  ungroup() %>%
+  select(id, shannon)
+
+# 2) Bring in each sample’s dominant landcover (from your broad table)
+shannon_by_dominant <- fine_shannon_df %>%
+  left_join(
+    plot_df_wide %>% select(id, dominant_landcover),
+    by = "id"
+  )
+
+# 3) Plot fine-scale Shannon by dominant landcover
+ggplot(shannon_by_dominant, 
+       aes(x = dominant_landcover, y = shannon, fill = dominant_landcover)) +
+  geom_boxplot(alpha = .8, outlier.color = "red", outlier.size = 1.5) +
+  theme_minimal(base_size = 14) +
   labs(
-    title = "Diversity (Shannon) by Dominant Landcover Type",
-    x = "Dominant Landcover",
-    y = "Shannon Diversity Index"
+    title = "Fine-scale Shannon Diversity by Dominant Landcover",
+    x     = "Dominant Landcover",
+    y     = "Shannon Diversity (H)"
   ) +
-  theme(axis.text.x = element_text(angle=45, hjust=1, vjust=1),
-        legend.position = "none")
+  theme(
+    axis.text.x     = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+
 ```
 
 ```{r dominant_summary}
@@ -429,17 +655,3 @@ ggplot(NaturalvsCultivated, aes(x = cultivated_group, y = diversity)) +
 
 ```
 
-```{r variables fusion, warning=FALSE, message=FALSE}
-load("data/hill.Rdata")
-hill_wide <- hill_long %>%
-  pivot_wider(
-    id_cols     = id,        # the column that identifies each row
-    names_from  = q,    # the column whose values become new column names
-    values_from = value      # the column that fills those new cells
-  )
-
-variables_df <- hill_wide %>%
-  left_join(pop1km_df,     by = "id") %>%
-  left_join(clim_df, by = "id")
-
-```
