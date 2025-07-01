@@ -57,6 +57,7 @@ summary_list <- lapply(seq_along(extracted), function(i) {
 result_df <- bind_rows(summary_list)
 
 # 1) Read & strip ns
+qml_path <- "C:/Users/Lukas/Documents/GitHub/btp_metagenomics/Landcover/landcover_class_cyear_4_style.qml"
 qml  <- xml_ns_strip(read_xml(qml_path))
 
 # 2) Grab the palette entries
@@ -109,15 +110,15 @@ result_df_clean <- result_df %>%
 # 3. Compute class‐mean densities and impute missing
 class_means <- result_df_clean %>%
   group_by(land_cover_label) %>%
-  summarize(mean_density = mean(density, na.rm = TRUE))
+  summarize(mean_veg_density = mean(density, na.rm = TRUE))
 
 result_df_imputed <- result_df_clean %>%
   left_join(class_means, by = "land_cover_label") %>%
   mutate(
     # if density is already there, keep it; otherwise use the class mean
-    density = coalesce(density, mean_density)
+    density = coalesce(density, mean_veg_density)
   ) %>%
-  select(-mean_density)  # drop the helper column
+  select(-mean_veg_density)  # drop the helper column
 
 # 4. Pivot, fill, and summarize
 landcover_wide <- result_df_imputed %>%
@@ -417,7 +418,7 @@ print(hill_df_full)
 ```{r hill_visualisation}
 
 # 1) Compute a distance matrix on the 3 Hill numbers
-hill_mat <- hill_df %>% select(h0, h1, h2) %>% as.matrix()
+hill_mat <- hill_df_full %>% select(h0, h1, h2) %>% as.matrix()
 d       <- dist(hill_mat)          # Euclidean by default
 
 # 2) Hierarchical clustering
@@ -428,7 +429,7 @@ k       <- 4
 clusters <- cutree(hc, k = k)
 
 # 4) Attach cluster labels
-hill_df_cl <- hill_df %>%
+hill_df_cl <- hill_df_full %>%
   mutate(cluster = factor(clusters))
 
 # 5) Plot colored by cluster
@@ -444,7 +445,7 @@ ggplot(hill_df_cl %>% pivot_longer(h0:h2, names_to="q", values_to="value"),
   ) +
   theme_minimal()
 
-plot(hc, labels = hill_df$id, main = "Dendrogram of Samples by Hill Numbers")
+plot(hc, labels = hill_df_full$id, main = "Dendrogram of Samples by Hill Numbers")
 rect.hclust(hc, k = k, border = 2:5)  # draws boxes around your k clusters
 
 
@@ -460,8 +461,8 @@ hill_wide <- hill_long %>%
 
 variables_df <- hill_wide %>%
   left_join(pop1km_df,     by = "id") %>%
-  left_join(clim_df, by = "id")
-
+  left_join(clim_df, by = "id") %>%
+  left_join(landcover_wide,  by = "id")
 
 selected_variables_df <- variables_df %>%
   select(
@@ -469,7 +470,8 @@ selected_variables_df <- variables_df %>%
     h0,                    # chosen hillshade metric
     pop_density_1km,            # human footprint
     annual_mean_temp,           # may change to another more fitting temperature measurement to encapsul feb-july (time of sampling)
-    annual_precipitation        # water availability
+    annual_precipitation, # water availability
+    Overall_Density
   )
 ```
 
