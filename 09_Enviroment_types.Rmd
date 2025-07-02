@@ -478,6 +478,22 @@ selected_variables_df <- variables_df %>%
 ```{r dominante_landcover}
 save(selected_variables_df, 
      file = "data/enviromental_var.Rdata")
+
+# 1) CSV (comma-separated values)
+write.csv(
+  selected_variables_df,
+  file       = "data/enviromental_var.csv",
+  row.names  = FALSE
+)
+
+# 2) TSV (tab-separated values)
+write.table(
+  selected_variables_df,
+  file       = "data/enviromental_var.tsv",
+  sep        = "\t",
+  row.names  = FALSE,
+  quote      = FALSE
+)
 ```
 
 **visualisation work in progress**
