@@ -247,6 +247,31 @@ wc_aus <- worldclim_country(
   path    = "data/aus"
 )
 
+# dump an uncompressed multi‐band TIFF to disk
+tmp_tif <- "data/aus/wc_aus_tmp.tif"
+terra::writeRaster(
+  wc_aus,
+  filename  = tmp_tif,
+  filetype  = "GTiff",
+  overwrite = TRUE
+)
+
+# run GDAL translate to apply lossless compression & tiling
+sf::gdal_utils(
+  util        = "translate",
+  source      = tmp_tif,
+  destination = "data/aus/wc_aus_compressed.tif",
+  options     = c(
+    "-co", "COMPRESS=DEFLATE",
+    "-co", "PREDICTOR=2",
+    "-co", "TILED=YES"
+  )
+)
+
+# reload the compressed file and clean up temp 
+wc_aus <- terra::rast("data/aus/wc_aus_compressed.tif")
+file.remove(tmp_tif)
+
 # 5b. Rename the layers to "bio1"…"bio19" so we can index 1–12
 orig <- names(wc_aus)
 new  <- sub(".*bio[_~\\.](\\d+)$", "bio\\1", orig)
@@ -304,6 +329,23 @@ download.file(
   "https://data.worldpop.org/GIS/Population_Density/Global_2000_2020_1km/2020/AUS/aus_pd_2020_1km.tif",
   out1km, mode = "wb"
 )
+
+# compress the downloaded GeoTIFF losslessly and tile it 
+tmp1km <- "data/pop1km/aus_pd_2020_1km_tmp.tif"
+sf::gdal_utils(
+  util        = "translate",
+  source      = out1km,
+  destination = tmp1km,
+  options     = c(
+    "-co", "COMPRESS=DEFLATE",
+    "-co", "PREDICTOR=2",
+    "-co", "TILED=YES"
+  )
+)
+# replace the original with the compressed version
+file.remove(out1km)
+file.rename(tmp1km, out1km)
+
 pop1km_rast <- rast(out1km)
 
 # 2. Reproject your 150 m buffers into the raster’s CRS (WGS84 lon/lat)
@@ -475,7 +517,7 @@ selected_variables_df <- variables_df %>%
   )
 ```
 
-```{r dominante_landcover}
+```{r selected variables}
 save(selected_variables_df, 
      file = "data/enviromental_var.Rdata")
 
