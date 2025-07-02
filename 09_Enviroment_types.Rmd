@@ -20,7 +20,7 @@ library(purrr)
 ```{r extract-buffer, eval = FALSE}
 ## — 0. Load sample points and buffers —
 sample_points <- read.csv(
-  "C:/Users/Lukas/Documents/GitHub/btp_metagenomics/sample_points.csv",
+  "sample_points.csv",
   stringsAsFactors = FALSE
 )
 points_sf   <- st_as_sf(sample_points,
@@ -30,7 +30,7 @@ points_proj     <- st_transform(points_sf, 28355)
 
 # — 1. Build virtual mosaic & reproject —
 tile_files   <- list.files(
-  "C:/Users/Lukas/Documents/GitHub/btp_metagenomics/Landcover/Tif",
+  "Landcover/Tif",
   pattern    = "\\.tif$",
   full.names = TRUE
 )
@@ -57,7 +57,7 @@ summary_list <- lapply(seq_along(extracted), function(i) {
 result_df <- bind_rows(summary_list)
 
 # 1) Read & strip ns
-qml_path <- "C:/Users/Lukas/Documents/GitHub/btp_metagenomics/Landcover/landcover_class_cyear_4_style.qml"
+qml_path <- "Landcover/landcover_class_cyear_4_style.qml"
 qml  <- xml_ns_strip(read_xml(qml_path))
 
 # 2) Grab the palette entries
