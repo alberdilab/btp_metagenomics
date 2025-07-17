@@ -238,25 +238,38 @@ plot_df_wide <- plot_df %>%
 ```
 
 ```{r climate variable data compression, eval = FALSE}
+# --- packages ---------------------------------------------------------------
+library(terra)
+library(sf)
+library(geodata)
+library(purrr)
+library(exactextractr)
+library(tibble)
+library(dplyr)
+library(tidyr)
 
-# 5a. Grab the Australia bioclim variables (all 19 layers)
+# --- 1. download & load bioclim for AUS ------------------------------------
+# this pulls only the AUS archive (~5 MB), no global 50 MB zip
 wc_aus <- worldclim_country(
-  country = "AUS",
-  var     = "bio",
-  res     = 0.5,
-  path    = "data/aus"
+  country = "AUS",       # ISO code
+  var     = "bio",       # bioclim variables
+  res     = 0.5,         # 0.5° (~10 arc-minutes)
+  path    = "data/aus"   # where to store the download
 )
 
-# 5b. Rename to bio1…bio19 so we can subset by those names
+# --- 2. rename & subset to bio1 & bio12 -----------------------------------
 orig <- names(wc_aus)
 new  <- sub(".*bio[_~\\.](\\d+)$", "bio\\1", orig)
 names(wc_aus) <- new
-
-# 5c. Keep only bio1 and bio12
 wc_aus <- wc_aus[[c("bio1", "bio12")]]
 
-# 5d. Dump an uncompressed 2-band TIFF to disk
-tmp_tif <- "data/aus/wc_aus_tmp2bands.tif"
+# --- 3. write uncompressed, compress & tile via GDAL -----------------------
+final_dir <- "data/aus"
+tmp_tif    <- file.path(final_dir, "wc_aus_tmp2bands.tif")
+comp_tif   <- file.path(final_dir, "wc_aus_compressed.tif")
+final_tif  <- file.path(final_dir, "wc_aus.tif")
+
+# write 2-band GeoTIFF
 terra::writeRaster(
   wc_aus,
   filename  = tmp_tif,
@@ -264,8 +277,7 @@ terra::writeRaster(
   overwrite = TRUE
 )
 
-# 5e. Apply lossless compression & tiling via GDAL
-comp_tif <- "data/aus/wc_aus_compressed.tif"
+# apply DEFLATE compression + tiling
 sf::gdal_utils(
   util        = "translate",
   source      = tmp_tif,
@@ -277,35 +289,29 @@ sf::gdal_utils(
   )
 )
 
-# 5f. Remove the uncompressed dump
+# cleanup & rename
 file.remove(tmp_tif)
-
-# 5g. Purge any other raw .tif and rename the compressed to the canonical name
-all_tifs <- list.files("data/aus", pattern = "\\.tif$", full.names = TRUE)
-raw_tifs <- setdiff(all_tifs, comp_tif)
-if (length(raw_tifs)) file.remove(raw_tifs)
-
-final_tif <- "data/aus/wc_aus.tif"
+raws <- setdiff(list.files(final_dir, "\\.tif$", full.names = TRUE), comp_tif)
+if (length(raws)) file.remove(raws)
 file.rename(comp_tif, final_tif)
 
-# 5h. Reload wc_aus from the single compressed file
+# reload compressed
 wc_aus <- rast(final_tif)
+
 ```
 
 ```{r climate variables data,}
-# 5c. Reproject your 150 m buffers into the raster’s CRS
+# a) reproject buffers into raster CRS
 buffers_ll <- st_transform(buffers, st_crs(wc_aus))
 
-# 5d. Extract weighted means for bio1 & bio12 and give them proper names ----
-
-# a) Define the two codes and their descriptive names
+# b) codes & names
 bio_codes <- c("bio1", "bio12")
 bio_names <- c(
   annual_mean_temp     = "bio1",
   annual_precipitation = "bio12"
 )
 
-# b) Pull out each layer’s weighted mean into a list
+# c) extract weighted means
 means_list <- purrr::map(bio_codes, function(code) {
   exact_extract(
     wc_aus[[code]],
@@ -316,21 +322,21 @@ means_list <- purrr::map(bio_codes, function(code) {
   )
 })
 
-# c) Build a tibble: sample IDs + one column per selected bio
+# d) assemble tibble & rename
 clim_df <- tibble(id = sample_points$id) %>%
   bind_cols(as_tibble(set_names(means_list, bio_codes))) %>%
-  # d) Rename from bio# → descriptive
   rename(!!!bio_names)
 
-# 5e. Fill missing values:
+# e) fill NAs with sensible defaults
 clim_df <- clim_df %>%
   replace_na(list(
     annual_mean_temp     = 13.7,  # aus ½(16.7 + 10.6)
     annual_precipitation = 675.3  # langjähriger Mittelwert Greens Beach
   ))
 
-
+# final result
 print(clim_df)
+
 ```
 
 ```{r population variable data, eval = FALSE}
