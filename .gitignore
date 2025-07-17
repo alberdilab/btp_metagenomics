@@ -4,5 +4,5 @@
 .RData
 .Ruserdata
 
-# Ignore all GeoTIFFs in data/
+# Ignore any GeoTIFFs under data/
 data/**/*.tif
