@@ -15,7 +15,9 @@ sample_metadata_without_NA <- sample_metadata %>%
 ***beta_div***
 ```{r beta_div, comment="", message=FALSE, warning=FALSE, eval=FALSE}
 #Presence/Absence
-beta_q0n <- genome_counts_filt %>%  f
+beta_q0n <- genome_counts_filt %>%  
+  
+  
   column_to_rownames(., "genome") %>%
   filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
   select_if(~!all(. == 0)) %>%

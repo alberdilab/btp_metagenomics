@@ -8,6 +8,15 @@ load("data/data.Rdata")
 treatment_colors <- c("#f56042","#429ef5", "#42f58d", "#b142f5")
 sample_metadata$broad_environment <- factor(sample_metadata$broad_environment, levels=c("1000198 - Mixed forest", "1000221 - Temperate woodland", "1000218 - Xeric shrubland", "1000245 - Cropland"))
 ```
+```{r pruning tree}
+# 1) Figure out the common labels
+otus  <- genome_counts_filt$genome
+tips  <- genome_tree$tip.label
+common <- intersect(tips, otus)
+
+# 2) Prune the tree to only those tips
+genome_tree_pruned <- drop.tip(genome_tree, setdiff(tips, common))
+```
 
 ### Hill numbers
 Richness of microbiotic species in samples
@@ -34,7 +43,7 @@ neutral <- genome_counts_filt %>%
 phylogenetic <- genome_counts_filt %>%
   column_to_rownames(var = "genome") %>%
   dplyr::select(where(~ !all(. == 0))) %>%
-  hilldiv(., q = 1, tree = genome_tree) %>%
+  hilldiv(., q = 1, tree = genome_tree_pruned) %>%
   t() %>%
   as.data.frame() %>%
   dplyr::rename(phylogenetic = 1) %>%

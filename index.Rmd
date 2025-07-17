@@ -43,6 +43,7 @@ library(ggtreeExtra)
 library(ggtree)
 library(ggh4x)
 library(GGally)
+library(cowplot)
 
 # For statistics
 library(spaa)
@@ -65,5 +66,6 @@ library(ANCOMBC)
 library(rnaturalearth)
 library(rnaturalearthdata)
 library(patchwork)
+library(pheatmap)
 ```
 

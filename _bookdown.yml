@@ -14,4 +14,3 @@ rmd_files:
   - 08_microbiota_functional_analysis.Rmd
   - 09_Enviroment_types.Rmd
   - 10_enviromental_permanova.Rmd
-  - 11_enviromental_abundance_analyse.Rmd

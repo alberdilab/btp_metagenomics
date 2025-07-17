@@ -42,7 +42,7 @@ buffers   <- st_buffer(points_proj, dist = 150)
 extracted <- exact_extract(lc_proj, buffers)
 ```
 
-```{r style, eval = false   }
+```{r style, eval = FALSE}
 
 summary_list <- lapply(seq_along(extracted), function(i) {
   df  <- extracted[[i]]
@@ -94,7 +94,7 @@ style_df <- tibble(
 
 ```
 
-```{r pivot }
+```{r pivot, eval = FALSE }
 
 # 1. Join in the density & labels
 result_df <- result_df %>%
@@ -237,18 +237,26 @@ plot_df_wide <- plot_df %>%
   pivot_wider(names_from = group, values_from = pct)
 ```
 
-```{r climate variable data, eval = FALSE}
+```{r climate variable data compression, eval = FALSE}
 
-# 5a. Grab the Australia bioclim variables (returns a SpatRaster)
+# 5a. Grab the Australia bioclim variables (all 19 layers)
 wc_aus <- worldclim_country(
-  country = "AUS",    # ISO code
-  var     = "bio",    # all 19 BIO variables
-  res     = 0.5,      # 30″ resolution
+  country = "AUS",
+  var     = "bio",
+  res     = 0.5,
   path    = "data/aus"
 )
 
-# dump an uncompressed multi‐band TIFF to disk
-tmp_tif <- "data/aus/wc_aus_tmp.tif"
+# 5b. Rename to bio1…bio19 so we can subset by those names
+orig <- names(wc_aus)
+new  <- sub(".*bio[_~\\.](\\d+)$", "bio\\1", orig)
+names(wc_aus) <- new
+
+# 5c. Keep only bio1 and bio12
+wc_aus <- wc_aus[[c("bio1", "bio12")]]
+
+# 5d. Dump an uncompressed 2-band TIFF to disk
+tmp_tif <- "data/aus/wc_aus_tmp2bands.tif"
 terra::writeRaster(
   wc_aus,
   filename  = tmp_tif,
@@ -256,11 +264,12 @@ terra::writeRaster(
   overwrite = TRUE
 )
 
-# run GDAL translate to apply lossless compression & tiling
+# 5e. Apply lossless compression & tiling via GDAL
+comp_tif <- "data/aus/wc_aus_compressed.tif"
 sf::gdal_utils(
   util        = "translate",
   source      = tmp_tif,
-  destination = "data/aus/wc_aus_compressed.tif",
+  destination = comp_tif,
   options     = c(
     "-co", "COMPRESS=DEFLATE",
     "-co", "PREDICTOR=2",
@@ -268,40 +277,37 @@ sf::gdal_utils(
   )
 )
 
-# reload the compressed file and clean up temp 
-wc_aus <- terra::rast("data/aus/wc_aus_compressed.tif")
+# 5f. Remove the uncompressed dump
 file.remove(tmp_tif)
 
-# 5b. Rename the layers to "bio1"…"bio19" so we can index 1–12
-orig <- names(wc_aus)
-new  <- sub(".*bio[_~\\.](\\d+)$", "bio\\1", orig)
-names(wc_aus) <- new
+# 5g. Purge any other raw .tif and rename the compressed to the canonical name
+all_tifs <- list.files("data/aus", pattern = "\\.tif$", full.names = TRUE)
+raw_tifs <- setdiff(all_tifs, comp_tif)
+if (length(raw_tifs)) file.remove(raw_tifs)
 
-# 5c. Reproject your 150 m buffers into geographic coords (lon/lat)
+final_tif <- "data/aus/wc_aus.tif"
+file.rename(comp_tif, final_tif)
+
+# 5h. Reload wc_aus from the single compressed file
+wc_aus <- rast(final_tif)
+```
+
+```{r climate variables data,}
+# 5c. Reproject your 150 m buffers into the raster’s CRS
 buffers_ll <- st_transform(buffers, st_crs(wc_aus))
 
-# 5d. Extract weighted means for bio1…bio12 and give them proper names ----
+# 5d. Extract weighted means for bio1 & bio12 and give them proper names ----
 
-# a) Define the codes and descriptive names
-bio_codes <- paste0("bio", 1:12)
+# a) Define the two codes and their descriptive names
+bio_codes <- c("bio1", "bio12")
 bio_names <- c(
-  annual_mean_temp           = "bio1",
-  mean_diurnal_range         = "bio2",
-  isothermality              = "bio3",
-  temp_seasonality           = "bio4",
-  max_temp_warmest_month     = "bio5",
-  min_temp_coldest_month     = "bio6",
-  temp_annual_range          = "bio7",
-  mean_temp_wettest_quarter  = "bio8",
-  mean_temp_driest_quarter   = "bio9",
-  mean_temp_warmest_quarter  = "bio10",
-  mean_temp_coldest_quarter  = "bio11",
-  annual_precipitation       = "bio12"
+  annual_mean_temp     = "bio1",
+  annual_precipitation = "bio12"
 )
 
 # b) Pull out each layer’s weighted mean into a list
 means_list <- purrr::map(bio_codes, function(code) {
-  exactextractr::exact_extract(
+  exact_extract(
     wc_aus[[code]],
     buffers_ll,
     fun = function(vals, coverage_fraction) {
@@ -310,14 +316,21 @@ means_list <- purrr::map(bio_codes, function(code) {
   )
 })
 
-# c) Build a tibble: sample IDs + one column per bio
-clim_df <- tibble::tibble(id = sample_points$id) %>%
-  dplyr::bind_cols(as_tibble(purrr::set_names(means_list, bio_codes))) %>%
+# c) Build a tibble: sample IDs + one column per selected bio
+clim_df <- tibble(id = sample_points$id) %>%
+  bind_cols(as_tibble(set_names(means_list, bio_codes))) %>%
   # d) Rename from bio# → descriptive
-  dplyr::rename(!!!bio_names)
+  rename(!!!bio_names)
+
+# 5e. Fill missing values:
+clim_df <- clim_df %>%
+  replace_na(list(
+    annual_mean_temp     = 13.7,  # aus ½(16.7 + 10.6)
+    annual_precipitation = 675.3  # langjähriger Mittelwert Greens Beach
+  ))
+
 
 print(clim_df)
-
 ```
 
 ```{r population variable data, eval = FALSE}
@@ -388,7 +401,7 @@ hill_df_full <- data.frame(
   id = landcover_prop$id,
   h0 = h0,
   h1 = h1,
-  h2 = h2
+  h2 = h2 
 )
 
 broad_prop <- plot_df_wide %>%
@@ -494,14 +507,8 @@ rect.hclust(hc, k = k, border = 2:5)  # draws boxes around your k clusters
 ```
 
 ```{r variables fusion, warning=FALSE, message=FALSE}
-hill_wide <- hill_long %>%
-  pivot_wider(
-    id_cols     = id,       
-    names_from  = q,    
-    values_from = value      
-  )
 
-variables_df <- hill_wide %>%
+variables_df <- hill_df_full %>%
   left_join(pop1km_df,     by = "id") %>%
   left_join(clim_df, by = "id") %>%
   left_join(landcover_wide,  by = "id")
@@ -538,180 +545,137 @@ write.table(
 )
 ```
 
-**visualisation work in progress**
-```{r dominante_landcover}
-# Pivot to long for easier processing
-dominant_by_sample <- plot_df_wide %>%
-  pivot_longer(
-    cols      = -id,
-    names_to  = "dominant_landcover",
-    values_to = "dom_percent_cover"
-  ) %>%
-  group_by(id) %>%
-  filter(dom_percent_cover == max(dom_percent_cover, na.rm = TRUE)) %>%
-  slice(1) %>%   # in case of ties, pick the first
-  ungroup()
+**visualisation**
 
-# 3) Join it back onto plot_df_wide
-plot_df_wide <- plot_df_wide %>%
-  left_join(dominant_by_sample, by = "id")
-
-```
-
-```{r dominant_boxplot}
-
-# 1) Compute fine-scale Shannon H per sample
-fine_shannon_df <- landcover_wide %>%
-  # convert % → proportions
-  select(id, starts_with("percent_")) %>%
-  mutate(across(starts_with("percent_"), ~ . / 100)) %>%
-  # compute H = –∑ p * log(p)
-  rowwise() %>%
-  mutate(
-    shannon = -sum(
-      c_across(starts_with("percent_")) * 
-      log(c_across(starts_with("percent_"))),
-      na.rm = TRUE
-    )
-  ) %>%
-  ungroup() %>%
-  select(id, shannon)
-
-# 2) Bring in each sample’s dominant landcover (from your broad table)
-shannon_by_dominant <- fine_shannon_df %>%
+```{r visualisations1 - dominance}
+# 2) Sum percent cover by 'form' per sample
+result_with_form <- result_df_imputed %>%
   left_join(
-    plot_df_wide %>% select(id, dominant_landcover),
-    by = "id"
+    style_df %>% select(land_cover_class, form),
+    by = "land_cover_class"
+  ) %>%
+  filter(!is.na(form))   # drop anything that didn’t map
+
+form_cover <- result_with_form %>%
+  group_by(id, form) %>%
+  summarize(percent_cover = sum(percent), .groups = "drop")
+
+form_wide <- form_cover %>%
+  pivot_wider(
+    id_cols     = id,
+    names_from  = form,
+    values_from = percent_cover,
+    values_fill = 0
   )
 
-# 3) Plot fine-scale Shannon by dominant landcover
-ggplot(shannon_by_dominant, 
-       aes(x = dominant_landcover, y = shannon, fill = dominant_landcover)) +
-  geom_boxplot(alpha = .8, outlier.color = "red", outlier.size = 1.5) +
-  theme_minimal(base_size = 14) +
+dominant_form <- form_cover %>%
+  group_by(id) %>%
+  slice_max(percent_cover, n = 1, with_ties = FALSE) %>%
+  ungroup() %>%
+  select(id, dominant_form = form)
+```
+
+```{r visualisations2 - hill long}
+# 2) Pivot Hill numbers to long form and join dominant cover
+hill_long <- hill_df_full %>%
+  pivot_longer(
+    cols      = h0:h2,
+    names_to  = "hill_order",
+    values_to = "diversity"
+  ) %>%
+  left_join(dominant_form, by = "id")
+```
+
+```{r visualisations3}
+# --- Visualization 1: Hill curves colored by dominant landcover ---
+ggplot(hill_long, aes(x = diversity, fill = dominant_form)) +
+  geom_histogram(position = "identity", alpha = 0.6, bins = 25) +
+  facet_wrap(~ hill_order, scales = "free_x") +
   labs(
-    title = "Fine-scale Shannon Diversity by Dominant Landcover",
-    x     = "Dominant Landcover",
-    y     = "Shannon Diversity (H)"
+    title = "Histograms of Hill Orders by Dominant Landcover Form",
+    x     = "Effective Diversity",
+    y     = "Count",
+    fill  = "Dominant Form"
   ) +
+  theme_minimal() +
   theme(
-    axis.text.x     = element_text(angle = 45, hjust = 1),
-    legend.position = "none"
+    strip.text       = element_text(face = "bold"),
+    axis.text.x      = element_text(size = 10),
+    legend.position  = "bottom"
   )
 
 ```
 
-```{r dominant_summary}
-dominant_summary <- continuous_df %>%
-  count(dominant_landcover, sort = TRUE) %>%
-  mutate(perc = 100 * n / sum(n))
+```{r visualisations4}
+# --- Visualization 2: Boxplots of each Hill metric by dominant cover ---
+hill1 <- filter(hill_long, hill_order == "h1")
 
-print(dominant_summary)
-```
-
-```{r merge-with-metadata, warning=FALSE, message=FALSE}
-# 8. Merge totals & groups into metadata
-
-NaturalvsCultivated <- left_join(sample_metadata, landcover_wide, by = c("sample" = "id"))
-```
-
-**scatter-plot**
-```{r scatter-plots-basic, warning=FALSE, message=FALSE}
-# use the new summary totals: cultivated_total, natural_total, urban_total
-plots_df <- NaturalvsCultivated %>%
-  rename(
-    Cultivated = Cultivated_Total,
-    Natural    = Native_Total,
-    Urban      = Artificial_Bare
-  )
-
-# Cultivated vs diversity
-p_cult <- ggplot(plots_df, aes(x = Cultivated, y = diversity)) +
-  geom_point() +
-  geom_smooth(method = "lm") +
+ggplot(hill1, aes(x = diversity, color = dominant_form)) +
+  geom_density(size = 1) +
   labs(
-    title = "Microbiome Diversity vs. Cultivated Cover",
-    x = "Cultivated Cover (%)",
-    y = "Diversity"
-  )
-# Natural vs diversity
-p_nat <- ggplot(plots_df, aes(x = Natural, y = diversity)) +
-  geom_point() +
-  geom_smooth(method = "lm") +
-  labs(
-    title = "Microbiome Diversity vs. Natural Cover",
-    x = "Natural Cover (%)",
-    y = "Diversity"
-  )
-# Urban vs diversity
-p_urb <- ggplot(plots_df, aes(x = Urban, y = diversity)) +
-  geom_point() +
-  geom_smooth(method = "lm") +
-  labs(
-    title = "Microbiome Diversity vs. Urban/Bare Cover",
-    x = "Urban/Bare Cover (%)",
-    y = "Diversity"
-  )
+    title = "Density of Hill-1 Diversity by Dominant Landcover Form",
+    x     = "Hill-1 (exp-Shannon)",
+    y     = "Density",
+    color = "Form"
+  ) +
+  theme_minimal()
 
-# print all three
-print(p_cult)
-print(p_nat)
-print(p_urb)
 ```
-
-**linear-model**
-```{r linear-model-and-boxplot, warning=FALSE, message=FALSE}
-lm_mod <- lm(
-  diversity ~ Cultivated_Total + Native_Total + Artificial_Bare,
-  data = NaturalvsCultivated
-)
-print(summary(lm_mod))
-
-
-# boxplot by a categorical environmental variable, e.g. "broad_environment"
-ggplot(NaturalvsCultivated, aes(x = broad_environment, y = diversity)) +
-  geom_boxplot() +
-  theme_minimal() +
-  labs(title = "Diversity by Broad Environment", x = "Broad Environment", y = "Diversity")
-```
-
-**boxplot**
-```{r categorize-native-cultivated, warning=FALSE, message=FALSE}
-# 11. Categorise continuous covers into Low/Med/High & boxplots
-
-NaturalvsCultivated <- NaturalvsCultivated %>%
-  mutate(
-    native_group = cut(
-      Native_Total,
-      breaks = c(-1, 25, 75, 100),
-      labels = c("Low", "Medium", "High")
-    ),
-    cultivated_group = cut(
-      Cultivated_Total,
-      breaks = c(-1, 25, 75, 100),
-      labels = c("Low", "Medium", "High")
+```{r visualisations5}
+for (ord in c("h0","h1","h2")) {
+  df_ord <- filter(hill_long, hill_order == ord)
+  p <- ggplot(df_ord, aes(x = dominant_form, y = diversity, fill = dominant_form)) +
+    geom_boxplot(alpha = 0.8, outlier.size = 1) +
+    labs(
+      title = paste("Distribution of", ord, "by Landcover Form"),
+      x     = "Dominant Form",
+      y     = paste("Diversity (", ord, ")", sep = "")
+    ) +
+    theme_minimal() +
+    theme(
+      axis.text.x     = element_text(angle = 30, hjust = 1),
+      legend.position = "none"
     )
-  )
-
-# Boxplot: diversity ~ native_group
-ggplot(NaturalvsCultivated, aes(x = native_group, y = diversity)) +
-  geom_boxplot(fill = "#1b9e77") +
-  theme_minimal() +
-  labs(
-    title = "Diversity by Native Vegetation Group",
-    x     = "Native Cover Group",
-    y     = "Diversity"
-  )
-
-# Boxplot: diversity ~ cultivated_group
-ggplot(NaturalvsCultivated, aes(x = cultivated_group, y = diversity)) +
-  geom_boxplot(fill = "#6a51a3") +
-  theme_minimal() +
-  labs(
-    title = "Diversity by Cultivated Vegetation Group",
-    x     = "Cultivated Cover Group",
-    y     = "Diversity"
-  )
-
+  print(p)
+}
 ```
 
+```{r visualisations6}
+ggplot(hill_long, aes(x = diversity)) +
+  geom_histogram(bins = 30, fill = "grey80", color = "white") +
+  facet_wrap(~ hill_order, scales = "free_x") +
+  labs(
+    title = "Overall Distribution of Hill Numbers",
+    x     = "Effective Diversity",
+    y     = "Count"
+  ) +
+  theme_minimal()
+```
+  
+```{r visualisations7}
+ggplot(filter(hill_long, hill_order == "h1"), 
+       aes(x = diversity, fill = dominant_form)) +
+  geom_histogram(position = "dodge", alpha = 0.7, bins = 20) +
+  labs(
+    title = "Histogram of Hill-1 by Dominant Landcover Form",
+    x     = "Hill-1 (exp‐Shannon)",
+    y     = "Count",
+    fill  = "Dominant Form"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+  
+```{r visualisations8}
+ggplot(filter(hill_long, hill_order == "h1"), 
+       aes(x = diversity, fill = dominant_form)) +
+  geom_histogram(position = "dodge", alpha = 0.7, bins = 20) +
+  labs(
+    title = "Histogram of Hill-1 by Dominant Landcover Form",
+    x     = "Hill-1 (exp‐Shannon)",
+    y     = "Count",
+    fill  = "Dominant Form"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```

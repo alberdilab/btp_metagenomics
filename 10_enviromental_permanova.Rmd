@@ -1,17 +1,16 @@
 
+# enviromental permanova
+
 ```{r load_data_comparison, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 load("data/data.Rdata")
 load("data/beta.Rdata")
 load("data/hill.Rdata")
 ```
 
-```{r configurating, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-library(tidyr)
-library(dplyr)
-library(vegan)
+```{r Pivot the Hill-long to wide, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 
 env_hill_df <- hill_long %>%
-  rename(sample = id) %>%               # <-- Add this line if hill_long uses 'id'
+  rename(sample = id) %>%               
   pivot_wider(
     id_cols      = sample,
     names_from   = q,
@@ -23,156 +22,189 @@ meta <- sample_metadata %>%
   left_join(env_hill_df, by = "sample")
 ```
 
-```{r env0n alligning betamatrix, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-dist_obj <- beta_q0n$S
-samples <- attr(dist_obj, "Labels")
-meta_aligned <- meta %>%
-  filter(sample %in% samples) %>%
-  arrange(match(sample, samples))
-stopifnot(identical(meta_aligned$sample, samples))
-hill_vars <- c("env_hill_qhill_q0", "env_hill_qhill_q1", "env_hill_qhill_q2")
-for (v in hill_vars) {
-  meta_tmp <- meta_aligned[, v, drop = FALSE]
-  colnames(meta_tmp) <- "alpha"
-  res <- adonis2(
-    dist_obj ~ alpha,
-    data = meta_tmp,
-    permutations = 999
-  )
-  cat("\n--- PERMANOVA for", v, "---\n")
-  print(res)
+```{r PERMANOVAs for q0, q1n, q1f, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+run_permanova <- function(beta_obj, meta) {
+  dist_obj <- beta_obj$S
+  samples  <- attr(dist_obj, "Labels")
+  meta_aligned <- meta %>%
+    filter(sample %in% samples) %>%
+    arrange(match(sample, samples))
+  stopifnot(identical(meta_aligned$sample, samples))
+
+  hill_vars <- c("env_hill_qhill_q0",
+                 "env_hill_qhill_q1",
+                 "env_hill_qhill_q2")
+  for (v in hill_vars) {
+    meta_tmp <- meta_aligned[, v, drop = FALSE]
+    colnames(meta_tmp) <- "alpha"
+    res <- adonis2(dist_obj ~ alpha,
+                   data = meta_tmp,
+                   permutations = 999)
+    cat("\n--- PERMANOVA for", v, "---\n")
+    print(res)
+  }
 }
+
+run_permanova(beta_q0n, meta)
+run_permanova(beta_q1n, meta)
+run_permanova(beta_q1f, meta)
 ```
 
-```{r env1n alligning betamatrix, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-dist_obj <- beta_q1n$S
-samples <- attr(dist_obj, "Labels")
-meta_aligned <- meta %>%
-  filter(sample %in% samples) %>%
-  arrange(match(sample, samples))
-stopifnot(identical(meta_aligned$sample, samples))
-hill_vars <- c("env_hill_qhill_q0", "env_hill_qhill_q1", "env_hill_qhill_q2")
-for (v in hill_vars) {
-  meta_tmp <- meta_aligned[, v, drop = FALSE]
-  colnames(meta_tmp) <- "alpha"
-  res <- adonis2(
-    dist_obj ~ alpha,
-    data = meta_tmp,
-    permutations = 999
-  )
-  cat("\n--- PERMANOVA for", v, "---\n")
-  print(res)
+```{r Prepare distance matrices, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+# Prepare distance matrices
+bray_dist0n <- beta_q0n$S
+bray_dist1n <- beta_q1n$S
+bray_dist1f <- beta_q1f$S
+```
+
+
+```{r Helper to make each plot, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+make_nmds_plot <- function(dist_mat, meta_aligned, qvar, title) {
+  nmds <- metaMDS(dist_mat, k = 2)
+  nmds_points <- as.data.frame(nmds$points)
+  nmds_points[[qvar]] <- meta_aligned[[qvar]]
+
+  ggplot(nmds_points, aes(MDS1, MDS2, color = .data[[qvar]])) +
+    geom_point(size = 3) +
+    theme_minimal() +
+    scale_color_viridis_c() +
+    labs(color = title)
 }
+
 ```
 
+```{r Align metadata once for q0, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+aligned0 <- meta %>%
+  filter(sample %in% attr(bray_dist0n, "Labels")) %>%
+  arrange(match(sample, attr(bray_dist0n, "Labels")))
 
-```{r env1f alligning betamatrix, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-dist_obj <- beta_q1f$S
-samples <- attr(dist_obj, "Labels")
-meta_aligned <- meta %>%
-  filter(sample %in% samples) %>%
-  arrange(match(sample, samples))
-stopifnot(identical(meta_aligned$sample, samples))
-hill_vars <- c("env_hill_qhill_q0", "env_hill_qhill_q1", "env_hill_qhill_q2")
-for (v in hill_vars) {
-  meta_tmp <- meta_aligned[, v, drop = FALSE]
-  colnames(meta_tmp) <- "alpha"
-  res <- adonis2(
-    dist_obj ~ alpha,
-    data = meta_tmp,
-    permutations = 999
-  )
-  cat("\n--- PERMANOVA for", v, "---\n")
-  print(res)
-}
-```
-
-```{r visualisation0n connection1, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-
-nmds <- metaMDS(bray_dist0n, k = 2)
-p1 <- as.data.frame(nmds$points)
-nmds_points$env_hill_q0 <- meta_order0n$env_hill_qhill_q0  
-
-ggplot(nmds_points, aes(MDS1, MDS2, color = env_hill_q0)) +
-  geom_point(size = 3) +
-  theme_minimal() +
-  scale_color_viridis_c() +
-  labs(color = "Environmental Hill q0")
-```
-
-```{r visualisation1n connection2, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-nmds <- metaMDS(bray_dist0n, k = 2)
-p2 <- as.data.frame(nmds$points)
-nmds_points$env_hill_q1 <- meta_order0n$env_hill_qhill_q1  
-
-ggplot(nmds_points, aes(MDS1, MDS2, color = env_hill_q1)) +
-  geom_point(size = 3) +
-  theme_minimal() +
-  scale_color_viridis_c() +
-  labs(color = "Environmental Hill q1")
-```
-
-```{r visualisation1f connection3, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-nmds <- metaMDS(bray_dist0n, k = 2)
-p3 <- as.data.frame(nmds$points)
-nmds_points$env_hill_q2 <- meta_order0n$env_hill_qhill_q2  
-
-ggplot(nmds_points, aes(MDS1, MDS2, color = env_hill_q2)) +
-  geom_point(size = 3) +
-  theme_minimal() +
-  scale_color_viridis_c() +
-  labs(color = "Environmental Hill q2")
-```
-
-```{r cowplot visu, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-
-combined_plot <- p1 + p2 + p3
-combined_plot
+p1 <- make_nmds_plot(bray_dist0n, aligned0, 
+         "env_hill_qhill_q0", "Environmental Hill q0")
+p2 <- make_nmds_plot(bray_dist1n, aligned0, 
+         "env_hill_qhill_q1", "Environmental Hill q1")
+p3 <- make_nmds_plot(bray_dist1f, aligned0, 
+         "env_hill_qhill_q2", "Environmental Hill q2")
 
 combined_plot <- plot_grid(p1, p2, p3, ncol = 3)
-combined_plot
+print(combined_plot)
 ```
 
-```{r envfit, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-nmds <- metaMDS(bray_dist0n, k=2)
-fit <- envfit(nmds, meta_order0n[, hill_vars], permutations=999)
-plot(nmds)
-plot(fit, p.max = 0.05) 
+```{r Envfit, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+fit <- envfit(metaMDS(bray_dist0n, k = 2),
+              aligned0[, c("env_hill_qhill_q0",
+                           "env_hill_qhill_q1",
+                           "env_hill_qhill_q2")],
+              permutations = 999)
+plot(metaMDS(bray_dist0n, k = 2))
+plot(fit, p.max = 0.05)
 ```
 
-```{r env_fit, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-bd <- betadisper(bray_dist0n, cut_number(meta_order0n$env_hill_qhill_q0, 3))
+```{r Betadisper by tertiles, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+bd <- betadisper(
+  bray_dist0n,
+  cut_number(aligned0$env_hill_qhill_q0, 3)
+)
 plot(bd)
 anova(bd)
+
 ```
 
-```{r env_tertiles split}
+```{r  Splitting into quantiles or medians, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+meta <- meta %>%
+  mutate(
+    env_hill_q0_group = cut_number(env_hill_qhill_q0, 3, labels = c("Low","Mid","High")),
+    env_hill_q1_group = cut_number(env_hill_qhill_q1, 3, labels = c("Low","Mid","High")),
+    env_hill_q2_group = cut_number(env_hill_qhill_q2, 3, labels = c("Low","Mid","High")),
+    env_hill_q0_group_med = ifelse(env_hill_qhill_q0 <= median(env_hill_qhill_q0, na.rm=TRUE),"Low","High"),
+    env_hill_q1_group_med = ifelse(env_hill_qhill_q1 <= median(env_hill_qhill_q1, na.rm=TRUE),"Low","High"),
+    env_hill_q2_group_med = ifelse(env_hill_qhill_q2 <= median(env_hill_qhill_q2, na.rm=TRUE),"Low","High")
+  )
+```
 
-meta$env_hill_q0_group <- cut_number(meta$env_hill_qhill_q0, n=3, labels = c("Low", "Mid", "High"))
+```{r checking validty, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 table(meta$env_hill_q0_group)
-
-meta$env_hill_q1_group <- cut_number(meta$env_hill_qhill_q1, n=3, labels = c("Low", "Mid", "High"))
-table(meta$env_hill_q1_group)
-
-meta$env_hill_q2_group <- cut_number(meta$env_hill_qhill_q2, n=3, labels = c("Low", "Mid", "High"))
-table(meta$env_hill_q2_group)
-
+table(meta$env_hill_q0_group_med)
+```
+**visualisation**
+```{r tidy NMDS‐points data frame, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+nmds0n <- metaMDS(bray_dist0n, k = 2)
+pts0n <- as.data.frame(nmds0n$points) %>%
+  mutate(sample = rownames(.)) %>%
+  left_join(meta %>% select(sample, env_hill_q0_group), by = "sample")
 ```
 
-```{r env_median, split}
-# For Hill number q0
-threshold_q0 <- median(meta$env_hill_qhill_q0, na.rm = TRUE)
-meta$env_hill_q0_group <- ifelse(meta$env_hill_qhill_q0 <= threshold_q0, "Low", "High")
-table(meta$env_hill_q0_group)
+```{r Boxplots of MDS1 and MDS2 across Low/Mid/High q0 groups}
+# Boxplot of MDS1 by q0 group
+p_box1 <- ggplot(pts0n, aes(x = env_hill_q0_group, y = MDS1, fill = env_hill_q0_group)) +
+  geom_boxplot() +
+  scale_fill_viridis_d(name = "q0 group") +
+  theme_minimal() +
+  labs(
+    x     = "Hill q0 tertile",
+    y     = "NMDS1",
+    title = "NMDS1 by q0 group"
+  )
 
-# For Hill number q1
-threshold_q1 <- median(meta$env_hill_qhill_q1, na.rm = TRUE)
-meta$env_hill_q1_group <- ifelse(meta$env_hill_qhill_q1 <= threshold_q1, "Low", "High")
-table(meta$env_hill_q1_group)
+# Boxplot of MDS2 by q0 group — make sure the ggplot call is there!
+p_box2 <- ggplot(pts0n, aes(x = env_hill_q0_group, y = MDS2, fill = env_hill_q0_group)) +
+  geom_boxplot() +
+  scale_fill_viridis_d(name = "q0 group") +
+  theme_minimal() +
+  labs(
+    x     = "Hill q0 tertile",
+    y     = "NMDS2",
+    title = "NMDS2 by q0 group"
+  )
 
-# For Hill number q2
-threshold_q2 <- median(meta$env_hill_qhill_q1, na.rm = TRUE)
-meta$env_hill_q2_group <- ifelse(meta$env_hill_qhill_q2 <= threshold_q2, "Low", "High")
-table(meta$env_hill_q2_group)
+# Now combine
+cowplot::plot_grid(p_box1, p_box2, ncol = 2)
 ```
 
+```{r Scatterplots: Hill α‐diversity vs. NMDS axes}
+nmds1n <- metaMDS(bray_dist1n, k = 2)
+pts1n <- as.data.frame(nmds1n$points) %>%
+  mutate(alpha_q1 = meta_aligned$env_hill_qhill_q1)
+
+ggplot(pts1n, aes(alpha_q1, MDS1)) +
+  geom_point() + geom_smooth(method = "lm", se = FALSE) +
+  theme_minimal() +
+  labs(x = "Hill q1 (alpha)", y = "NMDS1", title = "NMDS1 vs Hill q1")
+```
+
+```{r Envfit arrows over ggplot NMDS s}
+
+if (requireNamespace("ggvegan", quietly=TRUE)) {
+  library(ggvegan)
+  autoplot(nmds0n, layers = c("species", "sites")) +
+    geom_point(aes(colour = meta_aligned$env_hill_qhill_q0), size = 3) +
+    scale_colour_viridis_c() +
+    theme_minimal() +
+    labs(colour = "Hill q0")
+} else {
+  # basic vegan plot
+  plot(nmds0n, type = "n")
+  points(nmds0n, col = viridis::viridis(3)[as.numeric(pts0n$env_hill_q0_group)], pch = 19)
+  envfit0 <- envfit(nmds0n, aligned0[, hill_vars], permutations = 999)
+  plot(envfit0, p.max = 0.05, col = "black")
+}
+```
+
+```{r Heatmap of pairwise dissimilarities}
+# take 30 random samples
+set.seed(42)
+sub_samps <- sample(attr(bray_dist0n, "Labels"), 30)
+
+# extract the 30×30 dissimilarity sub‐matrix
+mat_sub <- as.matrix(bray_dist0n)[sub_samps, sub_samps]
+
+# turn it into a dist object
+dm_sub <- as.dist(mat_sub)
+
+# plot
+pheatmap(
+  mat_sub,
+  clustering_distance_rows = dm_sub,
+  clustering_distance_cols = dm_sub,
+  main = "Bray–Curtis dissimilarity (q0) — 30 samples"
+)
+```

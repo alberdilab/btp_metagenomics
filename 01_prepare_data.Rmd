@@ -1,10 +1,10 @@
 # Prepare data
 
-## Load data
+## Load data 
 
 Load the original data files outputted by the bioinformatic pipeline.
 
-### Sample metadata
+### Sample metadata 
 
 ```{r load_sample_metadata, warning=FALSE, comments="", message=FALSE, eval=FALSE}
 sample_metadata <- read_tsv("data/merged_metadata.tsv") %>%
