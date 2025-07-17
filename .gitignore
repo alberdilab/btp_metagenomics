@@ -1,7 +1,8 @@
+# RStudio artifacts
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
 
-# Ignore any GeoTIFFs under data/
+# Ignore all GeoTIFFs in data/
 data/**/*.tif
