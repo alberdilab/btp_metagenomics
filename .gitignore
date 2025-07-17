@@ -6,3 +6,6 @@
 
 # Ignore any GeoTIFFs under data/
 data/**/*.tif
+
+# Ignore any high-res PNGs under data/
+data/**/*.png
