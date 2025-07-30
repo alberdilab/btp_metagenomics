@@ -8,8 +8,10 @@ ignore_lines <- c(
   ".RData",
   ".Ruserdata",
   "",
-  "# Ignore any GeoTIFFs under data/",
-  "data/**/*.tif",
+  "# Ignore GeoTIFFs under data/",
+  "data/aus",
+  "data/pop1km",
+  "data/**/aus_pd_2020_1km.tif",
   "",
   "# Ignore any high-res PNGs under data/",
   "data/**/*.png"
