@@ -3,7 +3,7 @@
 
 ```{r setup, message=FALSE, warning=FALSE}
 # 0. Libraries
-library(sf)
+library(sf) 
 library(terra)   
 library(exactextractr)
 library(dplyr)
