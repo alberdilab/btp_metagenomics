@@ -7,7 +7,18 @@ load("data/data.Rdata")
 
 ```{r exclude Sample2 }
 sample_metadata<- sample_metadata %>% filter(sample!="EHI01340")
+
+sample_metadata <- sample_metadata%>% 
+  mutate(broad_environment = recode(broad_environment,
+                          "1000221 - Temperate woodland" = "Temperate woodland",
+                          "1000198 - Mixed forest" = "Mixed forest",
+                          "1000218 - Xeric shrubland" = "Xeric shrubland",
+                          "1000215 - Temperate shrubland" = "Temperate shrubland",
+                          "1000245 - Cropland" = "Cropland"))
+  
 ```
+
+
 ## Taxonomy overview 
 
 ### Phylum level
@@ -194,7 +205,7 @@ phylum_summary %>%
 ```{r phyla_nat, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 
 Temperate_woodland_samples <- sample_metadata %>% 
-  filter(broad_environment=="1000221 - Temperate woodland") %>% 
+  filter(broad_environment=="Temperate woodland") %>% 
   dplyr::select(sample) %>% 
   pull()
 
@@ -223,7 +234,7 @@ genome_metadata %>%
 ```{r phyla_cap_xeric, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
 
 xeric_shrubland_samples <- sample_metadata %>% 
-  filter(broad_environment=="1000218 - Xeric shrubland") %>% 
+  filter(broad_environment=="Xeric shrubland") %>% 
   dplyr::select(sample) %>% 
   pull()
 
@@ -249,7 +260,7 @@ genome_metadata %>%
 ```{r phyla_cap_forest, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 
 mixed_forest_samples <- sample_metadata %>% 
-  filter(broad_environment=="1000198 - Mixed forest") %>% 
+  filter(broad_environment=="Mixed forest") %>% 
   dplyr::select(sample) %>% 
   pull()
 
@@ -276,7 +287,7 @@ genome_metadata %>%
 ```{r phyla_cap_cropland, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 
 cropland_samples <- sample_metadata %>% 
-  filter(broad_environment=="1000245 - Cropland") %>% 
+  filter(broad_environment=="Cropland") %>% 
   dplyr::select(sample) %>% 
   pull()
 
@@ -306,14 +317,14 @@ phylum_summary %>%
   summarise(
     total_mean = mean(relabun * 100, na.rm = TRUE),
     total_sd = sd(relabun * 100, na.rm = TRUE),
-    le_mean = mean(ifelse(broad_environment == "1000245 - Cropland", relabun * 100, NA), na.rm = TRUE),
-    le_sd = sd(ifelse(broad_environment == "1000245 - Cropland", relabun * 100, NA), na.rm = TRUE),
-    ha_mean = mean(ifelse(broad_environment == "1000198 - Mixed forest", relabun * 100, NA), na.rm = TRUE),
-    ha_sd = sd(ifelse(broad_environment == "1000198 - Mixed forest", relabun * 100, NA), na.rm = TRUE),
-    er_mean = mean(ifelse(broad_environment == "1000218 - Xeric shrubland", relabun * 100, NA), na.rm = TRUE),
-    er_sd = sd(ifelse(broad_environment == "1000218 - Xeric shrubland", relabun * 100, NA), na.rm = TRUE),
-    go_mean = mean(ifelse(broad_environment == "1000221 - Temperate woodland", relabun * 100, NA), na.rm = TRUE),
-    go_sd = sd(ifelse(broad_environment == "1000221 - Temperate woodland", relabun * 100, NA), na.rm = TRUE)
+    le_mean = mean(ifelse(broad_environment == "Cropland", relabun * 100, NA), na.rm = TRUE),
+    le_sd = sd(ifelse(broad_environment == "Cropland", relabun * 100, NA), na.rm = TRUE),
+    ha_mean = mean(ifelse(broad_environment == "Mixed forest", relabun * 100, NA), na.rm = TRUE),
+    ha_sd = sd(ifelse(broad_environment == "Mixed forest", relabun * 100, NA), na.rm = TRUE),
+    er_mean = mean(ifelse(broad_environment == "Xeric shrubland", relabun * 100, NA), na.rm = TRUE),
+    er_sd = sd(ifelse(broad_environment == "Xeric shrubland", relabun * 100, NA), na.rm = TRUE),
+    go_mean = mean(ifelse(broad_environment == "Temperate woodland", relabun * 100, NA), na.rm = TRUE),
+    go_sd = sd(ifelse(broad_environment == "Temperate woodland", relabun * 100, NA), na.rm = TRUE)
   ) %>%
   mutate(
     Total = str_c(round(total_mean, 3), "±", round(total_sd, 3)),
@@ -412,14 +423,14 @@ family_summary %>%
     summarise(
     total_mean = mean(relabun * 100, na.rm = TRUE),
     total_sd = sd(relabun * 100, na.rm = TRUE),
-    le_mean = mean(ifelse(broad_environment == "1000245 - Cropland", relabun * 100, NA), na.rm = TRUE),
-    le_sd = sd(ifelse(broad_environment == "1000245 - Cropland", relabun * 100, NA), na.rm = TRUE),
-    ha_mean = mean(ifelse(broad_environment == "1000198 - Mixed forest", relabun * 100, NA), na.rm = TRUE),
-    ha_sd = sd(ifelse(broad_environment == "1000198 - Mixed forest", relabun * 100, NA), na.rm = TRUE),
-    er_mean = mean(ifelse(broad_environment == "1000218 - Xeric shrubland", relabun * 100, NA), na.rm = TRUE),
-    er_sd = sd(ifelse(broad_environment == "1000218 - Xeric shrubland", relabun * 100, NA), na.rm = TRUE),
-    go_mean = mean(ifelse(broad_environment == "1000221 - Temperate woodland", relabun * 100, NA), na.rm = TRUE),
-    go_sd = sd(ifelse(broad_environment == "1000221 - Temperate woodland", relabun * 100, NA), na.rm = TRUE)
+    le_mean = mean(ifelse(broad_environment == "Cropland", relabun * 100, NA), na.rm = TRUE),
+    le_sd = sd(ifelse(broad_environment == "Cropland", relabun * 100, NA), na.rm = TRUE),
+    ha_mean = mean(ifelse(broad_environment == "Mixed forest", relabun * 100, NA), na.rm = TRUE),
+    ha_sd = sd(ifelse(broad_environment == "Mixed forest", relabun * 100, NA), na.rm = TRUE),
+    er_mean = mean(ifelse(broad_environment == "Xeric shrubland", relabun * 100, NA), na.rm = TRUE),
+    er_sd = sd(ifelse(broad_environment == "Xeric shrubland", relabun * 100, NA), na.rm = TRUE),
+    go_mean = mean(ifelse(broad_environment == "Temperate woodland", relabun * 100, NA), na.rm = TRUE),
+    go_sd = sd(ifelse(broad_environment == "Temperate woodland", relabun * 100, NA), na.rm = TRUE)
   ) %>%
   mutate(
     Total = str_c(round(total_mean, 3), "±", round(total_sd, 3)),
@@ -459,14 +470,14 @@ family_summary %>%
     group_by(family) %>%
     summarise(total_mean=mean(relabun*100, na.rm=T),
               total_sd=sd(relabun*100, na.rm=T),
-              le_mean=mean(relabun[broad_environment=="1000245 - Cropland"]*100, na.rm=T),
-             le_sd=sd(relabun[broad_environment=="1000245 - Cropland"]*100, na.rm=T),
-              ha_mean=mean(relabun[broad_environment=="1000198 - Mixed forest"]*100, na.rm=T),
-              ha_sd=sd(relabun[broad_environment=="1000198 - Mixed forest"]*100, na.rm=T),
-              er_mean=mean(relabun[broad_environment=="1000218 - Xeric shrubland"]*100, na.rm=T),
-              er_sd=sd(relabun[broad_environment=="1000218 - Xeric shrubland"]*100, na.rm=T),
-              go_mean=mean(relabun[broad_environment=="1000221 - Temperate woodland"]*100, na.rm=T),
-              go_sd=sd(relabun[broad_environment=="1000221 - Temperate woodland"]*100, na.rm=T)) %>%
+              le_mean=mean(relabun[broad_environment=="Cropland"]*100, na.rm=T),
+             le_sd=sd(relabun[broad_environment=="Cropland"]*100, na.rm=T),
+              ha_mean=mean(relabun[broad_environment=="Mixed forest"]*100, na.rm=T),
+              ha_sd=sd(relabun[broad_environment=="Mixed forest"]*100, na.rm=T),
+              er_mean=mean(relabun[broad_environment=="Xeric shrubland"]*100, na.rm=T),
+              er_sd=sd(relabun[broad_environment=="Xeric shrubland"]*100, na.rm=T),
+              go_mean=mean(relabun[broad_environment=="Temperate woodland"]*100, na.rm=T),
+              go_sd=sd(relabun[broad_environment=="Temperate woodland"]*100, na.rm=T)) %>%
     mutate(Total=str_c(round(total_mean,3),"±",round(total_sd,3)),
           Cropland=str_c(round(le_mean,3),"±",round(le_sd,3)),
           Mixed_forest=str_c(round(ha_mean,3),"±",round(ha_sd,3)),
@@ -526,7 +537,7 @@ genus_summary %>%
 
 ```
 
-*** Percetange of genera in each group of environment***
+*** Percetange of genera in each group of broad environment clusters***
 
 ```{r taxonomy_genus_summary, warning=FALSE, comments="", message=FALSE}
 genus_summary <- genome_counts_filt %>%
@@ -544,14 +555,14 @@ genus_summary %>%
     group_by(genus) %>%
     summarise(total_mean=mean(relabun*100, na.rm=T),
               total_sd=sd(relabun*100, na.rm=T),
-              le_mean=mean(relabun[broad_environment=="1000245 - Cropland"]*100, na.rm=T),
-             le_sd=sd(relabun[broad_environment=="1000245 - Cropland"]*100, na.rm=T),
-              ha_mean=mean(relabun[broad_environment=="1000198 - Mixed forest"]*100, na.rm=T),
-              ha_sd=sd(relabun[broad_environment=="1000198 - Mixed forest"]*100, na.rm=T),
-              er_mean=mean(relabun[broad_environment=="1000218 - Xeric shrubland"]*100, na.rm=T),
-              er_sd=sd(relabun[broad_environment=="1000218 - Xeric shrubland"]*100, na.rm=T),
-              go_mean=mean(relabun[broad_environment=="1000221 - Temperate woodland"]*100, na.rm=T),
-              go_sd=sd(relabun[broad_environment=="1000221 - Temperate woodland"]*100, na.rm=T)) %>%
+              le_mean=mean(relabun[broad_environment=="Cropland"]*100, na.rm=T),
+             le_sd=sd(relabun[broad_environment=="Cropland"]*100, na.rm=T),
+              ha_mean=mean(relabun[broad_environment=="Mixed forest"]*100, na.rm=T),
+              ha_sd=sd(relabun[broad_environment=="Mixed forest"]*100, na.rm=T),
+              er_mean=mean(relabun[broad_environment=="Xeric shrubland"]*100, na.rm=T),
+              er_sd=sd(relabun[broad_environment=="Xeric shrubland"]*100, na.rm=T),
+              go_mean=mean(relabun[broad_environment=="Temperate woodland"]*100, na.rm=T),
+              go_sd=sd(relabun[broad_environment=="Temperate woodland"]*100, na.rm=T)) %>%
     mutate(Total=str_c(round(total_mean,3),"±",round(total_sd,3)),
           Cropland=str_c(round(le_mean,3),"±",round(le_sd,3)),
           Mixed_forest=str_c(round(ha_mean,3),"±",round(ha_sd,3)),
