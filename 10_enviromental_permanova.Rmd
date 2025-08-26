@@ -7,6 +7,10 @@ load("data/beta.Rdata")
 load("data/hill.Rdata")
 ```
 
+```{r exclude Sample10}
+sample_metadata<- sample_metadata %>% filter(sample!="EHI01340")
+```
+
 ```{r Pivot the Hill-long to wide, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 
 env_hill_df <- hill_long %>%

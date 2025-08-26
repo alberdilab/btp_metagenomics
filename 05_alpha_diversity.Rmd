@@ -8,6 +8,11 @@ load("data/data.Rdata")
 treatment_colors <- c("#f56042","#429ef5", "#42f58d", "#b142f5")
 sample_metadata$broad_environment <- factor(sample_metadata$broad_environment, levels=c("1000198 - Mixed forest", "1000221 - Temperate woodland", "1000218 - Xeric shrubland", "1000245 - Cropland"))
 ```
+
+```{r exclude Sample3}
+sample_metadata<- sample_metadata %>% filter(sample!="EHI01340")
+```
+
 ```{r pruning tree}
 # 1) Figure out the common labels
 otus  <- genome_counts_filt$genome
@@ -189,6 +194,7 @@ plot4 <- alpha_div %>%
     )+
   labs(y = "Functional alpha diversity")
 ```
+
 ```{r div_plot_together, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
 grid.arrange(arrangeGrob(plot1,plot2,plot3, plot4, ncol = 2))
 ```

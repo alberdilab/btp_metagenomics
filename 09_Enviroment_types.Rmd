@@ -28,6 +28,8 @@ points_sf   <- st_as_sf(sample_points,
                         crs    = 4326)
 points_proj     <- st_transform(points_sf, 28355)
 
+sample_points<- sample_points %>% filter(id!="EHI01340")
+
 # — 1. Build virtual mosaic & reproject —
 tile_files   <- list.files(
   "Landcover/Tif",

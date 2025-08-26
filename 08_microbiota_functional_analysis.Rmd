@@ -3,7 +3,13 @@
 
 ```{r load_data_func,comment="", echo=FALSE, message=FALSE, warning=FALSE}
 load("data/data.Rdata")
+```
 
+```{r exclude Sample8}
+sample_metadata<- sample_metadata %>% filter(sample!="EHI01340")
+```
+
+```{r colourscheming,comment="", echo=FALSE, message=FALSE, warning=FALSE}
 sample_metadata$sex <- factor(sample_metadata$sex, levels=c("Male", "Female"))
 treatment_colors <- c("#f56042","#429ef5")
 genome_counts_filt <- genome_counts_filt[genome_counts_filt$genome %in% rownames(genome_gifts),] 

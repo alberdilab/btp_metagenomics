@@ -3,7 +3,13 @@
 
 ```{r load_data_mag_filtdamr_diffe, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 load("data/data.Rdata")
+```
 
+```{r exclude Sample7}
+sample_metadata<- sample_metadata %>% filter(sample!="EHI01340")
+```
+
+```{r genom_count_filt, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 genome_counts_filt <- genome_counts_filt %>%
   select(one_of(c("genome",sample_metadata$sample))) %>%
   filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%

@@ -7,6 +7,11 @@
 load("data/data.Rdata")
 ```
 
+```{r exclude Sample1 }
+sample_metadata<- sample_metadata %>% filter(sample!="EHI01340")
+```
+***EHI01340 sample has been removed because of inability to map MAGS***
+
 ### Genome phylogeny
 
 ```{r genome_phylogeny, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE}
