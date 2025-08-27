@@ -18,7 +18,7 @@ sample_metadata_without_NA <- sample_metadata %>%
 beta_q0n <- genome_counts_filt %>%  
   
   
-  column_to_rownames(., "genome") %>%
+  column_to_rownames(., "genome"  ) %>%
   filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
   select_if(~!all(. == 0)) %>%
   hillpair(., q = 0)

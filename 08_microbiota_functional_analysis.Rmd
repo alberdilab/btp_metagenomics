@@ -62,7 +62,7 @@ wilcox.test(value ~ sex, data=MCI)
 
 ```
 
-```{r comunity_elem_plot, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=12, fig.width=10, fig.fullwidth=TRUE}
+```{r comunity_elem_plot, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=15, fig.width=10, fig.fullwidth=TRUE}
 GIFTs_elements_community %>%
     as.data.frame() %>%
     rownames_to_column(var="sample")%>%
@@ -403,7 +403,7 @@ print(plt)
 domain_gift <- GIFTs_domains_community %>% 
   as.data.frame() %>% 
   rownames_to_column(., "sample") %>% 
-  merge(sample_metadata %>% select(sample,sex,broad_environment), by="sample")
+  merge(sample_metadata %>% select(sample,sex), by="sample")
 ```
 
 ```{r commun_wilcox_dom_gut, comment="", message=FALSE, warning=FALSE}
@@ -411,7 +411,7 @@ unique_domain_db<- GIFT_db[c(4)] %>%
   distinct(Domain, .keep_all = TRUE)
 
 significant_domain <- domain_gift %>%
-    pivot_longer(-c(sample,sex,broad_environment), names_to = "trait", values_to = "value") %>%
+    pivot_longer(-c(sample,sex), names_to = "trait", values_to = "value") %>%
     group_by(trait) %>%
     summarise(p_value = wilcox.test(value ~ sex)$p.value) %>%
     mutate(p_adjust=p.adjust(p_value, method="BH")) %>%
@@ -433,7 +433,7 @@ domain_gift_filt <- subset(domain_gift_t, trait %in% significant_domain$trait) %
   as.data.frame() %>%
   mutate_if(is.character, as.numeric) %>%
   rownames_to_column(., "sample") %>%
-  left_join(sample_metadata[c("sample", "sex", "broad_environment")], by = join_by(sample == sample)) %>%
+  left_join(sample_metadata[c("sample", "sex")], by = join_by(sample == sample)) %>%
   filter(!is.na(sex))
 
   
@@ -464,7 +464,7 @@ domain_gift_names <- domain_gift_filt%>%
   as.data.frame() %>%
   mutate_if(is.character, as.numeric)  %>%
   rownames_to_column(., "sample")%>% 
-  left_join(., sample_metadata[c("sample", "sex", "broad_environment")], by = join_by(sample == sample))
+  left_join(., sample_metadata[c("sample", "sex")], by = join_by(sample == sample))
 
 
 colNames <- names(domain_gift_names)[2:3]

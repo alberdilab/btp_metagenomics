@@ -18,7 +18,7 @@ github-repo: https://github.com/alberdilab/btp_metagenomics.git
 
 ## Libaries 
 
-```{r}
+```{r library loadout, warning=FALSE, comments="", message=FALSE}
 # Base
 library(R.utils)
 library(knitr)
@@ -27,6 +27,7 @@ library(devtools)
 library(tinytable)
 library(rairtable)
 library(readxl)
+library(janitor)
 
 # For tree handling
 library(ape)

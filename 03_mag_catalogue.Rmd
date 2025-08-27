@@ -222,7 +222,7 @@ cat(genome_annota)
 genome_annota*100/pred_genes
 ```
 
-***Number of KEGG annotatated genes and percentages***
+***Number of KEGG annotated genes and percentages***
 ```{r kegg_stats, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE, eval = FALSE}
 # KEGG annotation
 kegg_annota <- genome_annotations %>%
