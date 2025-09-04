@@ -15,7 +15,12 @@ sample_metadata <- sample_metadata%>%
                           "1000218 - Xeric shrubland" = "Xeric shrubland",
                           "1000215 - Temperate shrubland" = "Temperate shrubland",
                           "1000245 - Cropland" = "Cropland"))
-  
+
+valid_samples <- sample_metadata$sample
+
+genome_counts_filt <- genome_counts_filt %>%
+  dplyr::select(genome, tidyselect::any_of(valid_samples))
+
 ```
 
 

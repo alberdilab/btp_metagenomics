@@ -18,11 +18,9 @@ library(purrr)
 ## Landcover percentage
 **Generate Bufferzones**
 ```{r extract-buffer, eval = FALSE}
-## — 0. Load sample points and buffers —
-sample_points <- read.csv(
-  "sample_points.csv",
-  stringsAsFactors = FALSE
-)
+sample_points <- read.csv("sample_points.csv", stringsAsFactors = FALSE) %>%
+  filter(id != "EHI01340")
+
 points_sf   <- st_as_sf(sample_points,
                         coords = c("longitude", "latitude"),
                         crs    = 4326)

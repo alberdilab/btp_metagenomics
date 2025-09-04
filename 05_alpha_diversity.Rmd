@@ -10,7 +10,13 @@ sample_metadata$broad_environment <- factor(sample_metadata$broad_environment, l
 ```
 
 ```{r exclude Sample3}
-sample_metadata<- sample_metadata %>% filter(sample!="EHI01340")
+
+sample_metadata <- sample_metadata %>% dplyr::filter(sample != "EHI01340")
+valid_samples <- sample_metadata$sample
+
+genome_counts_filt <- genome_counts_filt %>%
+  dplyr::select(genome, tidyselect::any_of(valid_samples))
+
 ```
 
 ```{r pruning tree}
@@ -80,7 +86,7 @@ alpha_div <- richness %>%
 ```{r alpha_div_diets_summary_all, comment="",echo=FALSE, message=FALSE, warning=FALSE}
 alpha_div %>%
   pivot_longer(-sample, names_to = "alpha", values_to = "value") %>%
-  left_join(sample_metadata, by = join_by(sample == sample)) %>%
+  inner_join(sample_metadata, by = join_by(sample == sample)) %>%
     group_by(alpha)%>%
     summarise(total_mean=mean(value, na.rm=T),
               total_sd=sd(value, na.rm=T),
@@ -125,7 +131,7 @@ env_labels_long <- c(
 make_plot <- function(target_metric, ylab){
   alpha_div %>%
     pivot_longer(-sample, names_to = "metric", values_to = "value") %>%
-    left_join(sample_metadata, by = dplyr::join_by(sample == sample)) %>%
+    inner_join(sample_metadata, by = dplyr::join_by(sample == sample)) %>%
     filter(metric == target_metric) %>%
     ggplot(aes(x = broad_environment, y = value)) +
     geom_boxplot(aes(fill = broad_environment),
@@ -180,7 +186,7 @@ sex_colors <- c("Female" = "#E41A1C", "Male" = "#377EB8", "Unknown" = "grey50")
 make_plot_sex <- function(target_metric, ylab) {
   alpha_div %>%
     pivot_longer(-sample, names_to = "metric", values_to = "value") %>%
-    left_join(sample_metadata, by = dplyr::join_by(sample == sample)) %>%
+    inner_join(sample_metadata, by = dplyr::join_by(sample == sample)) %>%
     filter(metric == target_metric) %>%
     mutate(
       # ensure order + map short ticks
@@ -255,7 +261,7 @@ final_plot_sex
 ```{r rich_MM, comment="", message=FALSE, warning=FALSE}
 
 alpha_div_meta <- alpha_div %>%
-  left_join(sample_metadata, by = join_by(sample == sample))
+  inner_join(sample_metadata, by = join_by(sample == sample))
 
 alpha_div_meta_clean <- alpha_div_meta %>%
   filter(!is.na(richness), !is.na(broad_environment), !is.na(sex))

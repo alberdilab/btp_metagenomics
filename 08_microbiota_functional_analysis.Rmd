@@ -6,7 +6,24 @@ load("data/data.Rdata")
 ```
 
 ```{r exclude Sample8}
-sample_metadata<- sample_metadata %>% filter(sample!="EHI01340")
+
+sample_metadata <- sample_metadata %>% dplyr::filter(sample != "EHI01340")
+valid_samples <- sample_metadata$sample
+
+genome_counts_filt <- genome_counts_filt %>%
+  dplyr::select(c(genome, tidyselect::any_of(valid_samples)))
+
+# Recompute row-normalized counts
+genome_counts_row <- genome_counts_filt %>%
+  dplyr::mutate(dplyr::across(-genome, ~ . / sum(.))) %>%
+  tibble::column_to_rownames("genome")
+
+keep <- valid_samples
+GIFTs_elements_community  <- GIFTs_elements_community [rownames(GIFTs_elements_community)  %in% keep, , drop = FALSE]
+GIFTs_functions_community <- GIFTs_functions_community[rownames(GIFTs_functions_community) %in% keep, , drop = FALSE]
+GIFTs_domains_community   <- GIFTs_domains_community  [rownames(GIFTs_domains_community)  %in% keep, , drop = FALSE]
+
+
 ```
 
 ```{r colourscheming,comment="", echo=FALSE, message=FALSE, warning=FALSE}
