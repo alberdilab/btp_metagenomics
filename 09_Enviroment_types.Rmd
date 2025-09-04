@@ -249,7 +249,7 @@ library(dplyr)
 library(tidyr)
 
 # --- 1. download & load bioclim for AUS ------------------------------------
-# this pulls only the AUS archive (~5 MB), no global 50 MB zip
+
 wc_aus <- worldclim_country(
   country = "AUS",       # ISO code
   var     = "bio",       # bioclim variables
@@ -409,6 +409,20 @@ hill_df_full <- data.frame(
   h1 = h1,
   h2 = h2 
 )
+
+
+hill_long <- hill_df_full %>%
+  tidyr::pivot_longer(
+    cols      = h0:h2,
+    names_to  = "q",        # must be "q" for chapter 10
+    values_to = "value"     # must be "value" for chapter 10
+  ) %>%
+  dplyr::arrange(id, q) %>%
+  dplyr::select(id, q, value)  
+
+dir.create("data", showWarnings = FALSE, recursive = TRUE)
+save(hill_long, file = "data/hill.Rdata")
+
 
 broad_prop <- plot_df_wide %>%
   mutate(across(-id, ~ . / 100))    # convert % → proportions

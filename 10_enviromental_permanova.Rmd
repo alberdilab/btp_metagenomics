@@ -69,10 +69,16 @@ make_nmds_plot <- function(dist_mat, meta_aligned, qvar, title) {
   pts[[qvar]] <- meta_aligned[[qvar]]
 
   ggplot2::ggplot(pts, ggplot2::aes(MDS1, MDS2, color = .data[[qvar]])) +
-    ggplot2::geom_point(size = 3) +
-    ggplot2::theme_minimal() +
-    ggplot2::scale_color_viridis_c() +
-    ggplot2::labs(color = title)
+    ggplot2::geom_point(size = 3, alpha = 0.8, shape = 21, stroke = 0.5) +
+    ggplot2::theme_minimal(base_size = 14) +
+    ggplot2::scale_color_viridis_c(option = "plasma", direction = -1) +
+    ggplot2::labs(color = title, x = "NMDS1", y = "NMDS2") +
+    ggplot2::theme(
+      panel.grid = element_blank(),
+      axis.text  = element_text(size = 12),
+      axis.title = element_text(face = "bold"),
+      legend.title = element_text(face = "bold")
+    )
 }
 
 
@@ -100,13 +106,23 @@ cowplot::plot_grid(p1, p2, p3, ncol = 3)
 ```
 
 ```{r Envfit, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-fit <- vegan::envfit(
-  vegan::metaMDS(bray_dist0n, k = 2, trymax = 500, trace = 0),
-  aligned0[, c("env_hill_h0", "env_hill_h1", "env_hill_h2")],
-  permutations = 999
-)
-plot(vegan::metaMDS(bray_dist0n, k = 2))
-plot(fit, p.max = 0.05)
+fit <- vegan::envfit(nmds0n, aligned0[, c("env_hill_h0", "env_hill_h1", "env_hill_h2")])
+
+# Scores extrahieren
+fit_scores <- as.data.frame(scores(fit, display = "vectors"))
+fit_scores$variable <- rownames(fit_scores)
+
+ggplot(pts0n, aes(MDS1, MDS2)) +
+  geom_point(color = "grey50", size = 2) +
+  geom_segment(data = fit_scores,
+               aes(x = 0, y = 0, xend = NMDS1, yend = NMDS2),
+               arrow = arrow(length = unit(0.25, "cm")),
+               color = "red", size = 1) +
+  geom_text(data = fit_scores,
+            aes(x = NMDS1, y = NMDS2, label = variable),
+            vjust = -0.8, color = "red", fontface = "bold") +
+  theme_minimal(base_size = 14)
+
 
 ```
 
