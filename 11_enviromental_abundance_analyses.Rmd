@@ -154,100 +154,45 @@ structural_zeros_list <- purrr::map(filtered_inputs, function(f) {
 ```
 
 
+
 ```{r env_chart1, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
-# --- UpSet presence in Low vs High ----------------------------------------
-groupcolors <- c(Low = '#408892', High = '#c04062')
-
-for (qname in names(filtered_inputs)) {
-  f <- filtered_inputs[[qname]]
-
-  md <- f$metadata_div
-  gc <- f$genome_counts %>% tibble::column_to_rownames("genome")
-
-  # PA matrix genomes × samples
-  pa <- (gc > 0) * 1
-
-  low_samples  <- md$sample[md[[f$group_col]] == "Low"]
-  high_samples <- md$sample[md[[f$group_col]] == "High"]
-
-  # Keep columns that exist in pa
-  low_samples  <- intersect(low_samples,  colnames(pa))
-  high_samples <- intersect(high_samples, colnames(pa))
-
-  Low  <- as.integer(rowSums(pa[, low_samples,  drop = FALSE]) > 0)
-  High <- as.integer(rowSums(pa[, high_samples, drop = FALSE]) > 0)
-
-  table_upset <- data.frame(Low = Low, High = High, row.names = rownames(pa))
-
-  cat("Plotting UpSet for ", qname, "\n", sep = "")
-  UpSetR::upset(
-    table_upset,
-    sets             = c("Low", "High"),
-    sets.bar.color   = unname(groupcolors[c("Low","High")]),
-    keep.order       = TRUE,
-    mb.ratio         = c(0.55, 0.45),
-    order.by         = "freq",
-    main.bar.color   = "gray30",
-    mainbar.y.label  = paste0("Genomes (", qname, ")"),
-    sets.x.label     = "Number of genomes"
-  )
-}
+p <- ComplexUpset::upset(
+  df,
+  intersect = c("Low","High"),
+  base_annotations = list(
+    'Intersection size' = ComplexUpset::intersection_size(
+      text = list(size = 3, vjust = -0.5)
+    )
+  ),
+  sort_intersections = "descending",
+  width_ratio = 0.3
+) + ggplot2::scale_fill_manual(values = groupcolors) + ggplot2::theme_minimal(base_size = 12)
+print(p)
 
 ```
 
-```{r env_phyloseqobject, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-# --- UpSet again (tidy walk2), no hard-coded group name -------------------
-group_colors <- c(Low  = "#408892", High = "#c04062")
-
-purrr::walk2(filtered_inputs, names(filtered_inputs), ~{
-  f    <- .x
-  name <- .y
-
-  md <- f$metadata_div
-  gc <- f$genome_counts %>% tibble::column_to_rownames("genome")
-  pa <- (gc > 0) * 1
-
-  low_samples  <- md$sample[md[[f$group_col]] == "Low"]
-  high_samples <- md$sample[md[[f$group_col]] == "High"]
-  low_samples  <- intersect(low_samples,  colnames(pa))
-  high_samples <- intersect(high_samples, colnames(pa))
-
-  Low  <- as.integer(rowSums(pa[, low_samples,  drop = FALSE]) > 0)
-  High <- as.integer(rowSums(pa[, high_samples, drop = FALSE]) > 0)
-  table_upset <- data.frame(Low = Low, High = High, row.names = rownames(pa))
-
-  cat("UpSet for q=", name, "\n", sep = "")
-  UpSetR::upset(
-    table_upset,
-    sets            = c("Low","High"),
-    sets.bar.color  = unname(group_colors[c("Low","High")]),
-    keep.order      = TRUE,
-    mb.ratio        = c(0.6,0.4),
-    mainbar.y.label = paste0("Genomes present (", name, ")"),
-    sets.x.label    = "Genomes per group"
-  )
-})
-
-
-```
 
 #### MAG level
 
 ```{r env_ancombc, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-# --- build phyloseq per q -------------------------------------------------
+# --- build phyloseq per q (keep zeros; no fake pseudocount) --------------
 phylo_list <- purrr::imap(filtered_inputs, function(f, name) {
-  md_tbl <- f$metadata_div %>% tibble::column_to_rownames("sample")
+  # sample data
+  md_tbl <- f$metadata_div %>%
+    dplyr::mutate(!!f$group_col := factor(.data[[f$group_col]], levels = c("Low","High"))) %>%
+    tibble::column_to_rownames("sample")
 
-  # integer counts with tiny pseudocount to avoid zeros (ANCOMBC expects counts)
-  otu <- f$genome_counts %>%
-    dplyr::mutate(across(-genome, ~ as.integer(ifelse(.x <= 0, 1L, round(.x))))) %>%
+  # counts: integers, zeros allowed (ANCOMBC2 can handle zeros)
+  mat <- f$genome_counts %>%
+    dplyr::mutate(across(-genome, ~ as.integer(round(.x)))) %>%
     tibble::column_to_rownames("genome") %>%
-    as.matrix() %>%
-    phyloseq::otu_table(taxa_are_rows = TRUE)
+    as.matrix()
 
-  # light taxonomy (fill NAs as empty strings)
+  otu <- phyloseq::otu_table(mat, taxa_are_rows = TRUE)
+
+  # taxonomy: align to taxa names in otu
   tax <- genome_metadata %>%
-    dplyr::filter(genome %in% rownames(otu)) %>%
+    dplyr::filter(genome %in% phyloseq::taxa_names(otu)) %>%
     dplyr::select(domain, phylum, class, order, family, genus, species, genome) %>%
     dplyr::mutate(across(-genome, ~ dplyr::coalesce(as.character(.), ""))) %>%
     tibble::column_to_rownames("genome") %>%
@@ -260,54 +205,130 @@ phylo_list <- purrr::imap(filtered_inputs, function(f, name) {
 ```
 
 ```{r env_ancombc_visulasation, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-# --- ANCOMBC2 per q -------------------------------------------------------
+# --- ANCOMBC2 per q (version-adaptive; prints summary) --------------------
 ancom_results <- purrr::imap(phylo_list, function(ps, name) {
   group_col <- filtered_inputs[[name]]$group_col
   fixf      <- paste0("~", group_col)
 
-  message("ANCOMBC2 for q=", name, " (", group_col, ")")
-  tryCatch(
-    ANCOMBC::ancombc2(
-      data         = ps,
-      assay_name   = "counts",
-      tax_level    = NULL,
-      fix_formula  = fixf,
-      struc_zero   = FALSE,
-      p_adj_method = "holm",
-      verbose      = FALSE
-    ),
-    error = function(e) {
-      warning("ANCOMBC2 failed for q=", name, ": ", e$message)
-      NULL
-    }
+  # Build args; some versions use tax_level, others taxa_rank
+  args <- list(
+    data         = ps,
+    assay_name   = "counts",
+    fix_formula  = fixf,
+    struc_zero   = TRUE,        # allow structural-zero modeling
+    group        = group_col,   # required when struc_zero=TRUE
+    p_adj_method = "BH",
+    prv_cut      = 0.05,        # drop ultra-rare features
+    lib_cut      = 0,           # keep samples; change if needed
+    verbose      = FALSE
   )
+
+  # Add the correct taxonomy arg if present
+  fmls <- names(formals(ANCOMBC::ancombc2))
+  if ("tax_level" %in% fmls)  args$tax_level  <- NULL
+  if ("taxa_rank" %in% fmls)  args$taxa_rank  <- NULL
+
+  message("ANCOMBC2 for q=", name, " (", group_col, ")")
+  res <- tryCatch(do.call(ANCOMBC::ancombc2, args),
+                  error = function(e) { warning("ANCOMBC2 failed for q=", name, ": ", e$message); NULL })
+  if (!is.null(res) && !is.null(res$res$diff_abn)) {
+    dt <- res$res$diff_abn
+    n_taxa <- nrow(dt)
+    pcols  <- grep("^p_", names(dt), value = TRUE)
+    n_sig  <- if (length(pcols)) sum(dt[[pcols[1]]] < 0.05, na.rm = TRUE) else NA_integer_
+    message("   tested taxa: ", n_taxa, " | significant (p<0.05): ", n_sig)
+  }
+  res
 })
+
 
 ```
 
 ```{r env_ancombc_rand_plot_phy, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=10, fig.width=8, fig.fullwidth=TRUE}
-# --- extract significant features ----------------------------------------
+# --- extract significant features, join taxonomy, and plot ----------------
 da_tables <- purrr::imap(ancom_results, function(res, name) {
-  if (is.null(res)) return(NULL)
+  if (is.null(res) || is.null(res$res$diff_abn)) return(NULL)
   dt <- res$res$diff_abn
-  if (is.null(dt) || nrow(dt) == 0) return(NULL)
+
+  # Ensure there is a feature column for joins/labels
+  if (!("taxon" %in% names(dt))) {
+    dt <- tibble::rownames_to_column(dt, "taxon")
+  }
 
   lfc_col <- grep("^lfc_", names(dt), value = TRUE)[1]
   p_col   <- grep("^p_",   names(dt), value = TRUE)[1]
   if (is.na(lfc_col) || is.na(p_col)) return(NULL)
 
+  # Join phylum (optional; for fill aesthetics)
   sig <- dt %>%
     dplyr::filter(.data[[p_col]] < 0.05) %>%
     dplyr::arrange(.data[[p_col]]) %>%
-    dplyr::left_join(genome_metadata %>% dplyr::select(genome, phylum), by = "genome")
+    dplyr::left_join(
+      genome_metadata %>% dplyr::select(genome, phylum),
+      by = c("taxon" = "genome")
+    )
 
   cat("\n### q=", name, ": top DA genomes (p < 0.05)\n", sep = "")
-  print(knitr::kable(utils::head(sig, 20)))
+  if (nrow(sig)) print(knitr::kable(utils::head(sig, 20))) else cat("(none)\n")
 
   attr(sig, "lfc_col") <- lfc_col
   attr(sig, "p_col")   <- p_col
   sig
 })
+
+# Barplots for significant hits (only if any)
+barplots <- purrr::imap(da_tables, function(sig, name) {
+  if (is.null(sig) || nrow(sig) == 0) return(NULL)
+  lfc_col <- attr(sig, "lfc_col")
+
+  ggplot2::ggplot(
+    sig,
+    ggplot2::aes(x = .data[[lfc_col]],
+                 y = forcats::fct_reorder(taxon, .data[[lfc_col]]),
+                 fill = phylum)
+  ) +
+    ggplot2::geom_col() +
+    ggplot2::geom_vline(xintercept = 0, linetype = "dashed") +
+    ggplot2::labs(
+      x     = "log2 fold-change (High vs Low)",
+      y     = "Genome (taxon)",
+      title = paste("Differential abundance — Hill", name)
+    ) +
+    ggplot2::theme_minimal()
+})
+
+purrr::walk(barplots, ~ if (!is.null(.x)) print(.x))
+
+# Volcano fallback (always shows something even if no sig)
+volcanos <- purrr::imap(ancom_results, function(res, name) {
+  if (is.null(res) || is.null(res$res$diff_abn)) return(NULL)
+  dt <- res$res$diff_abn
+  if (!("taxon" %in% names(dt))) dt <- tibble::rownames_to_column(dt, "taxon")
+
+  lfc_col <- grep("^lfc_", names(dt), value = TRUE)[1]
+  p_col   <- grep("^p_",   names(dt), value = TRUE)[1]
+  if (is.na(lfc_col) || is.na(p_col)) return(NULL)
+
+  df <- dt %>%
+    dplyr::mutate(
+      neglogp = -log10(.data[[p_col]]),
+      sig     = .data[[p_col]] < 0.05
+    )
+
+  ggplot2::ggplot(df, ggplot2::aes(x = .data[[lfc_col]], y = neglogp, color = sig)) +
+    ggplot2::geom_point(alpha = 0.7) +
+    ggplot2::geom_vline(xintercept = 0, linetype = "dashed") +
+    ggplot2::scale_color_manual(values = c(`TRUE` = "#c04062", `FALSE` = "grey60"),
+                                labels = c("ns","p<0.05"), name = NULL) +
+    ggplot2::labs(
+      x = "log2 fold-change (High vs Low)",
+      y = expression(-log[10](p)),
+      title = paste("ANCOMBC2 volcano — Hill", name)
+    ) +
+    ggplot2::theme_minimal()
+})
+
+purrr::walk(volcanos, ~ if (!is.null(.x)) print(.x))
 
 
 ```

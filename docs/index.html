@@ -2115,6 +2115,55 @@ div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
 <h1><span class="header-section-number">Chapter 1</span> Introduction<a href="index.html#introduction" class="anchor-section" aria-label="Anchor link to header"></a></h1>
 <div id="libaries" class="section level2 hasAnchor" number="1.1">
 <h2><span class="header-section-number">1.1</span> Libaries<a href="index.html#libaries" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="index.html#cb1-1" tabindex="-1"></a><span class="co"># Base</span></span>
+<span id="cb1-2"><a href="index.html#cb1-2" tabindex="-1"></a><span class="fu">library</span>(R.utils)</span>
+<span id="cb1-3"><a href="index.html#cb1-3" tabindex="-1"></a><span class="fu">library</span>(knitr)</span>
+<span id="cb1-4"><a href="index.html#cb1-4" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb1-5"><a href="index.html#cb1-5" tabindex="-1"></a><span class="fu">library</span>(devtools)</span>
+<span id="cb1-6"><a href="index.html#cb1-6" tabindex="-1"></a><span class="fu">library</span>(tinytable)</span>
+<span id="cb1-7"><a href="index.html#cb1-7" tabindex="-1"></a><span class="fu">library</span>(rairtable)</span>
+<span id="cb1-8"><a href="index.html#cb1-8" tabindex="-1"></a><span class="fu">library</span>(readxl)</span>
+<span id="cb1-9"><a href="index.html#cb1-9" tabindex="-1"></a><span class="fu">library</span>(janitor)</span>
+<span id="cb1-10"><a href="index.html#cb1-10" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="index.html#cb1-11" tabindex="-1"></a><span class="co"># For tree handling</span></span>
+<span id="cb1-12"><a href="index.html#cb1-12" tabindex="-1"></a><span class="fu">library</span>(ape)</span>
+<span id="cb1-13"><a href="index.html#cb1-13" tabindex="-1"></a><span class="fu">library</span>(phyloseq)</span>
+<span id="cb1-14"><a href="index.html#cb1-14" tabindex="-1"></a><span class="fu">library</span>(phytools)</span>
+<span id="cb1-15"><a href="index.html#cb1-15" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="index.html#cb1-16" tabindex="-1"></a><span class="co"># For plotting</span></span>
+<span id="cb1-17"><a href="index.html#cb1-17" tabindex="-1"></a><span class="fu">library</span>(ggplot2)  <span class="co"># Begin plotting using ggplot2</span></span>
+<span id="cb1-18"><a href="index.html#cb1-18" tabindex="-1"></a><span class="fu">library</span>(ggrepel)</span>
+<span id="cb1-19"><a href="index.html#cb1-19" tabindex="-1"></a><span class="fu">library</span>(ggpubr)</span>
+<span id="cb1-20"><a href="index.html#cb1-20" tabindex="-1"></a><span class="fu">library</span>(ggnewscale)</span>
+<span id="cb1-21"><a href="index.html#cb1-21" tabindex="-1"></a><span class="fu">library</span>(gridExtra)</span>
+<span id="cb1-22"><a href="index.html#cb1-22" tabindex="-1"></a><span class="fu">library</span>(ggtreeExtra)</span>
+<span id="cb1-23"><a href="index.html#cb1-23" tabindex="-1"></a><span class="fu">library</span>(ggtree)</span>
+<span id="cb1-24"><a href="index.html#cb1-24" tabindex="-1"></a><span class="fu">library</span>(ggh4x)</span>
+<span id="cb1-25"><a href="index.html#cb1-25" tabindex="-1"></a><span class="fu">library</span>(GGally)</span>
+<span id="cb1-26"><a href="index.html#cb1-26" tabindex="-1"></a><span class="fu">library</span>(cowplot)</span>
+<span id="cb1-27"><a href="index.html#cb1-27" tabindex="-1"></a></span>
+<span id="cb1-28"><a href="index.html#cb1-28" tabindex="-1"></a><span class="co"># For statistics</span></span>
+<span id="cb1-29"><a href="index.html#cb1-29" tabindex="-1"></a><span class="fu">library</span>(spaa)</span>
+<span id="cb1-30"><a href="index.html#cb1-30" tabindex="-1"></a><span class="fu">library</span>(vegan)</span>
+<span id="cb1-31"><a href="index.html#cb1-31" tabindex="-1"></a><span class="fu">library</span>(Rtsne)</span>
+<span id="cb1-32"><a href="index.html#cb1-32" tabindex="-1"></a><span class="fu">library</span>(geiger)</span>
+<span id="cb1-33"><a href="index.html#cb1-33" tabindex="-1"></a><span class="fu">library</span>(hilldiv2)</span>
+<span id="cb1-34"><a href="index.html#cb1-34" tabindex="-1"></a><span class="fu">library</span>(distillR)</span>
+<span id="cb1-35"><a href="index.html#cb1-35" tabindex="-1"></a><span class="fu">library</span>(broom.mixed)</span>
+<span id="cb1-36"><a href="index.html#cb1-36" tabindex="-1"></a><span class="fu">library</span>(emmeans)</span>
+<span id="cb1-37"><a href="index.html#cb1-37" tabindex="-1"></a><span class="fu">library</span>(vegan)</span>
+<span id="cb1-38"><a href="index.html#cb1-38" tabindex="-1"></a><span class="co">#library(lmerTest)</span></span>
+<span id="cb1-39"><a href="index.html#cb1-39" tabindex="-1"></a><span class="fu">library</span>(Hmsc)</span>
+<span id="cb1-40"><a href="index.html#cb1-40" tabindex="-1"></a><span class="fu">library</span>(corrplot)</span>
+<span id="cb1-41"><a href="index.html#cb1-41" tabindex="-1"></a><span class="fu">library</span>(lme4)</span>
+<span id="cb1-42"><a href="index.html#cb1-42" tabindex="-1"></a><span class="fu">library</span>(nlme)</span>
+<span id="cb1-43"><a href="index.html#cb1-43" tabindex="-1"></a><span class="fu">library</span>(ANCOMBC)</span>
+<span id="cb1-44"><a href="index.html#cb1-44" tabindex="-1"></a></span>
+<span id="cb1-45"><a href="index.html#cb1-45" tabindex="-1"></a><span class="co">#map visualtisation</span></span>
+<span id="cb1-46"><a href="index.html#cb1-46" tabindex="-1"></a><span class="fu">library</span>(rnaturalearth)</span>
+<span id="cb1-47"><a href="index.html#cb1-47" tabindex="-1"></a><span class="fu">library</span>(rnaturalearthdata)</span>
+<span id="cb1-48"><a href="index.html#cb1-48" tabindex="-1"></a><span class="fu">library</span>(patchwork)</span>
+<span id="cb1-49"><a href="index.html#cb1-49" tabindex="-1"></a><span class="fu">library</span>(pheatmap)</span></code></pre></div>
 
 </div>
 </div>
