@@ -42,7 +42,7 @@ buffers   <- st_buffer(points_proj, dist = 150)
 extracted <- exact_extract(lc_proj, buffers)
 ```
 
-```{r style, eval = FALSE}
+```{r style}
 
 summary_list <- lapply(seq_along(extracted), function(i) {
   df  <- extracted[[i]]
@@ -94,7 +94,7 @@ style_df <- tibble(
 
 ```
 
-```{r pivot, eval = FALSE }
+```{r pivot}
 
 # 1. Join in the density & labels
 result_df <- result_df %>%
@@ -167,7 +167,7 @@ landcover_wide <- result_df_imputed %>%
 
 ```
 
-```{r barplot visualisation data, eval = FALSE}
+```{r barplot visualisation data}
 
 # 1) Define your exact colors
 group_colors <- c(
@@ -238,17 +238,7 @@ plot_df_wide <- plot_df %>%
 ```
 
 ```{r climate variable data compression, eval = FALSE}
-# --- packages ---------------------------------------------------------------
-library(terra)
-library(sf)
-library(geodata)
-library(purrr)
-library(exactextractr)
-library(tibble)
-library(dplyr)
-library(tidyr)
-
-# --- 1. download & load bioclim for AUS ------------------------------------
+#download & load bioclim for AUS
 
 wc_aus <- worldclim_country(
   country = "AUS",       # ISO code
@@ -257,13 +247,13 @@ wc_aus <- worldclim_country(
   path    = "data/aus"   # where to store the download
 )
 
-# --- 2. rename & subset to bio1 & bio12 -----------------------------------
+#rename & subset to bio1 & bio12
 orig <- names(wc_aus)
 new  <- sub(".*bio[_~\\.](\\d+)$", "bio\\1", orig)
 names(wc_aus) <- new
 wc_aus <- wc_aus[[c("bio1", "bio12")]]
 
-# --- 3. write uncompressed, compress & tile via GDAL -----------------------
+#  write uncompressed, compress & tile via GDAL
 final_dir <- "data/aus"
 tmp_tif    <- file.path(final_dir, "wc_aus_tmp2bands.tif")
 comp_tif   <- file.path(final_dir, "wc_aus_compressed.tif")
