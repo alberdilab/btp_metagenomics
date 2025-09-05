@@ -1,12 +1,14 @@
 
 # Differential abundance analysis
 
+ANCOM-BC2-style models test which taxa change with sex, with and without random effects and while accounting for structural zeros. Results are summarised at MAG, phylum, family, and genus levels.
+
 ```{r load_data_mag_filtdamr_diffe, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 
 load("data/data.Rdata")
 ```
 
-```{r exclude Sample7}
+```{r exclude Sample7, message=FALSE, warning=FALSE}
 sample_metadata <- sample_metadata %>% dplyr::filter(sample != "EHI01340")
 valid_samples <- sample_metadata$sample
 
@@ -245,7 +247,7 @@ physeq_genome_filtered <- phyloseq(phylo_genome, phylo_taxonomy, phylo_samples)
 ### With random effect
 #### MAG level
 
-```{r ancom_rand_pond, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+```{r ancom_rand_pond, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
 set.seed(1234) #set seed for reproducibility
 ancom_rand_output = ancombc2(data = physeq_genome_filtered, 
                   assay_name = "counts", 
@@ -275,7 +277,7 @@ ancom_rand_output = ancombc2(data = physeq_genome_filtered,
 
 ```
 
-```{r ancom_rand, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+```{r ancom_rand, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
 taxonomy <- data.frame(physeq_genome_filtered@tax_table) %>%
   rownames_to_column(., "taxon") %>%
   mutate_at(vars(order, phylum, family, genus, species), ~ str_replace(., "[dpcofgs]__", ""))%>%
@@ -314,7 +316,7 @@ tax_color <- merge(tax_table, colors_alphabetic, by="phylum")%>%
 	dplyr::select(colors) %>%
 	pull()
 ```
-```{r ancombc_rand_plot_phy, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=10, fig.width=8, fig.fullwidth=TRUE, eval = FALSE}
+```{r ancombc_rand_plot_phy, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=10, fig.width=8, fig.fullwidth=TRUE, }
 ancombc_rand_table_mag%>%
       mutate(genome=factor(genome,levels=ancombc_rand_table_mag$genome)) %>%
 ggplot(., aes(x=lfc_sexMale, y=forcats::fct_reorder(genome,lfc_sexMale), fill=phylum)) + #forcats::fct_rev()
@@ -336,7 +338,7 @@ ggplot(., aes(x=lfc_sexMale, y=forcats::fct_reorder(genome,lfc_sexMale), fill=ph
 ```
 
 
-```{r ancom_rand_volcano, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+```{r ancom_rand_volcano, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
 phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
     right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
     arrange(match(genome, genome_tree$tip.label)) %>%
@@ -361,7 +363,7 @@ ancom_rand_output$res %>%
 ```
 
 #### Controling structural components
-```{r ancom_rand_season, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+```{r ancom_rand_season, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
 set.seed(1234) #set seed for reproducibility
  ancom_rand_output_mag_Struc = ancombc2(data = physeq_all, 
                   assay_name = "counts", 
@@ -391,7 +393,7 @@ set.seed(1234) #set seed for reproducibility
 
 ```
 
-```{r ancom_rand1, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+```{r ancom_rand1, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
  taxonomy <- data.frame(physeq_genome_filtered@tax_table) %>%
   rownames_to_column(., "taxon")%>%
   mutate_at(vars(order, phylum, family, genus, species), ~ str_replace(., "[dpcofgs]__", ""))
@@ -423,7 +425,7 @@ tax_color <- merge(tax_table, colors_alphabetic, by="phylum")%>%
 	dplyr::select(colors) %>%
 	pull()
 ```
-```{r ancombc_rand_plot_mag, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=10, fig.width=8, fig.fullwidth=TRUE, eval = FALSE}
+```{r ancombc_rand_plot_mag, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=10, fig.width=8, fig.fullwidth=TRUE, }
  ancombc_rand_table_mag_Struc%>%
       mutate(genome=factor(genome,levels=ancombc_rand_table_mag_Struc$genome)) %>%
 ggplot(., aes(x=lfc_sexMale, y=forcats::fct_reorder(genome,lfc_sexMale), fill=phylum)) + #forcats::fct_rev()
@@ -444,7 +446,7 @@ ggplot(., aes(x=lfc_sexMale, y=forcats::fct_reorder(genome,lfc_sexMale), fill=ph
   guides(fill=guide_legend(title="Phylum"))
 ```
 
-```{r ancom_rand_volcano_mag, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+```{r ancom_rand_volcano_mag, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
 phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
     right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
     arrange(match(genome, genome_tree$tip.label)) %>%
@@ -470,7 +472,7 @@ ancom_rand_output_mag_Struc$res %>%
 
 #### Phylum level
 
-```{r ancom_phylum, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+```{r ancom_phylum, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
 
 ancom_rand_output_phylum = ancombc2(data = physeq_genome_filtered, 
                   assay_name = "counts", 
@@ -499,7 +501,7 @@ ancom_rand_output_phylum = ancombc2(data = physeq_genome_filtered,
                   trend_control = NULL)
 ```
 
-```{r ancom_rand_phylum, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+```{r ancom_rand_phylum, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
 ancom_rand_output_phylum$res %>%
   dplyr::select(taxon, lfc_sexMale, p_sexMale) %>%
   filter(p_sexMale < 0.05) %>%
@@ -507,7 +509,7 @@ ancom_rand_output_phylum$res %>%
 ```
 
 #### Family level
-```{r ancom_family, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+```{r ancom_family, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
 ancom_rand_output_family = ancombc2(data = physeq_genome_filtered, 
                   assay_name = "counts", 
                   tax_level = "family", #change to agglomerate analysis to a higher taxonomic range
@@ -535,7 +537,7 @@ ancom_rand_output_family = ancombc2(data = physeq_genome_filtered,
                   trend_control = NULL)
 ```
 
-```{r ancom_rand_family, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval=FALSE}
+```{r ancom_rand_family, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 
 ancom_rand_output_family$res %>% 
   dplyr::select(taxon, lfc_sexMale, p_sexMale) %>%
@@ -544,7 +546,7 @@ ancom_rand_output_family$res %>%
 ```
 
 #### Genera
-```{r ancom_genera, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+```{r ancom_genera, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
 ancom_rand_output_gen = ancombc2(data = physeq_genome_filtered, 
                   assay_name = "counts", 
                   tax_level = "genus", #change to agglomerate analysis to a higher taxonomic range
@@ -572,7 +574,7 @@ ancom_rand_output_gen = ancombc2(data = physeq_genome_filtered,
                   trend_control = NULL)
 ```
 
-```{r ancom_rand_genera, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+```{r ancom_rand_genera, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
 ancom_rand_output_gen$res %>%
   dplyr::select(taxon, lfc_sexMale, p_sexMale) %>%
   filter(p_sexMale < 0.05) %>%
@@ -584,7 +586,7 @@ ancom_rand_output_gen$res %>%
 ### Without random effect
 #### MAG level
 
-```{r ancom_rand_pond2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+```{r ancom_rand_pond2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE }
 set.seed(1234) #set seed for reproducibility
 ancom_rand_output_norand = ancombc2(data = physeq_genome_filtered, 
                   assay_name = "counts", 
@@ -700,7 +702,7 @@ ancom_rand_output_norand$res %>%
 ```
 
 #### Controling structural components
-```{r ancom_rand_struct12, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+```{r ancom_rand_struct12, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
 ancom_rand_output_mag_Struc_norand = ancombc2(data = physeq_all, 
                   assay_name = "counts", 
                   tax_level = NULL, #change to agglomerate analysis to a higher taxonomic range
@@ -729,7 +731,7 @@ ancom_rand_output_mag_Struc_norand = ancombc2(data = physeq_all,
 
 ```
 
-```{r ancom_rand12, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE }
+```{r ancom_rand12, comment="", echo=FALSE, message=FALSE, warning=FALSE,  }
 taxonomy <- data.frame(physeq_genome_filtered@tax_table) %>%
   rownames_to_column(., "taxon")%>%
   mutate_at(vars(order, phylum, family, genus, species), ~ str_replace(., "[dpcofgs]__", ""))%>%
@@ -761,7 +763,7 @@ tax_color <- merge(tax_table, colors_alphabetic, by="phylum")%>%
 	pull()
 ```
 
-```{r ancombc_rand_plot_mag12, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=10, fig.width=8, fig.fullwidth=TRUE, eval = FALSE}
+```{r ancombc_rand_plot_mag12, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=10, fig.width=8, fig.fullwidth=TRUE, }
 ancombc_rand_table_mag_Struc_norand%>%
       mutate(genome=factor(genome,levels=ancombc_rand_table_mag_Struc_norand$genome)) %>%
 ggplot(., aes(x=lfc_sexMale, y=forcats::fct_reorder(genome,lfc_sexMale), fill=phylum)) + #forcats::fct_rev()
@@ -782,7 +784,7 @@ ggplot(., aes(x=lfc_sexMale, y=forcats::fct_reorder(genome,lfc_sexMale), fill=ph
   guides(fill=guide_legend(title="Phylum"))
 ```
 
-```{r ancom_rand_volcano_mag12, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+```{r ancom_rand_volcano_mag12, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
 phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
     right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
     arrange(match(genome, genome_tree$tip.label)) %>%
@@ -808,7 +810,7 @@ ancom_rand_output_mag_Struc_norand$res %>%
 
 #### Phylum level
 
-```{r ancom_phylum2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+```{r ancom_phylum2, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
 ancom_rand_output_phylum_norand = ancombc2(data = physeq_genome_filtered, 
                   assay_name = "counts", 
                   tax_level = "phylum", #change to agglomerate analysis to a higher taxonomic range
@@ -844,7 +846,7 @@ ancom_rand_output_phylum_norand$res %>%
 ```
 
 #### Family level
-```{r ancom_family2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+```{r ancom_family2, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
 ancom_rand_output_family_norand = ancombc2(data = physeq_genome_filtered, 
                   assay_name = "counts", 
                   tax_level = "family", #change to agglomerate analysis to a higher taxonomic range
@@ -872,7 +874,7 @@ ancom_rand_output_family_norand = ancombc2(data = physeq_genome_filtered,
                   trend_control = NULL)
 ```
 
-```{r ancom_rand_family2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+```{r ancom_rand_family2, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
 ancom_rand_output_family_norand$res %>%
   dplyr::select(taxon, lfc_sexMale, p_sexMale) %>%
   filter(p_sexMale < 0.05) %>%
@@ -880,7 +882,7 @@ ancom_rand_output_family_norand$res %>%
 ```
 
 #### Genera
-```{r ancom_genera2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE }
+```{r ancom_genera2, comment="", echo=FALSE, message=FALSE, warning=FALSE,  }
 ancom_rand_output_gen_norand = ancombc2(data = physeq_genome_filtered, 
                   assay_name = "counts", 
                   tax_level = "genus", #change to agglomerate analysis to a higher taxonomic range
@@ -908,7 +910,7 @@ ancom_rand_output_gen_norand = ancombc2(data = physeq_genome_filtered,
                   trend_control = NULL)
 ```
 
-```{r ancom_rand_genera2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE }
+```{r ancom_rand_genera2, comment="", echo=FALSE, message=FALSE, warning=FALSE,  }
 ancom_rand_output_gen_norand$res %>%
   dplyr::select(taxon, lfc_sexMale, p_sexMale) %>%
   filter(p_sexMale < 0.05) %>%

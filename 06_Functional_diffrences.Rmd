@@ -1,13 +1,15 @@
 
 # Beta diversity
 
-```{r load_data_beta}
+Between-sample dissimilarity using Hill-based distances (richness, neutral, phylogenetic, functional), PERMANOVA tests for broad environment/sex effects, and NMDS ordinations to visualise separation in community structure.
+
+```{r load_data_beta, message=FALSE, warning=FALSE}
 load("data/data.Rdata")
 
 treatment_colors <- c("#f56042","#429ef5", "#42f58d", "#b142f5", "#f5e642")
 ```
 
-```{r filter_NAs}
+```{r filter_NAs, message=FALSE, warning=FALSE}
 sample_metadata <- sample_metadata %>% dplyr::filter(sample != "EHI01340")
 valid_samples <- sample_metadata$sample
 
@@ -209,7 +211,8 @@ run_permanova(
 ```
 
 ## NMDS 
-non-metric multidimensional scaling on species-richness - environment clusters
+
+NMDS of β-diversity (richness/neutral/phylogenetic/functional). Points are samples, coloured by broad environment and shaped by sex; segments draw each point to its group centroid.
 
 ###Richness
 ```{r beta_div_nmds_richness_plot, comment="", message=FALSE, warning=FALSE, fig.height=7, fig.width=10, fig.fullwidth=TRUE}

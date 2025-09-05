@@ -1,5 +1,7 @@
 
-# enviromental permanova
+# environmental permanova
+
+We test whether environmental α-diversity (Hill h0/h1/h2 of land-cover) relates to microbiome β-diversity (Bray–Curtis), and visualise relationships (e.g., NMDS axes vs. Hill metrics) and distance-matrix structure.
 
 ```{r load_data_comparison, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 load("data/data.Rdata")
@@ -7,7 +9,7 @@ load("data/beta.Rdata")
 load("data/hill.Rdata")
 ```
 
-```{r exclude Sample10}
+```{r exclude Sample10, message=FALSE, warning=FALSE}
 sample_metadata <- sample_metadata %>% dplyr::filter(sample != "EHI01340")
 hill_long       <- hill_long       %>% dplyr::filter(id     != "EHI01340")
 ```
@@ -157,6 +159,9 @@ table(meta$env_hill_q0_group)
 table(meta$env_hill_q0_group_med)
 ```
 **visualisation**
+
+Associations between environmental α-diversity (Hill h1) and microbiome ordination (NMDS1/2), with fitted vectors and a subset heatmap of Bray–Curtis distances.
+
 ```{r tidy NMDS‐points data frame, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 nmds0n <- vegan::metaMDS(bray_dist0n, k = 2, trymax = 500, trace = 0)
 pts0n <- as.data.frame(nmds0n$points) %>%

@@ -1,5 +1,8 @@
 introduction
-libaries
+project-description
+prepare-the-r-environment
+environment
+libraries
 prepare-data
 load-data
 sample-metadata
@@ -17,7 +20,6 @@ data-statistics
 filter-data
 load-map
 plot-possum-locations
-load-map-1
 plot-possum-locations-1
 sequencing-reads-statistics
 dna-fractions
@@ -69,6 +71,6 @@ wilcoxon
 community-elements-differences
 community-functions-differences
 community-domains-differences
-enviromentypes
+environment-types
 landcover-percentage
-enviromental-permanova
+environmental-permanova

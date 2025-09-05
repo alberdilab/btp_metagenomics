@@ -1,18 +1,22 @@
 
 # MAG catalogue
 
+An overview of the recovered MAGs: circular phylogeny with phylum ring, genome quality and size rings, and “new species” flags; summaries of MAG sizes and quality; and a high-level functional overview including a t-SNE of genome functions.
+
 ## Microbiota data
 
-```{r load_data_mag}
+```{r load_data_mag, message=FALSE, warning=FALSE}
 load("data/data.Rdata")
 ```
 
-```{r exclude Sample1 }
+```{r exclude Sample1, message=FALSE, warning=FALSE}
 sample_metadata<- sample_metadata %>% filter(sample!="EHI01340")
 ```
 ***EHI01340 sample has been removed because of inability to map MAGS***
 
 ### Genome phylogeny
+
+Circular phylogeny of MAGs with four rings: phylum (outer heatmap), genome quality (bar, completeness filled by contamination), ‘new species’ flag, and genome size. Labels indicate ring meaning; tree ultrametricised for visualisation.
 
 ```{r genome_phylogeny, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE}
 
@@ -96,7 +100,7 @@ circular_tree %>% open_tree(30) %>% rotate_tree(90)
 
 ### Taxonomy overview
 
-```{r genome_taxonomy_bacteria}
+```{r genome_taxonomy_bacteria, message=FALSE, warning=FALSE}
 tax_mag <-genome_metadata %>%
   group_by(phylum) %>%
   summarise(mag_n=n())
@@ -108,7 +112,7 @@ tax_mag %>%
 ```
 
 ### Mag size (MB)
-```{r}
+```{r, message=FALSE, warning=FALSE}
 genome_metadata <-genome_metadata %>%
   mutate(corrected_size=100*length/completeness) %>%
   arrange(completeness)
@@ -122,7 +126,7 @@ genome_metadata %>%
 
 ### Genome quality
 
-```{r gut_genome_quality}
+```{r gut_genome_quality, message=FALSE, warning=FALSE}
 genome_metadata %>%
     summarise(completeness_mean=mean(completeness) %>% round(2) %>% as.character(),
               completeness_sd=sd(completeness) %>% round(2) %>% as.character(),
@@ -132,6 +136,8 @@ genome_metadata %>%
     unite("Contamination",contamination_mean, contamination_sd, sep = " ± ", remove = TRUE) %>%
     tt()
 ```
+
+MAG quality landscape: scatter shows completeness (x) vs contamination (y), point size ∝ genome length and colour = phylum; minimalist side boxplots summarise each metric.
 
 ```{r gut_genome_quality_plot, message=FALSE, warning=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
 
@@ -279,6 +285,8 @@ function_tree
 ```
 
 ### Functional ordination
+
+t-SNE ordination of genome functional profiles (GIFT elements). Points are MAGs; colour = phylum, size ∝ genome length.
 
 ```{r function_ordination, message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
 # Generate the tSNE ordination

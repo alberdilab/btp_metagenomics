@@ -1,0 +1,101 @@
+
+```{r load_data_mag_filtdamr_diffe, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+
+load("data/data.Rdata")   # sample_metadata, genome_counts_filt, genome_metadata, genome_tree, ...
+load("data/hill.Rdata")   # hill_long (id, q in {h0,h1,h2}, value)
+```
+
+```{r exclude Sample7}
+# drop the outlier sample everywhere
+sample_metadata   <- sample_metadata %>% filter(sample != "EHI01340")
+genome_counts_filt <- genome_counts_filt %>%
+  select(genome, tidyselect::any_of(sample_metadata$sample)) %>%
+  filter(rowSums(across(-genome, ~ .x != 0), na.rm = TRUE) > 0)
+
+# --- choose which Hill order to split on ----------------------------------
+# use "h1" by default (exp-Shannon). Change to "h0" or "h2" if you prefer.
+q_choice <- "h1"
+
+# build Hill-wide and attach to metadata
+hill_wide <- hill_long %>%
+  filter(id != "EHI01340") %>%
+  rename(sample = id) %>%
+  pivot_wider(id_cols = sample,
+              names_from = q,
+              values_from = value,
+              names_glue = "env_hill_{q}")
+
+meta_hill <- sample_metadata %>%
+  left_join(hill_wide, by = "sample")
+
+group_col <- paste0("env_group_q", substr(q_choice, 2, 2))  # env_group_q1, etc.
+
+# tertiles → keep only Low/High (drop Mid) and fix factor order Low < High
+meta_hill <- meta_hill %>%
+  mutate(
+    !!group_col := ggplot2::cut_number(.data[[paste0("env_hill_", q_choice)]],
+                                       3, labels = c("Low","Mid","High"))
+  ) %>%
+  filter(.data[[group_col]] %in% c("Low","High")) %>%
+  mutate(!!group_col := factor(.data[[group_col]], levels = c("Low","High")))
+
+# keep only samples we actually have counts for
+valid_samples <- intersect(meta_hill$sample, colnames(genome_counts_filt))
+meta_hill     <- meta_hill %>% filter(sample %in% valid_samples)
+genome_counts_filt <- genome_counts_filt %>% select(genome, all_of(valid_samples))
+
+cat("N Low / High = ",
+    sum(meta_hill[[group_col]] == "Low"), " / ",
+    sum(meta_hill[[group_col]] == "High"), "\n", sep = "")
+```
+
+```{r genom_count_filt, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+# compute structural zeros per genome between High and Low
+low_samps  <- meta_hill$sample[meta_hill[[group_col]] == "Low"]
+high_samps <- meta_hill$sample[meta_hill[[group_col]] == "High"]
+
+sz <- genome_counts_filt %>%
+  rowwise() %>%
+  mutate(
+    all_low0  = all(c_across(all_of(low_samps))  == 0),
+    all_high0 = all(c_across(all_of(high_samps)) == 0),
+    avg_low   = mean(c_across(all_of(low_samps)),  na.rm = TRUE),
+    avg_high  = mean(c_across(all_of(high_samps)), na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  filter(all_low0 | all_high0) %>%
+  transmute(
+    genome,
+    present = case_when(all_low0 & !all_high0 ~ "High",
+                        all_high0 & !all_low0 ~ "Low",
+                        TRUE ~ NA_character_),
+    average = if_else(present == "High", avg_high, avg_low)
+  ) %>%
+  left_join(genome_metadata %>% select(genome, phylum), by = "genome")
+
+# Top 30 “present-only-in” genomes
+if (nrow(sz)) {
+  sz_top <- sz %>%
+    mutate(abs_avg = abs(average)) %>%
+    arrange(desc(abs_avg)) %>%
+    slice_head(n = 30)
+
+  xmax <- max(sz_top$abs_avg, na.rm = TRUE) * 1.1
+
+  ggplot(sz_top,
+         aes(x = average,
+             y = fct_reorder(genome, average),
+             fill = present)) +
+    geom_col(width = 0.8) +
+    geom_vline(xintercept = 0, linewidth = 0.4) +
+    scale_fill_manual(values = c(Low = "#0072B2", High = "#D55E00"),
+                      name = "Present only in") +
+    coord_cartesian(xlim = c(-xmax, xmax), expand = FALSE) +
+    labs(x = "Mean counts (− = Low only, + = High only)",
+         y = "MAG (top 30 by |difference|)",
+         title = paste0("Structural zeros — Hill ", q_choice, " (High vs Low)")) +
+    theme_classic() +
+    theme(legend.position = "top",
+          axis.text.y = element_text(size = 6))
+}
+```

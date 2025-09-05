@@ -1,11 +1,13 @@
 
 # Taxonomic composition
 
-```{r gut_load_data_tax}
+Per-sample relative abundance profiles (phylum → family → genus) and rollups by sex and broad environment. This chapter shows which clades dominate overall and how composition shifts across groups.
+
+```{r gut_load_data_tax, message=FALSE, warning=FALSE}
 load("data/data.Rdata")
 ```
 
-```{r exclude Sample2 }
+```{r exclude Sample2, message=FALSE, warning=FALSE}
 sample_metadata<- sample_metadata %>% filter(sample!="EHI01340")
 
 sample_metadata <- sample_metadata%>% 
@@ -28,7 +30,7 @@ genome_counts_filt <- genome_counts_filt %>%
 
 ### Phylum level
 
-```{r taxonomy_barplot, fig.height=6, fig.width=10, fig.fullwidth=TRUE}
+```{r taxonomy_barplot, fig.height=6, fig.width=10, fig.fullwidth=TRUE, message=FALSE, warning=FALSE}
 genome_counts_filt %>%
   mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
   pivot_longer(-genome, names_to = "sample", values_to = "count") %>% #reduce to minimum number of columns
@@ -523,7 +525,7 @@ genus_summary %>%
     dplyr::select(genus,Total,Male,Female) 
 ```
 
-```{r taxonomy_jitterplot_genus_sex, fig.height=14, fig.width=10, fig.fullwidth=TRUE}
+```{r taxonomy_jitterplot_genus_sex, fig.height=14, fig.width=10, fig.fullwidth=TRUE, message=FALSE, warning=FALSE}
 genus_summary_sort <- genus_summary %>%
     group_by(genus) %>%
     summarise(mean=mean(relabun, na.rm=T),sd=sd(relabun, na.rm=T)) %>%
@@ -577,7 +579,7 @@ genus_summary %>%
     dplyr::select(genus,Total, Cropland,Temperate_woodland, Mixed_forest,Xeric_shrubland) 
 ```
 
-```{r taxonomy_jitterplot_genus, fig.height=14, fig.width=10, fig.fullwidth=TRUE}
+```{r taxonomy_jitterplot_genus, fig.height=14, fig.width=10, fig.fullwidth=TRUE, message=FALSE, warning=FALSE}
 genus_summary_sort <- genus_summary %>%
     group_by(genus) %>%
     summarise(mean=mean(relabun, na.rm=T),sd=sd(relabun, na.rm=T)) %>%

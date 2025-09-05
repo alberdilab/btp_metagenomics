@@ -16,57 +16,97 @@ github-repo: https://github.com/alberdilab/btp_metagenomics.git
 
 # Introduction
 
-## Libaries 
+# Project description
+
+This webbook contains all the code used for data analysis in our study on the hologenomic ecology of wild possums. We integrate host genomic variation with shotgun metagenomic profiles of the gut microbiome to examine how environment and diet are associated with microbial composition, diversity, and function.
+
+We sampled free-ranging possums across multiple sites and environment types (e.g., contrasting habitat/land-use categories), recorded basic covariates (such as sex and body measurements), and generated both host and microbial DNA data from faecal material. Rather than imposing laboratory treatments, this study leverages natural ecological variation to test whether differences among environment types and related ecological factors are linked to shifts in the gut microbiome and to host genetic backgrounds.
+
+Analytically, the webbook documents the complete workflow: data import and quality control; mapping and recovery metrics; taxonomic and functional summaries; diversity analyses (Hill numbers) and community structure tests; and differential abundance comparisons across environment types and other covariates. Where relevant, we also relate microbial features (e.g., dominant taxa, MAGs, and pathway profiles) to host genomic patterns to explore potential hologenomic links between ecology, microbiota, and host variation.
+
+Together, these analyses provide a reproducible, end-to-end account of how we interrogate possum hologenomes to understand microbiome–environment–host relationships in the wild.
+
+
+## Prepare the R environment
+
+### Environment
+
+To reproduce all the analyses locally, clone this repository in your computer using:
+
+```
+RStudio > New Project > Version Control > Git
+```
+
+And indicating the following git repository:
+
+##included later
+
+Once the R project has been created, follow the instructions and code chunks shown in this webbook.
+
+### Libraries
+
+The following R packages are required for the data analysis.
 
 ```{r library loadout, warning=FALSE, comments="", message=FALSE}
 # Base
-library(R.utils)
-library(knitr)
-library(tidyverse)
-library(devtools)
-library(tinytable)
-library(rairtable)
-library(readxl)
+library(dplyr)
+library(forcats)
 library(janitor)
+library(purrr)
+library(readr)
+library(readxl)
+library(stringr)
+library(tibble)
+library(tidyr)
+library(xml2)
 
-# For tree handling
+# for tree handling
 library(ape)
-library(phyloseq)
 library(phytools)
 
-# For plotting
-library(ggplot2)  # Begin plotting using ggplot2
-library(ggrepel)
-library(ggpubr)
-library(ggnewscale)
-library(gridExtra)
-library(ggtreeExtra)
-library(ggtree)
-library(ggh4x)
-library(GGally)
-library(cowplot)
-
-# For statistics
-library(spaa)
-library(vegan)
+# for statistics
+library(ANCOMBC)
+library(Hmsc)
 library(Rtsne)
+library(broom.mixed)
+library(distillR)
+library(emmeans)
 library(geiger)
 library(hilldiv2)
-library(distillR)
-library(broom.mixed)
-library(emmeans)
-library(vegan)
-#library(lmerTest)
-library(Hmsc)
-library(corrplot)
 library(lme4)
 library(nlme)
-library(ANCOMBC)
+library(phyloseq)
+library(spaa)
+library(vegan)
 
-#map visualtisation
+# map visualisation
+library(exactextractr)
+library(geodata)
 library(rnaturalearth)
 library(rnaturalearthdata)
+library(sf)
+library(terra)
+
+# other
+library(corrplot)
+library(cowplot)
+library(devtools)
+library(GGally)
+library(ggnewscale)
+library(ggplot2)
+library(ggpubr)
+library(ggrepel)
+library(ggh4x)
+library(ggtree)
+library(ggtreeExtra)
+library(gridExtra)
+library(knitr)
 library(patchwork)
 library(pheatmap)
+library(R.utils)
+library(rairtable)
+library(tinytable)
+library(UpSetR)
+
 ```
 

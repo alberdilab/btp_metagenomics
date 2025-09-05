@@ -1,4 +1,5 @@
 # Prepare data
+We load pipeline outputs and metadata, harmonise identifiers, and derive working objects used downstream: coverage-filtered counts, genome lengths and phylogeny, genome annotations (via Airtable), colour palettes, and GIFT-based functional tables. Everything is wrapped as a single RData for reuse.
 
 ## Load data 
 

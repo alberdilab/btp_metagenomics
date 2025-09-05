@@ -1,6 +1,9 @@
+
 # Data statistics
 
-```{r load_data_stats}
+A quick look at sampling geography (Australia/Tasmania zooms), sequencing yield, and how bases distribute across low-quality, host, unmapped, and MAG-mapped fractions. We also compare an estimated microbial fraction (SingleM) to the fraction captured by MAGs.
+
+```{r load_data_stats, message=FALSE, warning=FALSE}
 load("data/data.Rdata")
 ```
 
@@ -8,7 +11,7 @@ Visualisation of geographical location of samples and their respectiv enviroment
 
 ## Filter Data
 
-```{r filter_data}
+```{r filter_data, message=FALSE, warning=FALSE}
 # Define extended boundary to include all possum data points
 lat_min <- -45.0  # Slightly smaller than -42.93
 lat_max <- -28.0  # Slightly larger than -30.65
@@ -37,7 +40,7 @@ tasmania_possums_count <- tasmania_possums %>%
 
 ## Load Map
 
-```{r load_map}
+```{r load_map, message=FALSE, warning=FALSE}
 # Load world map
 australia_map <- ne_countries(scale = "medium", returnclass = "sf") %>%
   filter(admin == "Australia")
@@ -112,14 +115,6 @@ full_possums_count <- full_possums %>%
 tasmania_possums_count <- tasmania_possums %>%
   group_by(latitude, longitude, local_environment) %>%
   summarise(count = n(), .groups = "drop")
-```
-
-## Load Map
-
-```{r load_map2}
-# Load world map
-australia_map <- ne_countries(scale = "medium", returnclass = "sf") %>%
-  filter(admin == "Australia")
 ```
 
 ## Plot Possum Locations
@@ -208,7 +203,7 @@ custom_legend_plot
 
 ## Sequencing reads statistics
 
-```{r reads_stats2}
+```{r reads_stats2, message=FALSE, warning=FALSE}
 sample_metadata %>% 
     summarise(Total=sum(reads_post_fastp * 150 / 1000000000) %>% round(2), 
               mean=mean(reads_post_fastp * 150 / 1000000000) %>% round(2),
@@ -218,7 +213,10 @@ sample_metadata %>%
 ```
 
 ## DNA fractions
-```{r dna_fractions_stats2}
+
+Stacked bars per sample showing GB of low-quality bases, host-mapped, unmapped, and MAG-mapped fractions.
+
+```{r dna_fractions_stats2, message=FALSE, warning=FALSE}
 sequence_fractions <- read_counts %>%
   pivot_longer(-genome, names_to = "sample", values_to = "value") %>%
   group_by(sample) %>%
@@ -263,6 +261,8 @@ sequence_fractions %>%
 ```
 
 ## Recovered microbial fraction
+
+Per sample, estimated microbial fraction (SingleM) vs recovered fraction (MAGs). Lines link the two values; points mark each estimate.
 
 ```{r data_estimations_plot1, message=FALSE, warning=FALSE, fig.height=6, fig.width=10, fig.fullwidth=TRUE}
 singlem_table <- sequence_fractions %>%

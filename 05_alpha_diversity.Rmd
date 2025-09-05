@@ -1,15 +1,17 @@
 
 # Alpha diversity
 
+We quantify within-sample diversity using Hill numbers: richness (q0), neutral/abundance-weighted (q1), phylogenetic (q1 + tree), and functional (q1 + traits), and compare these across environments and sex.
+
 ## microbiota
 
-```{r load_data_alpha}
+```{r load_data_alpha, message=FALSE, warning=FALSE}
 load("data/data.Rdata")
 treatment_colors <- c("#f56042","#429ef5", "#42f58d", "#b142f5")
 sample_metadata$broad_environment <- factor(sample_metadata$broad_environment, levels=c("1000198 - Mixed forest", "1000221 - Temperate woodland", "1000218 - Xeric shrubland", "1000245 - Cropland"))
 ```
 
-```{r exclude Sample3}
+```{r exclude Sample3, message=FALSE, warning=FALSE}
 
 sample_metadata <- sample_metadata %>% dplyr::filter(sample != "EHI01340")
 valid_samples <- sample_metadata$sample
@@ -19,7 +21,7 @@ genome_counts_filt <- genome_counts_filt %>%
 
 ```
 
-```{r pruning tree}
+```{r pruning tree, message=FALSE, warning=FALSE}
 # 1) Figure out the common labels
 otus  <- genome_counts_filt$genome
 tips  <- genome_tree$tip.label
@@ -107,6 +109,9 @@ alpha_div %>%
     dplyr::select(alpha,Total,Xeric_shrubland,Temperate_woodland,Cropland,Mixed_forest) %>% 
   tt()
 ```
+
+Alpha-diversity across environments: richness (q0), neutral (q1), phylogenetic (q1 + tree), and functional (q1 + traits); jittered points show samples, boxes show group distributions; Wilcoxon p-values annotated.
+
 Richness of microbiotic species - environment clusters
 ```{r alpha_div_boxplot, comment="", message=FALSE, warning=FALSE, fig.height=5, fig.width=10, fig.fullwidth=TRUE}
 #Richness
