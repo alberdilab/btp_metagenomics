@@ -1,5 +1,5 @@
 # create_gitignore.R
-# This script writes a .gitignore to the project root that ignores GeoTIFFs, PNGs, and RStudio artifacts.
+# This script writes a .gitignore to the project root that ignores GeoTIFFs, PNGs, devil rasters, and RStudio artifacts.
 
 ignore_lines <- c(
   "# RStudio artifacts",
@@ -12,6 +12,10 @@ ignore_lines <- c(
   "data/aus/",
   "data/pop1km/",
   "data/**/aus_pd_2020_1km.tif",
+  "",
+  "# Ignore devil density rasters (large files downloaded from Figshare)",
+  "predictionStack_devils_1985to2035.tif",
+  "sdStack_devils_1985to2035.tif",
   "",
   "# Ignore any high-res PNGs under data/",
   "data/**/*.png"

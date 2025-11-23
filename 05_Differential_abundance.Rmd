@@ -86,100 +86,86 @@ alpha_div %>%
   tt()
 ```
 
-```{r alpha_div_boxplot, comment="", message=FALSE, warning=FALSE, fig.height=3, fig.width=10, fig.fullwidth=TRUE}
-#Richness
-plot1 <- alpha_div %>%
+```{r div_plot_together, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=8, fig.width=10,fig.fullwidth=TRUE}
+library(ggpubr)
+library(gridExtra)
+
+## 1) Prepare data once ---------------------------------------------
+env_levels <- c(
+  "1000198 - Mixed forest",
+  "1000221 - Temperate woodland",
+  "1000218 - Xeric shrubland",
+  "1000245 - Cropland"
+)
+
+alpha_long <- alpha_div %>%
   pivot_longer(-sample, names_to = "metric", values_to = "value") %>%
-  left_join(., sample_metadata, by = join_by(sample == sample)) %>%
-  filter(metric=="richness") %>%
-  ggplot(aes(y = value, x = broad_environment, group=broad_environment, color=broad_environment, fill=broad_environment)) +
-  geom_jitter(width = 0.2, show.legend = FALSE) +
-  geom_boxplot(width = 0.5, alpha=0.5,outlier.shape = NA, show.legend = FALSE) +
-  scale_color_manual(values=treatment_colors)+
-  scale_fill_manual(values=treatment_colors) +
-  scale_x_discrete(labels=c("1000218 - Xeric shrubland" = "Xeric shrubland", "1000245 - Cropland" = "Cropland", "1000198 - Mixed forest" = "Mixed forest", "1000221 - Temperate woodland" = "Temperate woodland")) +
-  stat_compare_means(method = "wilcox.test", show.legend = F, size = 3, label.y = c(300), label.x = c(1.5))+
-  coord_cartesian(xlim = c(1, NA)) +
-  theme_classic() +
-  theme(
-    axis.title.x = element_blank(),
-    strip.background = element_blank(),
-    panel.grid.minor.x = element_line(size = .1, color = "grey"),
-    axis.text = element_text(size=10),
-    axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0))
-    )+
-  labs(y = "Richness")
+  left_join(sample_metadata, by = join_by(sample == sample)) %>%
+  filter(!is.na(broad_environment)) %>%             # drop NA habitat
+  mutate(
+    broad_environment = factor(
+      broad_environment,
+      levels = env_levels,
+      labels = c("Mixed forest", "Temperate woodland",
+                 "Xeric shrubland", "Cropland")
+    )
+  )
 
+## 2) Helper for one nice panel -------------------------------------
+make_alpha_plot <- function(dat, metric_name, y_lab) {
+  dat %>%
+    filter(metric == metric_name) %>%
+    ggplot(aes(x = broad_environment,
+               y = value,
+               color = broad_environment,
+               fill  = broad_environment)) +
+    geom_boxplot(width = 0.6, alpha = 0.5,
+                 outlier.shape = NA) +
+    geom_jitter(width = 0.15, size = 1.5, alpha = 0.7,
+                show.legend = FALSE) +
+    scale_color_manual(values = treatment_colors) +
+    scale_fill_manual(values = treatment_colors) +
+    theme_classic(base_size = 11) +
+    theme(
+      legend.position = "none",
+      axis.title.x    = element_blank(),
+      axis.text.x     = element_text(angle = 20, hjust = 1),
+      axis.title.y    = element_text(margin = margin(r = 10)),
+      strip.background = element_blank()
+    ) +
+    labs(y = y_lab)
+}
 
-plot2 <- alpha_div %>%
-  pivot_longer(-sample, names_to = "metric", values_to = "value") %>%
-  left_join(., sample_metadata, by = join_by(sample == sample)) %>%
-  filter(metric=="neutral") %>%
-  ggplot(aes(y = value, x = broad_environment, group=broad_environment, color=broad_environment, fill=broad_environment)) +
-  geom_jitter(width = 0.2, show.legend = FALSE) +
-  geom_boxplot(width = 0.5, alpha=0.5,outlier.shape = NA, show.legend = FALSE) +
-  scale_color_manual(values=treatment_colors)+
-  scale_fill_manual(values=treatment_colors) +
-  scale_x_discrete(labels=c("1000218 - Xeric shrubland" = "Xeric shrubland", "1000245 - Cropland" = "Cropland", "1000198 - Mixed forest" = "Mixed forest", "1000221 - Temperate woodland" = "Temperate woodland")) +
-  stat_compare_means(method = "wilcox.test", show.legend = F, size = 3, label.y = c(190), label.x = c(1.5))+
-  coord_cartesian(xlim = c(1, NA)) +
-  theme_classic() +
-  theme(
-    axis.title.x = element_blank(),
-    strip.background = element_blank(),
-    panel.grid.minor.x = element_line(size = .1, color = "grey"),
-    axis.text = element_text(size=10),
-    axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0))
-    )+
-  labs(y = "Neutral alpha diversity")
-
-plot3 <- alpha_div %>%
-  pivot_longer(-sample, names_to = "metric", values_to = "value") %>%
-  left_join(., sample_metadata, by = join_by(sample == sample)) %>%
-  filter(metric=="phylogenetic") %>%
-  ggplot(aes(y = value, x = broad_environment, group=broad_environment, color=broad_environment, fill=broad_environment)) +
-  geom_jitter(width = 0.2, show.legend = FALSE) +
-  geom_boxplot(width = 0.5, alpha=0.5,outlier.shape = NA, show.legend = FALSE) +
-  scale_color_manual(values=treatment_colors)+
-  scale_fill_manual(values=treatment_colors) +
-  scale_x_discrete(labels=c("1000218 - Xeric shrubland" = "Xeric shrubland", "1000245 - Cropland" = "Cropland", "1000198 - Mixed forest" = "Mixed forest", "1000221 - Temperate woodland" = "Temperate woodland")) +
-  stat_compare_means(method = "wilcox.test", show.legend = F, size = 3, label.y = c(12), label.x = c(1.5))+
-  coord_cartesian(xlim = c(1, NA)) +
-  theme_classic() +
-  theme(
-    axis.title.x = element_blank(),
-    strip.background = element_blank(),
-    panel.grid.minor.x = element_line(size = .1, color = "grey"),
-    axis.text = element_text(size=10),
-    axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0))
-    )+
-  labs(y = "Phylogenetic alpha diversity")
-
-
-plot4 <- alpha_div %>%
-  pivot_longer(-sample, names_to = "metric", values_to = "value") %>%
-  left_join(., sample_metadata, by = join_by(sample == sample)) %>%
-  filter(metric=="functional") %>%
-  ggplot(aes(y = value, x = broad_environment, group=broad_environment, color=broad_environment, fill=broad_environment)) +
-  geom_jitter(width = 0.2, show.legend = FALSE) +
-  geom_boxplot(width = 0.5, alpha=0.5,outlier.shape = NA, show.legend = FALSE) +
-  scale_color_manual(values=treatment_colors)+
-  scale_fill_manual(values=treatment_colors) +
-  scale_x_discrete(labels=c("1000218 - Xeric shrubland" = "Xeric shrubland", "1000245 - Cropland" = "Cropland", "1000198 - Mixed forest" = "Mixed forest", "1000221 - Temperate woodland" = "Temperate woodland")) +
-  stat_compare_means(method = "wilcox.test", show.legend = F, size = 3, label.y = c(2), label.x = c(1.5))+
-  coord_cartesian(xlim = c(1, NA)) +
-  theme_classic() +
-  theme(
-    axis.title.x = element_blank(),
-    strip.background = element_blank(),
-    panel.grid.minor.x = element_line(size = .1, color = "grey"),
-    axis.text = element_text(size=10),
-    axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0))
-    )+
-  labs(y = "Functional alpha diversity")
+## 3) Build the four plots ------------------------------------------
+plot1 <- make_alpha_plot(alpha_long, "richness",
+                         "Richness")
+plot2 <- make_alpha_plot(alpha_long, "neutral",
+                         "Neutral alpha diversity")
+plot3 <- make_alpha_plot(alpha_long, "phylogenetic",
+                         "Phylogenetic alpha diversity")
+plot4 <- make_alpha_plot(alpha_long, "functional",
+                         "Functional alpha diversity")
 ```
-```{r div_plot_together, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
-grid.arrange(arrangeGrob(plot1,plot2,plot3, plot4, ncol = 2))
+
+```{r div_plot_together, comment="", echo=FALSE,message=FALSE, warning=FALSE,fig.height=4, fig.width=16, fig.fullwidth=TRUE}
+
+grid.arrange(plot1, plot2, plot3, plot4, ncol = 4)
+# or equivalently: nrow = 1
+
+library(gridExtra)
+
+alpha_panel <- arrangeGrob(plot1, plot2, plot3, plot4, ncol = 4)
+
+ggsave(
+  filename = "alpha_diversity_panel.png",
+  plot     = alpha_panel,
+  width    = 18,   # adjust as you like
+  height   = 4.5,
+  units    = "in",
+  dpi      = 300   # 300+ is good for printing
+)
+
+
 ```
 
 ```{r alpha_div_boxplot_sex, comment="", message=FALSE, warning=FALSE, fig.height=3, fig.width=10, fig.fullwidth=TRUE}
@@ -343,6 +329,7 @@ summary(Model_functional)
 
 Model_functional_sex_random <- lme(fixed = functional ~ sex, data = alpha_div_meta_clean,
                random = ~ 1 | broad_environment)
+ 
 summary(Model_functional_sex_random)
 emmeans(Model_functional_sex_random, pairwise ~ sex)
 ```

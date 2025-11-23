@@ -19,7 +19,6 @@ sample_metadata<- sample_metadata %>% filter(sample!="EHI01340")
 Circular phylogeny of MAGs with four rings: phylum (outer heatmap), genome quality (bar, completeness filled by contamination), ‘new species’ flag, and genome size. Labels indicate ring meaning; tree ultrametricised for visualisation.
 
 ```{r genome_phylogeny, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE}
-
 # Generate the phylum color heatmap
 phylum_heatmap <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
     right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
@@ -39,7 +38,9 @@ newspecies_table <- genome_metadata %>%
 circular_tree <- force.ultrametric(genome_tree, method="extend") %>% # extend to ultrametric for the sake of visualisation
     ggtree(., layout="fan", open.angle=10, size=0.5)
 
+```
 
+```{r genome_ring, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE}
 # Add phylum ring
 # circular_tree <- gheatmap(circular_tree, phylum_heatmap, offset=0.55, width=0.1, colnames=FALSE) +
 #         scale_fill_manual(values=phylum_colors) +
@@ -282,6 +283,8 @@ function_tree <- function_tree +
             labs(fill="Genome\ncompleteness")
 
 function_tree
+
+ggsave("function_tree.pdf", width = 6, height = 12, units = "in")
 ```
 
 ### Functional ordination
@@ -307,4 +310,6 @@ function_ordination <- tSNE_function$Y %>%
                 guides(color = guide_legend(override.aes = list(size = 5))) # enlarge Phylum dots in legend
 
 function_ordination
+
+
 ```

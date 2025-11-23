@@ -1,48 +1,34 @@
 
 # Environment types
 
-Environmental context around each sample: we extract land-cover within 150 m buffers (using the QML palette to map classes), group them into interpretable categories, normalise per sample, and plot stacked compositions; selected bioclim layers are prepared for downstream use.
+Environmental context around each sample: we extract land-cover within 100/200/400 m buffers using 200m as the primary buffer zone for the main analysis (using the QML palette to map classes), group them into interpretable categories, normalise per sample, and plot stacked compositions; selected bioclim layers are prepared for downstream use.
 
 ## Landcover percentage
 **Generate Bufferzones**
-```{r extract-buffer, eval = FALSE, message=FALSE, warning=FALSE}
-sample_points <- read.csv("sample_points.csv", stringsAsFactors = FALSE) %>%
-  filter(id != "EHI01340")
+```{r extract-buffer, message=FALSE, warning=FALSE}
+# Read once, filter once
+sample_points <- read.csv("sample_points.csv", stringsAsFactors = FALSE) |>
+  dplyr::filter(id != "EHI01340")
 
-points_sf   <- st_as_sf(sample_points,
-                        coords = c("longitude", "latitude"),
-                        crs    = 4326)
-points_proj     <- st_transform(points_sf, 28355)
+# WGS84 points (source CRS)
+points_sf  <- st_as_sf(sample_points, coords = c("longitude", "latitude"), crs = 4326)
 
-sample_points<- sample_points %>% filter(id!="EHI01340")
+# Projected CRS for Tasmania (MGA zone 55)..
+crs_proj <- "EPSG:28355"
+points_proj <- st_transform(points_sf, crs_proj)
 
-# — 1. Build virtual mosaic & reproject —
-tile_files   <- list.files(
-  "Landcover/Tif",
-  pattern    = "\\.tif$",
-  full.names = TRUE
-)
-rasters      <- lapply(tile_files, terra::rast)
-mosaic_all   <- do.call(mosaic, c(rasters, list(fun = "first")))
-lc_proj      <- project(mosaic_all, "EPSG:28355")
+# --- Build a virtual mosaic (VRT) to save RAM; project once ---
+tile_files <- list.files("Landcover/Tif", pattern = "\\.tif$", full.names = TRUE)
+stopifnot(length(tile_files) > 0)
 
-# ▶ multi-radius buffers
+# VRT
+mosaic_vrt <- terra::vrt(tile_files)
+lc_proj    <- terra::project(mosaic_vrt, crs_proj, method = "near")  # categorical → nearest
+
+# Buffers at 100/200/400 m; 200 m = primary
 radii_m <- c(100, 200, 400)
-buffers_list <- setNames(
-  lapply(radii_m, function(r) st_buffer(points_proj, dist = r)),
-  paste0(radii_m)
-)
-
-#choose a primary radius
-primary_radius <- "200"
-buffers_primary <- buffers_list[[primary_radius]]
-
-
-buffers <- buffers_primary
-
-
-extracted <- exact_extract(lc_proj, buffers)
-
+buffers_list <- setNames(lapply(radii_m, \(r) st_buffer(points_proj, dist = r)), as.character(radii_m))
+buffers <- buffers_list[["200"]]  # primary buffer
 ```
 
 ```{r style, message=FALSE, warning=FALSE}
@@ -264,7 +250,7 @@ ggplot(plot_df_ms, aes(x = factor(id), y = pct, fill = group)) +
 
 ```
 
-Stacked percentages of land-cover categories within a 150 m buffer around each sample (water removed, re-scaled to 100%)
+Stacked percentages of land-cover categories within a 200 m buffer around each sample (water removed, re-scaled to 100%)
 
 ```{r barplot visualisation data, message=FALSE, warning=FALSE}
 
@@ -336,60 +322,158 @@ ggplot(plot_df, aes(x = factor(id), y = pct, fill = group)) +
 plot_df_wide <- plot_df %>%
   pivot_wider(names_from = group, values_from = pct)
 ```
-```{r devils density, message=FALSE, warning=FALSE}
-# --- devil density baseline (2021–2023) ---
-devil_tif_path <- "predictionStack_devils_1985to2035.tif"  # <- set your path
+```{r download devil tif, message=FALSE, warning=FALSE}
 
-stopifnot(file.exists(devil_tif_path))
-dev_all   <- terra::rast(devil_tif_path)
+article_id <- 13728220
+api_base   <- "https://api.figshare.com/v2"
+ua         <- user_agent("R-thesis-script/1.0 (https://figshare.com)")
 
-# slice years 2021:2023 (band index = year - 1984)
+pred_path <- "predictionStack_devils_1985to2035.tif"
+sd_path   <- "sdStack_devils_1985to2035.tif"
+
+safe_get <- function(url, ...) {
+  RETRY("GET", url, ua, timeout(120), times = 5, pause_min = 1,
+        terminate_on = c(400,401,403,404), ...)
+}
+
+download_to <- function(url, dest) {
+  resp <- safe_get(url, write_disk(dest, overwrite = TRUE), progress())
+  if (http_error(resp) || !file.exists(dest) || is.na(file.info(dest)$size) || file.info(dest)$size == 0) {
+    message("httr failed; trying curl::curl_download() …")
+    curl::curl_download(url, destfile = dest, mode = "wb", quiet = FALSE)
+  }
+  stopifnot(file.exists(dest), file.info(dest)$size > 0)
+}
+
+# 1) List files in the article
+files_url <- sprintf("%s/articles/%s/files", api_base, article_id)
+res <- safe_get(files_url)
+stop_for_status(res)
+files <- fromJSON(content(res, as = "text", encoding = "UTF-8"))
+
+# helpful log:
+message("Figshare files:\n", paste0("  - ", files$name, collapse = "\n"))
+
+# 2) Pick files by name (be tolerant to naming)
+pick_file <- function(candidates_regex) {
+  hit <- files[grep(candidates_regex, files$name, ignore.case = TRUE), ]
+  if (nrow(hit) == 0) return(NULL)
+  hit[1, ]
+}
+
+pred_file <- pick_file("prediction.*\\.tif$|predict.*\\.tif$")
+sd_file   <- pick_file("sd.*\\.tif$|uncert.*\\.tif$|std.*\\.tif$")
+
+if (!file.exists(pred_path)) {
+  if (!is.null(pred_file$download_url)) {
+    message("Downloading prediction stack …")
+    download_to(pred_file$download_url, pred_path)
+  } else if (!is.null(pred_file$id)) {
+    download_to(sprintf("%s/file/download/%s", api_base, pred_file$id), pred_path)
+  } else stop("Could not find prediction .tif in the Figshare record.")
+} else message("Prediction raster already exists: ", pred_path)
+
+if (!file.exists(sd_path)) {
+  if (!is.null(sd_file$download_url)) {
+    message("Downloading SD/uncertainty stack …")
+    download_to(sd_file$download_url, sd_path)
+  } else if (!is.null(sd_file$id)) {
+    download_to(sprintf("%s/file/download/%s", api_base, sd_file$id), sd_path)
+  } else stop("Could not find SD .tif in the Figshare record.")
+} else message("SD raster already exists: ", sd_path)
+```
+
+```{r devils density - load & slice, message=FALSE, warning=FALSE}
+
+pred_path <- "predictionStack_devils_1985to2035.tif"
+sd_path   <- "sdStack_devils_1985to2035.tif"
+stopifnot(file.exists(pred_path), file.exists(sd_path))
+
+dev_all    <- terra::rast(pred_path)    # predictions stack
+dev_sd_all <- terra::rast(sd_path)      # SD/uncertainty stack
+
+# Slice years 2021–2023 (index = year - 1984)
 all_years <- 1985:2035
 wanted    <- 2021:2023
 idx       <- match(wanted, all_years)
 
-dev_2123  <- dev_all[[idx]]
-names(dev_2123) <- paste0("y", wanted)  # y2021, y2022, y2023
+dev_2123 <- dev_all[[idx]]; names(dev_2123) <- paste0("y", wanted)
+sd_2123  <- dev_sd_all[[idx]]; names(sd_2123) <- paste0("y", wanted, "_sd")
+```
 
-# reproject buffers to raster CRS for exact area-weighted extraction
-buffers_dev <- sf::st_transform(buffers, terra::crs(dev_2123, proj = TRUE))
+```{r devils density - mask & extract, message=FALSE, warning=FALSE}
+# Ensure 'buffers' exists (from your earlier extract-buffer chunk)
+stopifnot(exists("buffers"))
 
-# area-weighted mean density per buffer for each year layer
-dev_means <- exactextractr::exact_extract(dev_2123, buffers_dev, fun = "mean") %>%
-  tibble::as_tibble() %>%
-  dplyr::rename(within_buffer_y2021 = y2021,
-                within_buffer_y2022 = y2022,
-                within_buffer_y2023 = y2023)
+# 1) Mask (outside-domain detection)
+mask_layer    <- dev_2123[[1]]
+mask_bin      <- !is.na(mask_layer)
+buffers_dev   <- sf::st_transform(buffers, terra::crs(mask_bin, proj = TRUE))
+cov_valid     <- exactextractr::exact_extract(mask_bin, buffers_dev, fun = "mean")
+outside_model <- is.na(cov_valid) | cov_valid == 0
 
-# 3-year baseline = mean of 2021–2023 within each buffer
-dev_baseline <- dev_means %>%
+# 2) Area-weighted means
+pred_means <- exactextractr::exact_extract(dev_2123, buffers_dev, fun = "mean") |> tibble::as_tibble()
+sd_means   <- exactextractr::exact_extract(sd_2123,  buffers_dev, fun = "mean") |> tibble::as_tibble()
+
+# Fix column names if exact_extract returned V1,V2,...
+if (!identical(names(pred_means), names(dev_2123))) names(pred_means) <- names(dev_2123)
+if (!identical(names(sd_means),   names(sd_2123)))  names(sd_means)   <- names(sd_2123)
+
+pred_means <- dplyr::rename_with(pred_means, ~ paste0("within_buffer_", .x))
+sd_means   <- dplyr::rename_with(sd_means,   ~ paste0("within_buffer_", .x))
+
+n_years   <- length(wanted)
+pred_cols <- paste0("within_buffer_y", wanted)
+sd_cols   <- paste0("within_buffer_y", wanted, "_sd")
+
+dev_baseline <- tibble::tibble(id = sample_points$id) |>
+  dplyr::bind_cols(pred_means, sd_means) |>
   dplyr::mutate(
-    devil_density_baseline = rowMeans(dplyr::across(everything()), na.rm = TRUE),
-    id = sample_points$id, .before = 1
-  )
+    devil_density_baseline = rowMeans(dplyr::across(dplyr::all_of(pred_cols)), na.rm = TRUE),
+    # variance propagation for the mean of n years
+    devil_var_baseline     = rowSums(dplyr::across(dplyr::all_of(sd_cols), ~ .x^2), na.rm = TRUE) / (n_years^2),
+    devil_sd_baseline      = sqrt(devil_var_baseline),
+    # impute 0 outside model domain
+    outside_model              = outside_model,
+    devil_density_baseline_imp = ifelse(outside_model, 0, devil_density_baseline),
+    devil_sd_baseline_imp      = ifelse(outside_model, 0, devil_sd_baseline)
+  ) |>
+  dplyr::select(-devil_var_baseline)
 
-# persist for QC
-dir.create("data", recursive = TRUE, showWarnings = FALSE)
-readr::write_csv(dev_baseline, "data/devil_density_baseline_2021_2023.csv")
 
 ```
 
 ```{r devils density_multiscale, message=FALSE, warning=FALSE}
-buffers_dev_list <- lapply(buffers_list, st_transform, crs = terra::crs(dev_2123, proj = TRUE))
+
+# Reproject each radius' buffers to the raster CRS
+buffers_dev_list <- lapply(
+  buffers_list,
+  sf::st_transform,
+  crs = terra::crs(dev_2123, proj = TRUE)
+)
 
 dev_ms <- purrr::imap_dfr(buffers_dev_list, function(buf, rlab) {
-  m <- exactextractr::exact_extract(dev_2123, buf, fun = "mean") %>% tibble::as_tibble()
-  names(m) <- paste0("y", wanted)  # y2021,y2022,y2023
-  m %>%
-    mutate(
-      id = sample_points$id,
-      radius_m = as.integer(rlab),
-      devil_density_baseline = rowMeans(dplyr::across(starts_with("y")), na.rm = TRUE)
-    ) %>%
-    select(id, radius_m, devil_density_baseline)
+  # Extract predictions and SDs for this radius
+  m_pred <- exactextractr::exact_extract(dev_2123, buf, fun = "mean") %>%
+    tibble::as_tibble()                 # columns per year (may be V1..V3)
+  m_sd   <- exactextractr::exact_extract(sd_2123, buf, fun = "mean") %>%
+    tibble::as_tibble()
+
+  # Ensure numeric matrix and take row means
+  mean_pred <- rowMeans(as.matrix(m_pred), na.rm = TRUE)
+  mean_sd   <- rowMeans(as.matrix(m_sd),   na.rm = TRUE)
+
+  tibble::tibble(
+    id        = sample_points$id,
+    radius_m  = as.integer(rlab),
+    devil_density_baseline = mean_pred,
+    devil_sd_baseline      = mean_sd
+  )
 })
 
 readr::write_csv(dev_ms, "data/devil_density_baseline_ms.csv")
+
 ```
 
 ```{r climate variable data compression, message=FALSE, warning=FALSE}
@@ -484,6 +568,8 @@ clim_df <- clim_df %>%
 print(clim_df)
 
 ```
+
+#mean temperature and precipation per annual are used for samples with NA climate daat 
 
 ```{r climate variable data multiscale, message=FALSE, warning=FALSE}
 buffers_ll_list <- lapply(buffers_list, st_transform, crs = st_crs(wc_aus))
@@ -679,22 +765,17 @@ landcover_prop_ms <- landcover_wide_ms %>%
 hills_ms <- landcover_prop_ms %>%
   group_by(radius_m) %>%
   group_modify(~{
-    mat <- .x %>% select(-id, -radius_m) %>% as.matrix()
+    # .x has only rows for this radius; .y holds the key (radius_m)
+    mat <- .x %>% select(-id) %>% as.matrix()
     mat[is.na(mat)] <- 0
     h0 <- rowSums(mat > 0)
     H  <- -rowSums(ifelse(mat > 0, mat * log(mat), 0))
     h1 <- exp(H)
     h2 <- 1 / rowSums(mat^2)
-    tibble(id = .x$id, h0 = h0, h1 = h1, h2 = h2)
+    tibble(id = .x$id, h0 = h0, h1 = h1, h2 = h2)  # <- do NOT add radius_m here
   }) %>%
   ungroup()
 
-# quick look
-ggplot(hills_ms, aes(x = h1)) +
-  geom_histogram(bins = 30, fill = "grey80", color = "white") +
-  facet_wrap(~ radius_m, scales = "free_y") +
-  labs(title = "Hill-1 Across Buffer Radii", x = "exp(Shannon)", y = "Count") +
-  theme_minimal()
 ```
 
 **hill visualisation**
@@ -748,7 +829,7 @@ variables_df <- hill_df_full %>%
 selected_variables_df <- variables_df %>%
   dplyr::select(
     id,
-    h0,
+    h1,
     pop_density_1km,
     annual_mean_temp,
     annual_precipitation,
@@ -766,7 +847,7 @@ variables_ms <- hills_ms %>%
   left_join(dev_ms,      by = c("id","radius_m"))
 
 selected_variables_ms <- variables_ms %>%
-  select(id, radius_m, h0, pop_density_1km, annual_mean_temp, annual_precipitation,
+  select(id, radius_m, h1, pop_density_1km, annual_mean_temp, annual_precipitation,
          Overall_Density, devil_density_baseline)
 
 dir.create("data", showWarnings = FALSE, recursive = TRUE)
@@ -928,4 +1009,149 @@ ggplot(filter(hill_long, hill_order == "h1"),
   ) +
   theme_minimal() +
   theme(legend.position = "bottom")
+```
+
+```{r multiscale-compare boxplot, message=FALSE, warning=FALSE}
+
+df_ms <- selected_variables_ms %>%
+  pivot_longer(
+    cols = -c(id, radius_m),
+    names_to = "variable",
+    values_to = "value"
+  )
+
+# Plot distributions across radii
+ggplot(df_ms, aes(x = factor(radius_m), y = value, fill = factor(radius_m))) +
+  geom_boxplot(outlier.size = 0.8, alpha = 0.7) +
+  facet_wrap(~ variable, scales = "free_y") +
+  labs(
+    title = "Comparison of environmental variables across scales",
+    x = "Buffer radius (m)",
+    y = "Value",
+    fill = "Radius"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    strip.text = element_text(face = "bold")
+  )
+```
+
+```{r multiscale-lines, message=FALSE, warning=FALSE}
+ggplot(df_ms, aes(x = radius_m, y = value, group = id, color = id)) +
+  geom_line(alpha = 0.3) +
+  geom_point(size = 1.5) +
+  facet_wrap(~ variable, scales = "free_y") +
+  labs(
+    title = "Within-sample variation across scales",
+    x = "Buffer radius (m)",
+    y = "Value"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "none")
+
+
+```
+
+```{r multiscale-cor, message=FALSE, warning=FALSE}
+scale_cor <- df_ms %>%
+  pivot_wider(names_from = radius_m, values_from = value) %>%
+  group_by(variable) %>%
+  summarise(correlation_100_200 = cor(`100`, `200`, use="pairwise"),
+            correlation_200_400 = cor(`200`, `400`, use="pairwise"),
+            correlation_100_400 = cor(`100`, `400`, use="pairwise"))
+
+print(scale_cor)
+```
+
+```{r hsmc variabels, message=FALSE, warning=FALSE}
+# 1) Replace NA devil densities with 0 to prevent hsmc crashing. 
+selected_variables_ms_fixed <- selected_variables_ms %>%
+  mutate(devil_density_baseline = ifelse(is.na(devil_density_baseline), 0, devil_density_baseline))
+
+# 2) Split into three per-radius datasets
+r100 <- selected_variables_ms_fixed %>%
+  filter(radius_m == 100) %>%
+  select(-radius_m)
+
+r200 <- selected_variables_ms_fixed %>%
+  filter(radius_m == 200) %>%
+  select(-radius_m)
+
+r400 <- selected_variables_ms_fixed %>%
+  filter(radius_m == 400) %>%
+  select(-radius_m)
+
+# 3) (optional) Save for HSMC runs
+dir.create("data/hsmc_scales", showWarnings = FALSE, recursive = TRUE)
+write.csv(r100, "data/hsmc_scales/env_vars_r100.csv", row.names = FALSE)
+write.csv(r200, "data/hsmc_scales/env_vars_r200.csv", row.names = FALSE)
+write.csv(r400, "data/hsmc_scales/env_vars_r400.csv", row.names = FALSE)
+
+# Check the dimensions quickly
+message("Rows at 100m: ", nrow(r100))
+message("Rows at 200m: ", nrow(r200))
+message("Rows at 400m: ", nrow(r400))
+```
+
+```{r make-hsmc-ready-h1, message=FALSE, warning=FALSE}
+library(dplyr)
+library(rlang)
+
+stopifnot(exists("selected_variables_ms"))
+
+# Helper to standardize to the target schema
+to_hsmc_schema <- function(df_ms, hill_metric = "h1") {
+  stopifnot(hill_metric %in% c("h0","h1","h2"))
+  
+  # 1) Ensure a site column exists
+  if (!"site" %in% names(df_ms)) {
+    df_ms <- df_ms %>% mutate(site = id)
+  }
+  
+  # 2) Choose which devil column to use
+  devil_candidates <- c("devil_density_baseline_imp",
+                        "devil_density_baseline",
+                        "devil_density")
+  devil_col <- intersect(devil_candidates, names(df_ms))
+  devil_col <- if (length(devil_col)) devil_col[1] else NA_character_
+  
+  # 3) Build output with required names + order
+  out <- df_ms %>%
+    mutate(
+      devil = if (!is.na(devil_col)) .data[[devil_col]] else NA_real_,
+      devil = ifelse(is.na(devil), 0, devil)   # NA → 0 for HSMC robustness
+    ) %>%
+    transmute(
+      id,
+      site,
+      diversity     = .data[[hill_metric]],      # use h1 as requested
+      pop_density   = pop_density_1km,
+      temperature   = annual_mean_temp,
+      precipitation = annual_precipitation,
+      density       = Overall_Density,
+      devil,
+      radius_m
+    )
+  
+  out
+}
+
+# Build standardized multiscale table (still includes radius_m so we can split)
+hsmc_ms <- to_hsmc_schema(selected_variables_ms, hill_metric = "h1")
+
+# Split into three per-radius data frames for 3 HSMC runs
+r100_h1 <- hsmc_ms %>% filter(radius_m == 100) %>% select(-radius_m)
+r200_h1 <- hsmc_ms %>% filter(radius_m == 200) %>% select(-radius_m)
+r400_h1 <- hsmc_ms %>% filter(radius_m == 400) %>% select(-radius_m)
+
+# (Optional) save
+dir.create("data/hsmc_scales", showWarnings = FALSE, recursive = TRUE)
+write.csv(r100_h1, "data/hsmc_scales/env_vars_r100_h1.csv", row.names = FALSE)
+write.csv(r200_h1, "data/hsmc_scales/env_vars_r200_h1.csv", row.names = FALSE)
+write.csv(r400_h1, "data/hsmc_scales/env_vars_r400_h1.csv", row.names = FALSE)
+
+# Sanity check
+message("Columns: ", paste(names(r200_h1), collapse = ", "))
+message("Rows (100/200/400): ", nrow(r100_h1), "/", nrow(r200_h1), "/", nrow(r400_h1))
+
 ```

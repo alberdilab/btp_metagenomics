@@ -1,17 +1,14 @@
-
 # Data statistics
 
-A quick look at sampling geography (Australia/Tasmania zooms), sequencing yield, and how bases distribute across low-quality, host, unmapped, and MAG-mapped fractions. We also compare an estimated microbial fraction (SingleM) to the fraction captured by MAGs.
-
-```{r load_data_stats, message=FALSE, warning=FALSE}
+```{r load_data_stats}
 load("data/data.Rdata")
 ```
 
-Visualisation of geographical location of samples and their respectiv enviroment
+#Visualisation of geographical location of samples and their respectiv envirotypes
 
 ## Filter Data
 
-```{r filter_data, message=FALSE, warning=FALSE}
+```{r filter_data}
 # Define extended boundary to include all possum data points
 lat_min <- -45.0  # Slightly smaller than -42.93
 lat_max <- -28.0  # Slightly larger than -30.65
@@ -40,15 +37,13 @@ tasmania_possums_count <- tasmania_possums %>%
 
 ## Load Map
 
-```{r load_map, message=FALSE, warning=FALSE}
+```{r load_map}
 # Load world map
 australia_map <- ne_countries(scale = "medium", returnclass = "sf") %>%
   filter(admin == "Australia")
 ```
 
 ## Plot Possum Locations
-
-Grouping based on broad environment clusters
 
 ```{r plot_maps, warning=FALSE, message=FALSE}
 
@@ -87,8 +82,20 @@ map_plot_zoomed <- ggplot() +
         axis.text.x = element_text(angle = 0, hjust = 0.5),
         plot.title = element_text(size = 14, face = "bold"))
 
-# Combine the plots side by side with shared legend and increased size
-(map_plot_full + map_plot_zoomed) + plot_layout(guides = "collect", widths = c(1, 1.2))
+combined_plot <- (map_plot_full + map_plot_zoomed) +
+  plot_layout(guides = "collect", widths = c(1, 1.2))
+
+combined_plot
+
+# ---- SAVE TO PDF ----
+ggsave(
+  filename = "Sample _maps.pdf",
+  plot     = combined_plot,
+  width    = 8,   # adjust for your needs
+  height   = 4,   # adjust for your needs
+  units    = "in",
+  device   = cairo_pdf  # nice for text/embedding fonts
+)
 ```
 ```{r filter_data2}
 # Define extended boundary to include all possum data points
@@ -117,8 +124,15 @@ tasmania_possums_count <- tasmania_possums %>%
   summarise(count = n(), .groups = "drop")
 ```
 
+## Load Map
+
+```{r load_map2}
+# Load world map
+australia_map <- ne_countries(scale = "medium", returnclass = "sf") %>%
+  filter(admin == "Australia")
+```
+
 ## Plot Possum Locations
-Grouping based on fine enviroment clusters
 
 ```{r plot_maps2, warning=FALSE, message=FALSE}
 library(RColorBrewer)
@@ -203,7 +217,7 @@ custom_legend_plot
 
 ## Sequencing reads statistics
 
-```{r reads_stats2, message=FALSE, warning=FALSE}
+```{r reads_stats2}
 sample_metadata %>% 
     summarise(Total=sum(reads_post_fastp * 150 / 1000000000) %>% round(2), 
               mean=mean(reads_post_fastp * 150 / 1000000000) %>% round(2),
@@ -213,10 +227,7 @@ sample_metadata %>%
 ```
 
 ## DNA fractions
-
-Stacked bars per sample showing GB of low-quality bases, host-mapped, unmapped, and MAG-mapped fractions.
-
-```{r dna_fractions_stats2, message=FALSE, warning=FALSE}
+```{r dna_fractions_stats2}
 sequence_fractions <- read_counts %>%
   pivot_longer(-genome, names_to = "sample", values_to = "value") %>%
   group_by(sample) %>%
@@ -258,11 +269,10 @@ sequence_fractions %>%
 	    labs(x = "Samples", y = "Amount of data (GB)") +
 	    theme_classic() +
 	    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size=6),legend.position = "bottom")
+
 ```
 
 ## Recovered microbial fraction
-
-Per sample, estimated microbial fraction (SingleM) vs recovered fraction (MAGs). Lines link the two values; points mark each estimate.
 
 ```{r data_estimations_plot1, message=FALSE, warning=FALSE, fig.height=6, fig.width=10, fig.fullwidth=TRUE}
 singlem_table <- sequence_fractions %>%
