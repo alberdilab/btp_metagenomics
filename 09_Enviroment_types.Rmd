@@ -29,6 +29,9 @@ lc_proj    <- terra::project(mosaic_vrt, crs_proj, method = "near")  # categoric
 radii_m <- c(100, 200, 400)
 buffers_list <- setNames(lapply(radii_m, \(r) st_buffer(points_proj, dist = r)), as.character(radii_m))
 buffers <- buffers_list[["200"]]  # primary buffer
+
+# Extract landcover data for the primary buffer (200m)
+extracted <- exactextractr::exact_extract(lc_proj, buffers)
 ```
 
 ```{r style, message=FALSE, warning=FALSE}
@@ -236,6 +239,21 @@ plot_df_ms <- lc_ms_groups %>%
 
 plot_df_wide_ms <- plot_df_ms %>%
   tidyr::pivot_wider(names_from = group, values_from = pct)
+```
+
+```{r group_colors_definition, message=FALSE, warning=FALSE}
+# Define color scheme for landcover groups
+group_colors <- c(
+  "Cultivated Vegetation - Woody"      = "#6a51a3",
+  "Cultivated Vegetation - Herbaceous" = "#9e9ac8",
+  "Natural Vegetation - Woody"         = "#006400",
+  "Natural Vegetation - Herbaceous"    = "#1b9e77",
+  "Natural Vegetation - General"       = "#b2df8a",
+  "Aquatic Vegetation"                 = "#41b6c4",
+  "Bare Surface"                       = "#e6ab02",
+  "Urban/Artificial"                   = "#757575",
+  "Other"                              = "#cccccc"
+)
 ```
 
 ```{r multiscale plot, message=FALSE, warning=FALSE}
@@ -1064,6 +1082,13 @@ print(scale_cor)
 ```
 
 ```{r hsmc variabels, message=FALSE, warning=FALSE}
+
+enivromental_var_with_sites <- read_excel("enivromental_var_with_sites.xlsx",
+                                          sheet = 1)
+env_sites <- enivromental_var_with_sites |>
+  select(id, Site)
+
+
 # 1) Replace NA devil densities with 0 to prevent hsmc crashing. 
 selected_variables_ms_fixed <- selected_variables_ms %>%
   mutate(devil_density_baseline = ifelse(is.na(devil_density_baseline), 0, devil_density_baseline))
@@ -1081,6 +1106,7 @@ r400 <- selected_variables_ms_fixed %>%
   filter(radius_m == 400) %>%
   select(-radius_m)
 
+
 # 3) (optional) Save for HSMC runs
 dir.create("data/hsmc_scales", showWarnings = FALSE, recursive = TRUE)
 write.csv(r100, "data/hsmc_scales/env_vars_r100.csv", row.names = FALSE)
@@ -1094,8 +1120,6 @@ message("Rows at 400m: ", nrow(r400))
 ```
 
 ```{r make-hsmc-ready-h1, message=FALSE, warning=FALSE}
-library(dplyr)
-library(rlang)
 
 stopifnot(exists("selected_variables_ms"))
 
@@ -1123,8 +1147,7 @@ to_hsmc_schema <- function(df_ms, hill_metric = "h1") {
     ) %>%
     transmute(
       id,
-      site,
-      diversity     = .data[[hill_metric]],      # use h1 as requested
+      diversity     = .data[[hill_metric]],      
       pop_density   = pop_density_1km,
       temperature   = annual_mean_temp,
       precipitation = annual_precipitation,
@@ -1144,14 +1167,55 @@ r100_h1 <- hsmc_ms %>% filter(radius_m == 100) %>% select(-radius_m)
 r200_h1 <- hsmc_ms %>% filter(radius_m == 200) %>% select(-radius_m)
 r400_h1 <- hsmc_ms %>% filter(radius_m == 400) %>% select(-radius_m)
 
+r200_h1 <- r200_h1 |>
+  left_join(env_sites, by = c("id" = "id"))
+
+
+```
+
+```{r tasmania_australia_split_r200, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+
+r200_h1 <- r200_h1 %>%
+  left_join(
+    sample_metadata %>% select(sample, island),
+    by = c("id" = "sample")
+  )
+
+r200_h1_tas <- r200_h1 %>% filter(island == "Tasmania")
+r200_h1_aus <- r200_h1 %>% filter(island == "Australia")
+
+
+```
+
+```{r tasmania_australia_split_save, warning=FALSE, comments="", message=FALSE, eval=FALSE}
 # (Optional) save
 dir.create("data/hsmc_scales", showWarnings = FALSE, recursive = TRUE)
 write.csv(r100_h1, "data/hsmc_scales/env_vars_r100_h1.csv", row.names = FALSE)
-write.csv(r200_h1, "data/hsmc_scales/env_vars_r200_h1.csv", row.names = FALSE)
+write.csv(r200_h1_tas, "data/hsmc_scales/env_vars_r200_h1_tas.csv", row.names = FALSE)
 write.csv(r400_h1, "data/hsmc_scales/env_vars_r400_h1.csv", row.names = FALSE)
 
 # Sanity check
-message("Columns: ", paste(names(r200_h1), collapse = ", "))
+message("Columns: ", paste(names(r200_h1), Fcollapse = ", "))
 message("Rows (100/200/400): ", nrow(r100_h1), "/", nrow(r200_h1), "/", nrow(r400_h1))
 
+```
+
+```{r tasmania_animal_var, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+animal_vars_tas <- sample_metadata_tasmania |>
+  select(sample, sex, Development, `Weight (g)`) |>
+  filter(
+    !is.na(sex),
+    sex != "Unknown",
+    !is.na(`Weight (g)`)
+  )
+
+write.csv(animal_vars_tas, "data/hsmc_scales/animal_vars_tas.csv", row.names = FALSE)
+```
+
+```{r tasmania_env_short, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+
+tasmania_env_short <- r200_h1_tas |>
+  dplyr::filter(id %in% animal_vars_tas$sample)
+
+write.csv(tasmania_env_short, "data/hsmc_scales/tasmania_env_short.csv", row.names = FALSE)
 ```

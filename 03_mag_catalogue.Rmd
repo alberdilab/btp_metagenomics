@@ -5,31 +5,38 @@ An overview of the recovered MAGs: circular phylogeny with phylum ring, genome q
 
 ## Microbiota data
 
+**Note:** Load all required data objects including genome metadata, phylogenetic tree, GIFT annotations, and color schemes from the RData file created in the data preparation chapter.
+
 ```{r load_data_mag, message=FALSE, warning=FALSE}
 load("data/data.Rdata")
 ```
 
-```{r exclude Sample1, message=FALSE, warning=FALSE}
+**Note:** Filter out sample EHI01340 from the metadata. This sample was removed because it could not be mapped to MAGs, ensuring consistency across downstream analyses.
+
+```{r exclude_Sample1_mag, message=FALSE, warning=FALSE}
 sample_metadata<- sample_metadata %>% filter(sample!="EHI01340")
 ```
 ***EHI01340 sample has been removed because of inability to map MAGS***
 
 ### Genome phylogeny
 
-Circular phylogeny of MAGs with four rings: phylum (outer heatmap), genome quality (bar, completeness filled by contamination), ‘new species’ flag, and genome size. Labels indicate ring meaning; tree ultrametricised for visualisation.
+Circular phylogeny of MAGs with four rings: phylum (outer heatmap), genome quality (bar, completeness filled by contamination), 'new species' flag, and genome size. Labels indicate ring meaning; tree ultrametricised for visualisation.
+
+**Note:** Prepare data for circular phylogenetic tree visualization. Load phylum color scheme from EHI taxonomy repository and create a phylum heatmap matrix ordered to match the tree tip labels. Generate a new species flag table identifying MAGs with incomplete species assignments (species == "s__"). Create an ultrametric tree layout for circular visualization.
 
 ```{r genome_phylogeny, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE}
 # Generate the phylum color heatmap
 phylum_heatmap <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
     right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    filter(genome %in% genome_tree$tip.label) %>%
     arrange(match(genome, genome_tree$tip.label)) %>%
-
     select(genome,phylum) %>%
     mutate(phylum = factor(phylum, levels = unique(phylum))) %>%
     column_to_rownames(var = "genome")
 
 # Generate new species table
 newspecies_table <- genome_metadata %>%
+  filter(genome %in% genome_tree$tip.label) %>%
   mutate(newspecies=ifelse(species=="s__","Y","N")) %>%
   select(genome,newspecies) %>%
   column_to_rownames(var = "genome")
@@ -40,7 +47,9 @@ circular_tree <- force.ultrametric(genome_tree, method="extend") %>% # extend to
 
 ```
 
-```{r genome_ring, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE}
+**Note:** Build the circular phylogenetic tree with multiple annotation rings. Add phylum ring as a heatmap using EHI color scheme, genome quality ring showing completeness (bar length) colored by contamination level, new species flag ring indicating MAGs with incomplete species assignments, and genome size ring showing relative genome lengths. Add text labels to identify each ring. Rotate and open the tree for optimal visualization.
+
+```{r genome_ring, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE, eval = FALSE}
 # Add phylum ring
 # circular_tree <- gheatmap(circular_tree, phylum_heatmap, offset=0.55, width=0.1, colnames=FALSE) +
 #         scale_fill_manual(values=phylum_colors) +
@@ -54,18 +63,24 @@ circular_tree <- gheatmap(circular_tree, phylum_heatmap, offset=0.05, width=0.05
 # Flush color scale to enable a new color scheme in the next ring
 circular_tree <- circular_tree + new_scale_fill()
 
+# Prepare genome_metadata filtered to tree tips for geom_fruit
+# geom_fruit expects 'label' column to match tree tip labels
+genome_metadata_filtered <- genome_metadata %>%
+  filter(genome %in% genome_tree$tip.label) %>%
+  mutate(label = genome)
+
 # Add completeness ring
 circular_tree <- circular_tree +
         new_scale_fill() +
         scale_fill_gradient(low = "#d1f4ba", high = "#f4baba") +
         geom_fruit(
-                data=genome_metadata,
-                geom=geom_bar,
-                mapping = aes(x=completeness, y=genome, fill=contamination),
+                data = genome_metadata_filtered,
+                geom = geom_bar,
+                mapping = aes(x = completeness, y = label, fill = contamination),
                 offset = 0.24,
                 pwidth = 0.1,
-                orientation="y",
-              stat="identity")+
+                orientation = "y",
+                stat = "identity") +
   labs(fill="Contamination")
 
 # Add genome-size ring
@@ -79,13 +94,13 @@ circular_tree <- gheatmap(circular_tree, newspecies_table, offset=0.3, width=0.0
 
 circular_tree <-  circular_tree +
   geom_fruit(
-    data=genome_metadata,
-    geom=geom_bar,
-    mapping = aes(x=length, y=genome),
+    data = genome_metadata_filtered,
+    geom = geom_bar,
+    mapping = aes(x = length, y = label),
     fill = "#1e6e55",
     offset = 0.05,
-    orientation="y",
-    stat="identity")
+    orientation = "y",
+    stat = "identity")
 
 
 # Add text
@@ -101,31 +116,41 @@ circular_tree %>% open_tree(30) %>% rotate_tree(90)
 
 ### Taxonomy overview
 
+**Note:** Calculate the number of MAGs per phylum and compute the percentage distribution. Display results in a formatted table sorted by percentage in descending order to show which phyla dominate the MAG collection.
+
 ```{r genome_taxonomy_bacteria, message=FALSE, warning=FALSE}
 tax_mag <-genome_metadata %>%
   group_by(phylum) %>%
   summarise(mag_n=n())
 
 tax_mag %>%
-  mutate(percetage_mag=round(mag_n*100/sum(mag_n), 2)) %>%
-  arrange(-percetage_mag) %>%
+  mutate(percentage_mag=round(mag_n*100/sum(mag_n), 2)) %>%
+  arrange(-percentage_mag) %>%
   tt()
 ```
 
 ### Mag size (MB)
+
+**Note:** Calculate corrected genome size by dividing observed length by completeness percentage and multiplying by 100. This estimates the true genome size accounting for incomplete assembly. Arrange genomes by completeness for downstream analysis.
+
 ```{r, message=FALSE, warning=FALSE}
 genome_metadata <-genome_metadata %>%
-  mutate(corrected_size=100*length/completeness) %>%
+  mutate(corrected_size=ifelse(completeness > 0, 100*length/completeness, NA)) %>%
   arrange(completeness)
 ```
 
 Mags average size (MB)
+
+**Note:** Calculate the mean corrected genome size across all MAGs. This provides a summary statistic for the average genome size in the collection, accounting for assembly completeness.
+
 ```{r mag_size_all_mean, message=FALSE, warning=FALSE}
 genome_metadata %>%
   summarise(Average_corrected_size=mean(corrected_size))
 ```
 
 ### Genome quality
+
+**Note:** Calculate summary statistics for genome quality metrics (completeness and contamination). Compute mean and standard deviation for each metric, then format as "mean ± SD" strings for display in a formatted table. This provides an overview of overall MAG quality in the collection.
 
 ```{r gut_genome_quality, message=FALSE, warning=FALSE}
 genome_metadata %>%
@@ -139,6 +164,8 @@ genome_metadata %>%
 ```
 
 MAG quality landscape: scatter shows completeness (x) vs contamination (y), point size ∝ genome length and colour = phylum; minimalist side boxplots summarise each metric.
+
+**Note:** Create a composite visualization of genome quality metrics. Generate a scatter plot showing completeness vs contamination with points colored by phylum and sized by genome length, ordered according to phylogenetic tree. Create minimalist boxplots for completeness (bottom) and contamination (right) to summarize distributions. Arrange all plots in a grid layout with the main biplot in the center and summary boxplots on the margins.
 
 ```{r gut_genome_quality_plot, message=FALSE, warning=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
 
@@ -186,7 +213,7 @@ genome_completeness <- genome_metadata %>%
 
 #Render composite figure
 grid.arrange(grobs = list(genome_completeness,genome_biplot,genome_contamination),
-        layout_matrix = rbind(c(1,1,1,1,1,1,1,1,1,1,1,4),
+        layout_matrix = rbind(c(1,1,1,1,1,1,1,1,1,1,1,1),
                               c(2,2,2,2,2,2,2,2,2,2,2,3),
                               c(2,2,2,2,2,2,2,2,2,2,2,3),
                               c(2,2,2,2,2,2,2,2,2,2,2,3),
@@ -204,6 +231,9 @@ grid.arrange(grobs = list(genome_completeness,genome_biplot,genome_contamination
 ### Functional overview
 
 ***Predicted genes***
+
+**Note:** Load genome annotations and count the total number of predicted genes across all MAGs. This provides a summary of the total gene content in the MAG collection.
+
 ```{r predicted_stats_gut, message=FALSE, warning=FALSE}
 genome_annotations <- read_tsv("data/genome_annotations.tsv.xz") %>%
     rename(gene=1, genome=2, contig=3)
@@ -216,7 +246,10 @@ cat(pred_genes)
 ```
 
 ***Number of annotated genes and percentages***
-```{r annotation_stats, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE, eval = FALSE}
+
+**Note:** Calculate the number of genes with at least one functional annotation (KEGG, Pfam, or CAZy). Compute the percentage of annotated genes relative to total predicted genes. This metric indicates the proportion of genes that could be functionally characterized.
+
+```{r annotation_stats, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE}
 
 # Some annotation
 genome_annota <- genome_annotations %>%
@@ -230,7 +263,10 @@ genome_annota*100/pred_genes
 ```
 
 ***Number of KEGG annotated genes and percentages***
-```{r kegg_stats, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE, eval = FALSE}
+
+**Note:** Calculate the number of genes with KEGG pathway annotations and compute the percentage relative to all annotated genes. This provides insight into the proportion of functionally annotated genes that have pathway assignments.
+
+```{r kegg_stats, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE}
 # KEGG annotation
 kegg_annota <- genome_annotations %>%
   filter(!is.na(kegg_id)) %>%
@@ -241,11 +277,17 @@ cat(kegg_annota)
 kegg_annota*100/genome_annota
 ```
 
-```{r function_heatmap, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE}
+**Note:** Aggregate GIFT annotations to element level for use in functional visualizations.
 
+```{r function_table_prep, message=FALSE, warning=FALSE, echo=FALSE}
 # Aggregate basal GIFT into elements
 function_table <- genome_gifts %>%
     to.elements(., GIFT_db)
+```
+
+**Note:** Create a comprehensive functional heatmap visualization combining phylogenetic tree, phylum colors, GIFT element profiles, and genome completeness. Generate an ultrametric tree layout, add phylum color heatmap next to tree tips, add functional element heatmap showing GIFT profiles for each genome, and add completeness barplots. Save the composite figure to PDF for publication.
+
+```{r function_heatmap, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE, eval = FALSE}
 
 # Generate  basal tree
 function_tree <- force.ultrametric(genome_tree, method="extend") %>%
@@ -290,6 +332,8 @@ ggsave("function_tree.pdf", width = 6, height = 12, units = "in")
 ### Functional ordination
 
 t-SNE ordination of genome functional profiles (GIFT elements). Points are MAGs; colour = phylum, size ∝ genome length.
+
+**Note:** Perform t-SNE dimensionality reduction on GIFT element profiles to visualize functional relationships between MAGs in two-dimensional space. Generate t-SNE coordinates, join with genome metadata to add phylum and size information, and create a scatter plot colored by phylum with point sizes proportional to genome length. This visualization reveals clusters of MAGs with similar functional profiles, independent of phylogenetic relationships.
 
 ```{r function_ordination, message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
 # Generate the tSNE ordination

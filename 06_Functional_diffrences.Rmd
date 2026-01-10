@@ -1,7 +1,9 @@
 
 # Beta diversity
 
-Between-sample dissimilarity using Hill-based distances (richness, neutral, phylogenetic, functional), PERMANOVA tests for broad environment/sex effects, and NMDS ordinations to visualise separation in community structure.
+Between-sample dissimilarity using Hill-based distances (richness, neutral, phylogenetic, functional), PERMANOVA tests for broad environment/island effects, and NMDS ordinations to visualise separation in community structure.
+
+**Note:** Load all required data objects including genome counts, metadata, and color schemes.
 
 ```{r load_data_beta, message=FALSE, warning=FALSE}
 load("data/data.Rdata")
@@ -9,49 +11,62 @@ load("data/data.Rdata")
 treatment_colors <- c("#f56042","#429ef5", "#42f58d", "#b142f5", "#f5e642")
 ```
 
+**Note:** Filter out sample EHI01340, identify valid samples, remove samples with missing broad_environment values, and filter genome counts to only include valid samples.
+
 ```{r filter_NAs, message=FALSE, warning=FALSE}
 sample_metadata <- sample_metadata %>% dplyr::filter(sample != "EHI01340")
 valid_samples <- sample_metadata$sample
 
 sample_metadata_without_NA <- sample_metadata %>%
-  filter(!is.na(broad_environment))
+  dplyr::filter(!is.na(broad_environment))
 
 genome_counts_filt <- genome_counts_filt %>%
   dplyr::select(genome, tidyselect::any_of(valid_samples))
 ```
 
 ***beta_div***
-```{r beta_div, comment="", message=FALSE, warning=FALSE, eval=FALSE}
+
+**Note:** Calculate four types of beta diversity distance matrices using Hill-based pairwise distances: richness-based (q=0, presence/absence), neutral/abundance-weighted (q=1), phylogenetic (q=1 with phylogenetic tree), and functional (q=1 with functional trait distances). Filters out genomes and samples with zero counts before calculation.
+
+```{r beta_div, comment="", message=FALSE, warning=FALSE, eval = FALSE}
 #Presence/Absence
-beta_q0n <- genome_counts_filt %>%  
-  
-  
-  column_to_rownames(., "genome"  ) %>%
-  filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
-  select_if(~!all(. == 0)) %>%
+beta_q0n <- genome_counts_filt %>%
+  tibble::column_to_rownames(., "genome") %>%
+  dplyr::filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
+  dplyr::select_if(~!all(. == 0)) %>%
   hillpair(., q = 0)
 #Abundance-sensitive
 beta_q1n <- genome_counts_filt %>%
-  column_to_rownames(., "genome") %>%
-  filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
-  select_if(~!all(. == 0)) %>%
+  tibble::column_to_rownames(., "genome") %>%
+  dplyr::filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
+  dplyr::select_if(~!all(. == 0)) %>%
   hillpair(., q = 1)
 #Abundance + Phylogeny
 genome_counts_filt_beta <- genome_counts_filt %>%
-  column_to_rownames(., "genome") %>% 
-  filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
-  select_if(~!all(. == 0))%>%
-  rownames_to_column(., "genome")
+  tibble::column_to_rownames(., "genome") %>%
+  dplyr::filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
+  dplyr::select_if(~!all(. == 0)) %>%
+  tibble::rownames_to_column(., "genome")
 #Abundance + Trait Distance
-genome_tree <- keep.tip(genome_tree, tip=genome_counts_filt_beta$genome)
-beta_q1p <- genome_counts_filt %>%  
-  column_to_rownames(., "genome") %>%
-  filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
-  select_if(~!all(. == 0)) %>%
+genome_tree <- keep.tip(genome_tree, tip = genome_counts_filt_beta$genome)
+beta_q1p <- genome_counts_filt %>%
+  tibble::column_to_rownames(., "genome") %>%
+  dplyr::filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
+  dplyr::select_if(~!all(. == 0)) %>%
   hillpair(., q = 1, tree = genome_tree)
 ```
 
+**Note:** Calculate functional beta diversity (beta_q1f) by matching genomes between count data and functional trait data (genome_gifts). Converts GIFT traits to elements, calculates Gower distance matrix, filters and aligns both datasets to common genomes, then computes Hill-based pairwise distances with functional trait distances.
+
 ```{r beta_div2, comment="", message=FALSE, warning=FALSE, eval=TRUE}
+# Create genome_counts_filt_beta if it doesn't exist (from beta_div chunk)
+if (!exists("genome_counts_filt_beta")) {
+  genome_counts_filt_beta <- genome_counts_filt %>%
+    tibble::column_to_rownames(., "genome") %>%
+    dplyr::filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
+    dplyr::select_if(~!all(. == 0)) %>%
+    tibble::rownames_to_column(., "genome")
+}
 
 # 1. Only use genomes that also occur in genome_gifts
 valid_genomes <- genome_counts_filt_beta$genome[genome_counts_filt_beta$genome %in% rownames(genome_gifts)]
@@ -73,19 +88,18 @@ common_genomes <- intersect(
 
 # 5. genome_counts_filt to filter and sort the shared genomes
 genome_counts_filt_matched <- genome_counts_filt %>%
-  column_to_rownames("genome") %>%
-  filter(rownames(.) %in% common_genomes) %>%
-  select_if(~!all(. == 0))  # optional: leere Spalten raus
+  tibble::column_to_rownames("genome") %>%
+  dplyr::filter(rownames(.) %in% common_genomes) %>%
+  dplyr::select_if(~!all(. == 0))  # optional: remove empty columns
 
 # 6. Limit and sort dist matrix to common genomes
 dist_matched <- dist[common_genomes, common_genomes]
 
-
 beta_q1f <- genome_counts_filt_matched %>%
   hillpair(q = 1, dist = dist_matched)
-
-
 ```
+
+**Note:** Save all four beta diversity distance matrices (richness, neutral, phylogenetic, functional) to an R data file for later use.
 
 ```{r save_beta, comment="", message=FALSE,echo=FALSE,warning=FALSE, eval=FALSE}
 save(beta_q0n, 
@@ -95,6 +109,7 @@ save(beta_q0n,
      file = "data/beta.Rdata")
 ```
 
+**Note:** Set random seed for reproducibility of permutation-based statistical tests.
 
 ```{r seed, comment="", message=FALSE,echo=FALSE,warning=FALSE, eval=FALSE}
 
@@ -103,27 +118,42 @@ set.seed(2025)
 
 ## Permanova
 
+**Note:** Define a reusable function `run_permanova` that performs PERMANOVA analysis on beta diversity matrices. The function matches samples between distance matrix and metadata, filters out NAs, tests beta dispersion (homogeneity of variances), runs PERMANOVA with adonis2, optionally performs pairwise comparisons, and returns both dispersion and PERMANOVA results.
+
 ```{r Funktion für PERMANOVA Analysen, comment="", message=FALSE, warning=FALSE}
-run_permanova <- function(beta_matrix, metadata, sample_col = "sample", group_col, group_vars, pairwise = FALSE) {
+run_permanova <- function(beta_matrix,
+                          metadata,
+                          sample_col = "sample",
+                          group_col,
+                          group_vars,
+                          pairwise = FALSE) {
   
-  # 1. Sample labels from Beta-Matrix
+  # 1. Sample labels from Beta-Matrix (dist object)
   sample_labels <- labels(beta_matrix$S)
   
   # 2. Metadata filtered and sorted
   metadata_matched <- metadata %>%
-    filter(!!sym(sample_col) %in% sample_labels) %>%
-    arrange(match(!!sym(sample_col), sample_labels))
+    dplyr::filter(!!rlang::sym(sample_col) %in% sample_labels) %>%
+    dplyr::arrange(match(!!rlang::sym(sample_col), sample_labels))
   
-  # 3. Synchronize beta_matrix$S to metadata
+  # 3. Synchronize beta_matrix$S to metadata (subset via matrix, then back to dist)
   common_samples <- intersect(sample_labels, metadata_matched[[sample_col]])
-  beta_matrix$S <- beta_matrix$S[common_samples, common_samples]
-  metadata_matched <- metadata_matched %>%
-    filter(!!sym(sample_col) %in% common_samples) %>%
-    arrange(match(!!sym(sample_col), common_samples))
   
-  # 4. Remove samples with NA in group_col
+  S_mat <- as.matrix(beta_matrix$S)
+  S_mat <- S_mat[common_samples, common_samples, drop = FALSE]
+  beta_matrix$S <- as.dist(S_mat)
+  
+  metadata_matched <- metadata_matched %>%
+    dplyr::filter(!!rlang::sym(sample_col) %in% common_samples) %>%
+    dplyr::arrange(match(!!rlang::sym(sample_col), common_samples))
+  
+  # 4. Remove samples with NA in group_col (again via matrix → dist)
   valid_idx <- !is.na(metadata_matched[[group_col]])
-  beta_matrix$S <- beta_matrix$S[valid_idx, valid_idx]
+  
+  S_mat <- as.matrix(beta_matrix$S)
+  S_mat <- S_mat[valid_idx, valid_idx, drop = FALSE]
+  beta_matrix$S <- as.dist(S_mat)
+  
   metadata_matched <- metadata_matched[valid_idx, ]
   
   # 5. Betadisper and Permutest
@@ -134,10 +164,12 @@ run_permanova <- function(beta_matrix, metadata, sample_col = "sample", group_co
   # 6. Dynamic formula building
   formula_str <- paste0("beta_matrix$S ~ ", paste(group_vars, collapse = " + "))
   cat("\n===== PERMANOVA Test (adonis2) =====\n")
-  permanova_result <- adonis2(as.formula(formula_str),
-                              data = metadata_matched,
-                              permutations = 999,
-                              by = "terms")
+  permanova_result <- adonis2(
+    as.formula(formula_str),
+    data = metadata_matched,
+    permutations = 999,
+    by = "terms"
+  )
   print(broom::tidy(permanova_result))
   
   # 7. (Optional) Pairwise Adonis
@@ -149,21 +181,23 @@ run_permanova <- function(beta_matrix, metadata, sample_col = "sample", group_co
   # 8. Return outputs
   return(list(
     dispersion = dispersion_result,
-    permanova = permanova_result
+    permanova  = permanova_result
   ))
 }
+
 ```
 
 ### Richness
 
-```{r permanova_richness, comment="", message=FALSE, warning=FALSE, eval = FALSE}
+**Note:** Run PERMANOVA analysis on richness-based beta diversity (beta_q0n) to test for differences in community composition across broad environment types and islands, including interaction effects. Tests whether presence/absence community structure differs between environments.
 
+```{r permanova_richness, comment="", message=FALSE, warning=FALSE}
 run_permanova(
-  beta_matrix = beta_q0n$S,
+  beta_matrix = beta_q0n,
   metadata = sample_metadata_without_NA,
   sample_col = "sample",
   group_col = "broad_environment",
-  group_vars = c("broad_environment","sex", "broad_environment:sex"),
+  group_vars = c("broad_environment", "island", "broad_environment:island"),
   pairwise = FALSE
 )
 
@@ -171,160 +205,275 @@ run_permanova(
 
 ### Neutral diversity
 
-```{r permanova_neutral, comment="", message=FALSE, warning=FALSE, eval = FALSE}
+**Note:** Run PERMANOVA analysis on abundance-weighted beta diversity (beta_q1n) to test for differences in community composition across broad environment types and islands, including interaction effects and pairwise comparisons. Tests whether abundance-weighted community structure differs between environments.
+
+```{r permanova_neutral, comment="", message=FALSE, warning=FALSE}
 run_permanova(
   beta_matrix = beta_q1n,
   metadata = sample_metadata_without_NA,
   sample_col = "sample",
   group_col = "broad_environment",
-  group_vars = c("broad_environment","sex", "broad_environment:sex"),
+  group_vars = c("broad_environment", "island", "broad_environment:island"),
   pairwise = TRUE
 )
 ```
 
 ### Phylogenetic diversity (beta_q1p)
 
-```{r permanova_phylo, comment="", message=FALSE, warning=FALSE, eval = FALSE}
+**Note:** Run PERMANOVA analysis on phylogenetic beta diversity (beta_q1p) to test for differences in community composition across broad environment types and islands, including interaction effects. Tests whether phylogenetically-weighted community structure differs between environments.
 
+```{r permanova_phylo, comment="", message=FALSE, warning=FALSE}
 run_permanova(
   beta_matrix = beta_q1p,
   metadata = sample_metadata_without_NA,
   sample_col = "sample",
   group_col = "broad_environment",
-  group_vars = c("broad_environment","sex", "broad_environment:sex"),
+  group_vars = c("broad_environment", "island", "broad_environment:island"),
   pairwise = FALSE  # no pairwise comparisons here
 )
 ```
 
 ### Functional diversity (beta_q1f)
 
-```{r permanova_func, comment="", message=FALSE, warning=FALSE, eval = FALSE}
+**Note:** Run PERMANOVA analysis on functional beta diversity (beta_q1f) to test for differences in community composition across broad environment types and islands, including interaction effects and pairwise comparisons. Tests whether functionally-weighted community structure differs between environments.
 
+```{r permanova_func, comment="", message=FALSE, warning=FALSE}
 run_permanova(
   beta_matrix = beta_q1f,
   metadata = sample_metadata_without_NA,
   sample_col = "sample",
   group_col = "broad_environment",
-  group_vars = c("broad_environment","sex", "broad_environment:sex"),
+  group_vars = c("broad_environment", "island", "broad_environment:island"),
   pairwise = TRUE  
 )
 ```
 
 ## NMDS 
 
-NMDS of β-diversity (richness/neutral/phylogenetic/functional). Points are samples, coloured by broad environment and shaped by sex; segments draw each point to its group centroid.
+NMDS of β-diversity (richness/neutral/phylogenetic/functional). Points are samples, coloured by broad environment and shaped by island; segments draw each point to its group centroid.
 
-###Richness
-```{r beta_div_nmds_richness_plot, comment="", message=FALSE, warning=FALSE, fig.height=7, fig.width=10, fig.fullwidth=TRUE}
-beta_q0n$S %>%
-  vegan::metaMDS(., trymax = 500, k = 2, trace=0) %>%
-  vegan::scores() %>%
-  as_tibble(., rownames = "sample") %>%
-  dplyr::inner_join(sample_metadata, by = join_by(sample == sample)) %>%
-  group_by(broad_environment) %>%
-  mutate(x_cen = mean(NMDS1, na.rm = TRUE)) %>%
-  mutate(y_cen = mean(NMDS2, na.rm = TRUE)) %>%
-  ungroup() %>%
-  ggplot(aes(x = NMDS1, y = NMDS2, color = broad_environment, shape = as.factor(sex))) +
-  geom_point(size = 4) +
-  scale_color_manual(values = treatment_colors,labels=c("high" = "High-altitude", "low" = "Low-altitude")) +
-  geom_segment(aes(x = x_cen, y = y_cen, xend = NMDS1, yend = NMDS2), alpha = 0.9, show.legend = FALSE) +
-  theme(
-    axis.title = element_text(size = 12, face = "bold"),
-    axis.text = element_text(size = 10),
-    panel.background = element_blank(),
-    axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
-    legend.text = element_text(size = 10),
-    legend.title = element_text(size = 12),
-    legend.position = "right", legend.box = "vertical"
+**Note:** Define a reusable function to create NMDS ordination plots. The function performs metaMDS on the distance matrix, extracts NMDS scores, joins with sample metadata, calculates group centroids, and visualizes samples with optional labels.
+
+```{r nmds_plot_function, comment="", message=FALSE, warning=FALSE}
+# Function to calculate overall axis limits from all beta matrices
+calculate_nmds_limits <- function(beta_matrices) {
+  all_scores <- purrr::map_dfr(beta_matrices, function(beta_mat) {
+    beta_mat$S %>%
+      vegan::metaMDS(trymax = 500, k = 2, trace = 0) %>%
+      vegan::scores() %>%
+      tibble::as_tibble(rownames = "sample")
+  })
+  
+  x_range <- range(all_scores$NMDS1, na.rm = TRUE)
+  y_range <- range(all_scores$NMDS2, na.rm = TRUE)
+  
+  # Add some padding (5% on each side)
+  x_padding <- diff(x_range) * 0.05
+  y_padding <- diff(y_range) * 0.05
+  
+  list(
+    xlim = c(x_range[1] - x_padding, x_range[2] + x_padding),
+    ylim = c(y_range[1] - y_padding, y_range[2] + y_padding)
+  )
+}
+
+create_nmds_plot <- function(beta_matrix, 
+                             show_labels = FALSE,
+                             point_size = 3,
+                             segment_alpha = 0.3,
+                             show_ellipses = FALSE,
+                             show_centroids = TRUE,
+                             xlim = NULL,
+                             ylim = NULL) {
+  # Calculate NMDS and get stress value
+  nmds_obj <- beta_matrix$S %>%
+    vegan::metaMDS(trymax = 500, k = 2, trace = 0)
+  
+  stress_value <- nmds_obj$stress
+  
+  # Extract scores and join with metadata
+  nmds_scores <- nmds_obj %>%
+    vegan::scores() %>%
+    tibble::as_tibble(rownames = "sample") %>%
+    dplyr::inner_join(sample_metadata, by = join_by(sample == sample)) %>%
+    group_by(broad_environment) %>%
+    mutate(
+      x_cen = mean(NMDS1, na.rm = TRUE),
+      y_cen = mean(NMDS2, na.rm = TRUE)
+    ) %>%
+    ungroup()
+  
+  # Create base plot
+  p <- nmds_scores %>%
+    ggplot(aes(x = NMDS1, y = NMDS2, 
+               color = broad_environment, 
+               shape = as.factor(island))) +
+    # Add segments from centroids to points (lighter and thinner)
+    geom_segment(
+      aes(x = x_cen, y = y_cen, xend = NMDS1, yend = NMDS2),
+      alpha = segment_alpha,
+      linewidth = 0.3,
+      color = "gray60",
+      show.legend = FALSE
     ) +
-    labs(color="Environmental context", shape="sex")+geom_text_repel(aes(label = sample), size=3)
-
+    # Add sample points
+    geom_point(size = point_size, alpha = 0.8) +
+    # Color scale with proper capitalization
+    scale_color_manual(
+      values = treatment_colors,
+      labels = c("tasmania" = "Tasmania", "australia" = "Australia")
+    ) +
+    # Shape scale
+    scale_shape_discrete(name = "Island")
+  
+  # Add confidence ellipses if requested
+  if (show_ellipses) {
+    p <- p + stat_ellipse(
+      aes(color = broad_environment),
+      type = "norm",
+      level = 0.95,
+      linetype = 2,
+      alpha = 0.5,
+      linewidth = 0.5,
+      show.legend = FALSE
+    )
+  }
+  
+  # Add centroid markers if requested
+  if (show_centroids) {
+    p <- p + geom_point(
+      data = nmds_scores %>% 
+        dplyr::distinct(broad_environment, x_cen, y_cen),
+      aes(x = x_cen, y = y_cen, color = broad_environment),
+      shape = 21,
+      size = 6,
+      stroke = 2,
+      fill = "white",
+      show.legend = FALSE
+    )
+  }
+  
+  # Add theme and labels
+  p <- p +
+    # Theme
+    theme(
+      axis.title = element_text(size = 12, face = "bold"),
+      axis.text = element_text(size = 10),
+      panel.background = element_blank(),
+      panel.grid.major = element_line(color = "gray90", linewidth = 0.3),
+      panel.grid.minor = element_blank(),
+      axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
+      legend.text = element_text(size = 10),
+      legend.title = element_text(size = 11, face = "bold"),
+      legend.position = "right", 
+      legend.box = "vertical",
+      legend.spacing = unit(0.5, "cm"),
+      legend.key.size = unit(1, "lines")
+    ) +
+    # Labels with stress value in title
+    labs(
+      title = paste0("NMDS (Stress = ", round(stress_value, 3), ")"),
+      x = "NMDS1",
+      y = "NMDS2",
+      color = "Environmental context",
+      shape = "Island"
+    ) +
+    # Legend guides
+    guides(
+      color = guide_legend(order = 1, override.aes = list(size = 3)),
+      shape = guide_legend(order = 2, override.aes = list(size = 3))
+    )
+  
+  # Add coordinate system with fixed limits if provided
+  if (!is.null(xlim) && !is.null(ylim)) {
+    p <- p + coord_fixed(ratio = 1, xlim = xlim, ylim = ylim, expand = TRUE)
+  } else {
+    p <- p + coord_fixed(ratio = 1, expand = TRUE)
+  }
+  
+  # Text labels removed - no longer adding sample IDs
+  
+  return(p)
+}
 ```
 
+**Note:** Calculate overall axis limits from all beta diversity matrices to ensure consistent scaling across all NMDS plots.
+
+```{r calculate_nmds_limits, comment="", message=FALSE, warning=FALSE}
+# Calculate limits once from all beta matrices
+nmds_limits <- calculate_nmds_limits(list(beta_q0n, beta_q1n, beta_q1p, beta_q1f))
+```
+
+###Richness
+
+**Note:** Create NMDS ordination plot for richness-based beta diversity. Performs metaMDS on the distance matrix, extracts NMDS scores, joins with sample metadata, calculates group centroids for each broad environment, and visualizes samples colored by environment and shaped by island, with segments connecting samples to their group centroids.
+
+```{r beta_div_nmds_richness_plot, comment="", message=FALSE, warning=FALSE, fig.height=7, fig.width=10, fig.fullwidth=TRUE}
+create_nmds_plot(beta_q0n, 
+                 show_labels = FALSE,
+                 xlim = nmds_limits$xlim,
+                 ylim = nmds_limits$ylim)
+```
 
 ### Neutral diversity
 
+**Note:** Create NMDS ordination plot for abundance-weighted beta diversity. Performs metaMDS on the distance matrix, extracts NMDS scores, joins with sample metadata, calculates group centroids for each broad environment, and visualizes samples colored by environment and shaped by island, with segments connecting samples to their group centroids.
+
 ```{r beta_div_nmds_neutral_plot, comment="", message=FALSE, warning=FALSE, fig.height=7, fig.width=10, fig.fullwidth=TRUE}
-beta_q1n$S %>%
-  vegan::metaMDS(., trymax = 500, k = 2, trace=0) %>%
-  vegan::scores() %>%
-  as_tibble(., rownames = "sample") %>%
-  dplyr::inner_join(sample_metadata, by = join_by(sample == sample)) %>%
-  group_by(broad_environment) %>%
-  mutate(x_cen = mean(NMDS1, na.rm = TRUE)) %>%
-  mutate(y_cen = mean(NMDS2, na.rm = TRUE)) %>%
-  ungroup() %>%
-  ggplot(aes(x = NMDS1, y = NMDS2, color = broad_environment, shape = as.factor(sex))) +
-  geom_point(size = 4) +
-  scale_color_manual(values = treatment_colors,labels=c("high" = "High-altitude", "low" = "Low-altitude")) +
-  geom_segment(aes(x = x_cen, y = y_cen, xend = NMDS1, yend = NMDS2), alpha = 0.9, show.legend = FALSE) +
-  theme(
-    axis.title = element_text(size = 12, face = "bold"),
-    axis.text = element_text(size = 10),
-    panel.background = element_blank(),
-    axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
-    legend.text = element_text(size = 10),
-    legend.title = element_text(size = 12),
-    legend.position = "right", legend.box = "vertical"
-    ) +
-    labs(color="Evironmental context", shape="sex")
+create_nmds_plot(beta_q1n, 
+                 show_labels = FALSE,
+                 xlim = nmds_limits$xlim,
+                 ylim = nmds_limits$ylim)
 ```
 
 ### Phylogenetic diversity
 
-```{r beta_div_nmds_phylo_plot, comment="", message=FALSE, warning=FALSE, fig.height=7, fig.width=10, fig.fullwidth=TRUE}
-beta_q1p$S %>%
-  vegan::metaMDS(., trymax = 500, k = 2, trace=0) %>%
-  vegan::scores() %>%
-  as_tibble(., rownames = "sample") %>%
-  dplyr::inner_join(sample_metadata, by = join_by(sample == sample)) %>%
-  group_by(broad_environment) %>%
-  mutate(x_cen = mean(NMDS1, na.rm = TRUE)) %>%
-  mutate(y_cen = mean(NMDS2, na.rm = TRUE)) %>%
-  ungroup() %>%
-  ggplot(aes(x = NMDS1, y = NMDS2, color = broad_environment, shape = as.factor(sex))) +
-  geom_point(size = 4) +
-  scale_color_manual(values = treatment_colors,labels=c("high" = "High-altitude", "low" = "Low-altitude")) +
-  geom_segment(aes(x = x_cen, y = y_cen, xend = NMDS1, yend = NMDS2), alpha = 0.9, show.legend = FALSE) +
-  theme(
-    axis.title = element_text(size = 12, face = "bold"),
-    axis.text = element_text(size = 10),
-    panel.background = element_blank(),
-    axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
-    legend.text = element_text(size = 10),
-    legend.title = element_text(size = 12),
-    legend.position = "right", legend.box = "vertical"
-    ) +
-    labs(color="environment context", shape="sex")+geom_text_repel(aes(label = sample), size=3)
-```
+**Note:** Create NMDS ordination plot for phylogenetic beta diversity. Performs metaMDS on the distance matrix, extracts NMDS scores, joins with sample metadata, calculates group centroids for each broad environment, and visualizes samples colored by environment and shaped by island, with segments connecting samples to their group centroids.
 
+```{r beta_div_nmds_phylo_plot, comment="", message=FALSE, warning=FALSE, fig.height=7, fig.width=10, fig.fullwidth=TRUE}
+create_nmds_plot(beta_q1p, 
+                 show_labels = FALSE,
+                 xlim = nmds_limits$xlim,
+                 ylim = nmds_limits$ylim)
+```
 
 ### Functional diversity
 
+**Note:** Create NMDS ordination plot for functional beta diversity. Performs metaMDS on the distance matrix, extracts NMDS scores, joins with sample metadata, calculates group centroids for each broad environment, and visualizes samples colored by environment and shaped by island, with segments connecting samples to their group centroids.
+
 ```{r beta_div_nmds_funct_plot, comment="", message=FALSE, warning=FALSE, fig.height=7, fig.width=10, fig.fullwidth=TRUE}
- beta_q1f$S %>%
-  vegan::metaMDS(., trymax = 500, k = 2, trace=0) %>%
+create_nmds_plot(beta_q1f, 
+                 show_labels = FALSE,
+                 xlim = nmds_limits$xlim,
+                 ylim = nmds_limits$ylim)
+```
+
+**Note:** Create a zoomed-in version of the functional diversity NMDS plot with axes fitted to the data range for better visualization of the functional diversity patterns. The y-axis is stretched with additional padding for improved visibility.
+
+```{r beta_div_nmds_funct_plot_zoomed, comment="", message=FALSE, warning=FALSE, fig.height=7, fig.width=10, fig.fullwidth=TRUE}
+# Calculate functional diversity specific limits with more y-axis padding
+func_nmds_obj <- beta_q1f$S %>%
+  vegan::metaMDS(trymax = 500, k = 2, trace = 0)
+
+func_scores <- func_nmds_obj %>%
   vegan::scores() %>%
-  as_tibble(., rownames = "sample") %>%
-  dplyr::inner_join(sample_metadata, by = join_by(sample == sample)) %>%
-  group_by(broad_environment) %>%
-  mutate(x_cen = mean(NMDS1, na.rm = TRUE)) %>%
-  mutate(y_cen = mean(NMDS2, na.rm = TRUE)) %>%
-  ungroup() %>%
-  ggplot(aes(x = NMDS1, y = NMDS2, color = broad_environment, shape = as.factor(sex))) +
-  geom_point(size = 4) +
-  scale_color_manual(values = treatment_colors,labels=c("high" = "High-altitude", "low" = "Low-altitude")) +
-  geom_segment(aes(x = x_cen, y = y_cen, xend = NMDS1, yend = NMDS2), alpha = 0.9, show.legend = FALSE) +
-  theme(
-    axis.title = element_text(size = 12, face = "bold"),
-    axis.text = element_text(size = 10),
-    panel.background = element_blank(),
-    axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
-    legend.text = element_text(size = 10),
-    legend.title = element_text(size = 12),
-    legend.position = "right", legend.box = "vertical"
-    ) +
-    labs(color="broad_environment", shape="sex")+geom_text_repel(aes(label = sample), size=3)
+  tibble::as_tibble(rownames = "sample")
+
+x_range_func <- range(func_scores$NMDS1, na.rm = TRUE)
+y_range_func <- range(func_scores$NMDS2, na.rm = TRUE)
+
+# Add padding: 5% for x-axis, 15% for y-axis (more stretch on y)
+x_padding_func <- diff(x_range_func) * 0.05
+y_padding_func <- diff(y_range_func) * 0.50
+
+func_limits <- list(
+  xlim = c(x_range_func[1] - x_padding_func, x_range_func[2] + x_padding_func),
+  ylim = c(y_range_func[1] - y_padding_func, y_range_func[2] + y_padding_func)
+)
+
+create_nmds_plot(beta_q1f, 
+                 show_labels = FALSE,
+                 xlim = func_limits$xlim,
+                 ylim = func_limits$ylim)
 ```
 

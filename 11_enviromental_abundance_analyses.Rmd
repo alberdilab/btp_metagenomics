@@ -1,30 +1,11 @@
 
 #abundance analysis of micrb community in diffrent enviroment diversitys
 
-```{r load_libaries, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-library(dplyr)
-library(tidyr)
-library(forcats)
-library(purrr)
-library(tibble)
-library(readr)
-library(stringr)
-library(knitr)
+This chapter analyzes differential abundance of microbial genomes between samples with low and high environmental diversity (Hill diversity metrics h0, h1, h2). We use ANCOM-BC2 to identify significantly differentially abundant genomes and visualize results with barplots and volcano plots.
 
-# For UpSet & phyloseq / ANCOMBC2 steps:
-# install.packages("UpSetR"); BiocManager::install(c("phyloseq","ANCOMBC"))
-library(UpSetR)
-library(phyloseq)
-library(ANCOMBC)
+## Load data
 
-knitr::opts_chunk$set(
-  echo = FALSE, message = FALSE, warning = FALSE,
-  fig.width = 7, fig.height = 5, dpi = 150,
-  dev = "png"
-)
-
-```
-
+**Note:** Load sample metadata, genome count data, and Hill diversity metrics from RData files created in previous chapters. Filter out sample EHI01340 which was removed because it could not be mapped to MAGs, ensuring consistency across downstream analyses.
 
 ```{r load_data_hill, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 # --- data -----------------------------------------------------------------
@@ -36,6 +17,8 @@ sample_metadata <- sample_metadata %>% filter(sample != "EHI01340")
 hill_long       <- hill_long       %>% filter(id     != "EHI01340")
 
 ```
+
+**Note:** Transform Hill diversity data from long to wide format, creating separate columns for each Hill diversity metric (env_hill_h0, env_hill_h1, env_hill_h2). Join with sample metadata to create a combined metadata object for downstream analyses.
 
 ```{r hill_long to sampledata, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 hill_wide <- hill_long %>%
@@ -51,6 +34,10 @@ sample_metadata <- sample_metadata %>%
   dplyr::left_join(hill_wide, by = "sample")
 
 ```
+
+## Data preparation
+
+**Note:** Create grouping variables for each Hill diversity metric (q0, q1, q2). Split samples into tertiles (Low, Mid, High) based on environmental Hill diversity, then filter to keep only Low and High groups for two-group comparisons. For each q value, create filtered metadata and genome count matrices containing only samples in Low/High groups and genomes present in at least one sample.
 
 ```{r hill_loop, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 
@@ -102,6 +89,10 @@ purrr::walk(filtered_inputs, ~{
 
 
 ```
+
+## Structural zeros analysis
+
+**Note:** Identify structural zeros - genomes that are completely absent (zero counts) in one group (Low or High) but present in the other. This is important for ANCOM-BC2 analysis as structural zeros can be handled explicitly. For each q value, calculate which genomes are structurally absent in Low vs High groups and compute group means for genomes that are present in only one group.
 
 ```{r env_structuralzeros, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 # --- structural zeros ------------------------------------------------------
@@ -155,24 +146,96 @@ structural_zeros_list <- purrr::map(filtered_inputs, function(f) {
 
 
 
+```{r env_prepare_upset_data, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+# --- prepare data for UpSet plot: genomes present in Low vs High groups ---
+# Aggregate presence/absence across all q values (q0, q1, q2)
+# For each genome, check if it's present in Low or High groups across any q
+
+upset_data_list <- purrr::map(filtered_inputs, function(f) {
+  md <- f$metadata_div
+  gc <- f$genome_counts
+  
+  # Get Low and High samples
+  low_samps  <- md$sample[md[[f$group_col]] == "Low"]
+  high_samps <- md$sample[md[[f$group_col]] == "High"]
+  
+  # Keep only samples present in gc
+  low_samps  <- intersect(low_samps,  colnames(gc))
+  high_samps <- intersect(high_samps, colnames(gc))
+  
+  if (length(low_samps) == 0 || length(high_samps) == 0) {
+    return(tibble(genome = character(), Low = integer(), High = integer()))
+  }
+  
+  # Create presence/absence matrix
+  mat <- gc %>% 
+    tibble::column_to_rownames("genome") %>% 
+    as.matrix()
+  
+  # Aggregate: genome present in group if present in any sample of that group
+  tibble(
+    genome = rownames(mat),
+    Low  = as.integer(rowSums(mat[, low_samps,  drop = FALSE]) > 0),
+    High = as.integer(rowSums(mat[, high_samps, drop = FALSE]) > 0)
+  )
+})
+
+# Combine across all q values: genome present if present in any q
+df <- upset_data_list %>%
+  purrr::reduce(function(x, y) {
+    dplyr::full_join(x, y, by = "genome", suffix = c("", "_y")) %>%
+      dplyr::mutate(
+        Low  = as.integer((!is.na(Low) & Low == 1L) | (!is.na(Low_y) & Low_y == 1L)),
+        High = as.integer((!is.na(High) & High == 1L) | (!is.na(High_y) & High_y == 1L))
+      ) %>%
+      dplyr::select(genome, Low, High)
+  }) %>%
+  dplyr::mutate(across(c(Low, High), ~ dplyr::coalesce(.x, 0L))) %>%
+  tibble::column_to_rownames("genome") %>%
+  as.data.frame()
+
+# Define colors for Low and High groups
+groupcolors <- c(
+  "Low"  = "#440154FF",  # dark purple
+  "High" = "#FDE725FF"   # bright yellow
+)
+```
+
+**Note:** Create UpSet plot using UpSetR to visualize the intersection of genomes present in Low and High environmental diversity groups. The plot shows unique genomes in each group and shared genomes, with colors indicating group membership.
+
 ```{r env_chart1, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
-p <- ComplexUpset::upset(
-  df,
-  intersect = c("Low","High"),
-  base_annotations = list(
-    'Intersection size' = ComplexUpset::intersection_size(
-      text = list(size = 3, vjust = -0.5)
-    )
-  ),
-  sort_intersections = "descending",
-  width_ratio = 0.3
-) + ggplot2::scale_fill_manual(values = groupcolors) + ggplot2::theme_minimal(base_size = 12)
-print(p)
+# Create UpSet plot using UpSetR (more stable than ComplexUpset for this use case)
+if (nrow(df) > 0 && sum(df$Low | df$High) > 0) {
+  # Ensure UpSetR is loaded
+  if (!requireNamespace("UpSetR", quietly = TRUE)) {
+    install.packages("UpSetR")
+  }
+  
+  # Convert to format expected by UpSetR (ensure integer columns)
+  df_upset <- df %>%
+    dplyr::mutate(across(everything(), ~ as.integer(.x)))
+  
+  # Create UpSet plot
+  UpSetR::upset(
+    df_upset,
+    sets = c("Low", "High"),
+    keep.order = TRUE,
+    sets.bar.color = groupcolors[c("Low", "High")],
+    order.by = "freq",
+    text.scale = c(1.3, 1.3, 1, 1, 1.5, 1)
+  )
+} else {
+  cat("No data available for UpSet plot (no genomes present in Low or High groups)\n")
+}
 
 ```
 
 
-#### MAG level
+## Differential abundance analysis
+
+### Build phyloseq objects
+
+**Note:** Create phyloseq objects for each q value (q0, q1, q2) containing OTU table (genome counts), taxonomy table, and sample metadata. Counts are kept as integers with zeros allowed, as ANCOM-BC2 can handle zeros without requiring pseudocounts. Sample metadata includes the grouping variable (Low/High) for each Hill diversity metric.
 
 ```{r env_ancombc, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 # --- build phyloseq per q (keep zeros; no fake pseudocount) --------------
@@ -203,6 +266,10 @@ phylo_list <- purrr::imap(filtered_inputs, function(f, name) {
 })
 
 ```
+
+### Run ANCOM-BC2 analysis
+
+**Note:** Perform ANCOM-BC2 differential abundance testing for each q value, comparing Low vs High environmental diversity groups. The analysis uses structural zero modeling (struc_zero=TRUE) to properly handle genomes absent in one group. Version-adaptive code handles differences between ANCOMBC package versions. Results include log fold-changes, p-values, and adjusted p-values for each genome.
 
 ```{r env_ancombc_visulasation, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 # --- ANCOMBC2 per q (version-adaptive; prints summary) --------------------
@@ -243,6 +310,10 @@ ancom_results <- purrr::imap(phylo_list, function(ps, name) {
 
 
 ```
+
+### Visualize differential abundance results
+
+**Note:** Extract significantly differentially abundant genomes (p < 0.05) from ANCOM-BC2 results and create visualizations. Barplots show log2 fold-changes for significant genomes, ordered by effect size and colored by phylum. Volcano plots show all tested genomes with log2 fold-change on x-axis and -log10(p-value) on y-axis, highlighting significant hits. Both visualizations are created for each q value (q0, q1, q2).
 
 ```{r env_ancombc_rand_plot_phy, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=10, fig.width=8, fig.fullwidth=TRUE}
 # --- extract significant features, join taxonomy, and plot ----------------
@@ -297,7 +368,12 @@ barplots <- purrr::imap(da_tables, function(sig, name) {
     ggplot2::theme_minimal()
 })
 
-purrr::walk(barplots, ~ if (!is.null(.x)) print(.x))
+# Print barplots explicitly (fix for knitr display)
+for (i in seq_along(barplots)) {
+  if (!is.null(barplots[[i]])) {
+    print(barplots[[i]])
+  }
+}
 
 # Volcano fallback (always shows something even if no sig)
 volcanos <- purrr::imap(ancom_results, function(res, name) {
@@ -328,16 +404,28 @@ volcanos <- purrr::imap(ancom_results, function(res, name) {
     ggplot2::theme_minimal()
 })
 
-purrr::walk(volcanos, ~ if (!is.null(.x)) print(.x))
+# Print volcano plots explicitly (fix for knitr display)
+for (i in seq_along(volcanos)) {
+  if (!is.null(volcanos[[i]])) {
+    print(volcanos[[i]])
+  }
+}
 
 
 ```
 
+**Note:** Alternative barplot visualization using genome identifiers instead of taxon names. This provides a different view of the same differential abundance results, useful for identifying specific genomes of interest.
+
 ```{r env_ancom_rand_volcano, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-# --- barplots per q -------------------------------------------------------
-barplots <- purrr::imap(da_tables, function(sig, name) {
+# --- barplots per q (alternative version using genome column) ---
+barplots2 <- purrr::imap(da_tables, function(sig, name) {
   if (is.null(sig) || nrow(sig) == 0) return(NULL)
   lfc_col <- attr(sig, "lfc_col")
+  
+  # Ensure genome column exists (use taxon if genome not present)
+  if (!("genome" %in% names(sig))) {
+    sig$genome <- sig$taxon
+  }
 
   ggplot2::ggplot(
     sig,
@@ -355,10 +443,18 @@ barplots <- purrr::imap(da_tables, function(sig, name) {
     ggplot2::theme_minimal()
 })
 
-purrr::walk(barplots, ~ if (!is.null(.x)) print(.x))
+# Print explicitly (fix for knitr display)
+for (i in seq_along(barplots2)) {
+  if (!is.null(barplots2[[i]])) {
+    print(barplots2[[i]])
+  }
+}
 
 ```
 
+## Alternative ANCOM-BC2 analysis with structural zeros
+
+**Note:** Run an alternative ANCOM-BC2 analysis with additional structural zero handling parameters. This analysis uses a random effects model (rand_formula="~1") and different parameter settings including Holm p-value adjustment, pseudo-sensitivity analysis, and explicit structural zero detection. This provides a complementary view to the main analysis and may identify additional differentially abundant genomes.
 
 ```{r env_ancom_rand_season, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 # --- optional: ANCOMBC2 with structural zeros ----------------------------
@@ -402,6 +498,8 @@ ancom_struczero_results <- purrr::imap(
 )
 
 ```
+
+**Note:** Extract and clean results from the alternative ANCOM-BC2 analysis with structural zeros. Filter for significantly differentially abundant genomes (p < 0.05), join with taxonomy information, and create cleaned tables ready for visualization or further analysis. Results are organized by log fold-change for easy interpretation.
 
 ```{r env_ancom_rand1, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 # --- optional: build cleaned tables for struc_zero run --------------------

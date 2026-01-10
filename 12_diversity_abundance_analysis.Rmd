@@ -1,101 +1,574 @@
 
-```{r load_data_mag_filtdamr_diffe, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+
+## Load data
+
+**Note:** Load sample metadata, genome count data, and Hill diversity metrics from RData files created in previous chapters. These data objects will be used for diversity and abundance analysis comparing samples with low and high environmental diversity.
+
+```{r load_data_mag_filtdamr_diffe_diversity, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 
 load("data/data.Rdata")   # sample_metadata, genome_counts_filt, genome_metadata, genome_tree, ...
 load("data/hill.Rdata")   # hill_long (id, q in {h0,h1,h2}, value)
+
 ```
 
-```{r exclude Sample7}
-# drop the outlier sample everywhere
-sample_metadata   <- sample_metadata %>% filter(sample != "EHI01340")
+## Data preparation
+
+**Note:** Exclude outlier sample EHI01340 from all datasets. Transform Hill diversity data from long to wide format and join with sample metadata. Choose a Hill diversity metric (default: h1, exponential Shannon) to split samples into tertiles. Filter to keep only Low and High groups (excluding Mid) for two-group comparisons. Ensure sample metadata and genome count matrices are aligned, keeping only samples present in both datasets and genomes with at least one non-zero count.
+
+```{r exclude_Sample7_diversity}
+# --- Configuration: outlier sample to exclude ------------------------------
+outlier_sample <- "EHI01340"
+
+# Check if outlier sample exists (may already be excluded in previous chapters)
+if (!outlier_sample %in% sample_metadata$sample) {
+  message("Note: Outlier sample '", outlier_sample, 
+          "' not found in sample_metadata (likely already excluded in previous chapters).")
+}
+
+# drop the outlier sample everywhere (safe even if already excluded)
+sample_metadata <- sample_metadata %>% filter(sample != outlier_sample)
+
+# Optimized: Filter genome counts in one pass - select valid samples and filter zero rows
+valid_sample_cols <- intersect(sample_metadata$sample, colnames(genome_counts_filt))
 genome_counts_filt <- genome_counts_filt %>%
-  select(genome, tidyselect::any_of(sample_metadata$sample)) %>%
+  select(genome, all_of(valid_sample_cols)) %>%
   filter(rowSums(across(-genome, ~ .x != 0), na.rm = TRUE) > 0)
+
+# Validate filtering results
+if (nrow(sample_metadata) == 0) {
+  stop("Error: No samples remaining after filtering. Check sample_metadata.")
+}
+if (nrow(genome_counts_filt) == 0) {
+  stop("Error: No genomes remaining after filtering. Check genome_counts_filt.")
+}
 
 # --- choose which Hill order to split on ----------------------------------
 # use "h1" by default (exp-Shannon). Change to "h0" or "h2" if you prefer.
 q_choice <- "h1"
 
-# build Hill-wide and attach to metadata
+# Validate q_choice format
+valid_q_choices <- c("h0", "h1", "h2")
+if (!q_choice %in% valid_q_choices) {
+  stop("Error: q_choice must be one of: ", paste(valid_q_choices, collapse = ", "))
+}
+
+# Validate hill_long exists and has data
+if (!exists("hill_long") || nrow(hill_long) == 0) {
+  stop("Error: hill_long is missing or empty.")
+}
+
+# Optimized: Build Hill-wide and join with metadata in one pipeline
+hill_col <- paste0("env_hill_", q_choice)
+
 hill_wide <- hill_long %>%
-  filter(id != "EHI01340") %>%
+  filter(id != outlier_sample) %>%
   rename(sample = id) %>%
   pivot_wider(id_cols = sample,
               names_from = q,
               values_from = value,
               names_glue = "env_hill_{q}")
 
+# Validate pivot_wider results
+if (!hill_col %in% colnames(hill_wide)) {
+  stop("Error: Hill diversity column '", hill_col, "' not found after pivot_wider. ",
+       "Available columns: ", paste(colnames(hill_wide), collapse = ", "))
+}
+
+# Optimized: Join and filter missing Hill data in one step
 meta_hill <- sample_metadata %>%
-  left_join(hill_wide, by = "sample")
+  left_join(hill_wide, by = "sample") %>%
+  filter(!is.na(.data[[hill_col]]))  # Remove samples with missing Hill diversity data
+
+# Report if any samples were excluded
+n_excluded_hill <- nrow(sample_metadata) - nrow(meta_hill)
+if (n_excluded_hill > 0) {
+  warning("Found ", n_excluded_hill, " samples with missing Hill diversity data. These were excluded.")
+}
+
+# Validate we have enough samples for tertiles (need at least 3)
+if (nrow(meta_hill) < 3) {
+  stop("Error: Insufficient samples (", nrow(meta_hill), ") for creating tertiles. Need at least 3 samples.")
+}
 
 group_col <- paste0("env_group_q", substr(q_choice, 2, 2))  # env_group_q1, etc.
 
 # tertiles → keep only Low/High (drop Mid) and fix factor order Low < High
-meta_hill <- meta_hill %>%
-  mutate(
-    !!group_col := ggplot2::cut_number(.data[[paste0("env_hill_", q_choice)]],
-                                       3, labels = c("Low","Mid","High"))
-  ) %>%
-  filter(.data[[group_col]] %in% c("Low","High")) %>%
-  mutate(!!group_col := factor(.data[[group_col]], levels = c("Low","High")))
+# Use tryCatch to handle edge cases in cut_number
+meta_hill <- tryCatch({
+  meta_hill %>%
+    mutate(
+      !!group_col := ggplot2::cut_number(.data[[hill_col]],
+                                        3, labels = c("Low","Mid","High"))
+    ) %>%
+    filter(.data[[group_col]] %in% c("Low","High")) %>%
+    mutate(!!group_col := factor(.data[[group_col]], levels = c("Low","High")))
+}, error = function(e) {
+  stop("Error creating tertiles with cut_number: ", e$message, 
+       ". This may occur if there are too few unique values in ", hill_col)
+})
 
-# keep only samples we actually have counts for
+# Validate group creation
+if (nrow(meta_hill) == 0) {
+  stop("Error: No samples remaining after filtering to Low/High groups.")
+}
+
+# Validate group creation
+group_counts <- table(meta_hill[[group_col]], useNA = "no")
+if (any(group_counts == 0)) {
+  stop("Error: One or both groups (Low/High) are empty after filtering. ",
+       paste(names(group_counts), group_counts, sep = "=", collapse = ", "))
+}
+
+# Optimized: Keep only samples present in both datasets in one pass
 valid_samples <- intersect(meta_hill$sample, colnames(genome_counts_filt))
-meta_hill     <- meta_hill %>% filter(sample %in% valid_samples)
-genome_counts_filt <- genome_counts_filt %>% select(genome, all_of(valid_samples))
+if (length(valid_samples) == 0) {
+  stop("Error: No overlapping samples between meta_hill and genome_counts_filt.")
+}
+
+# Filter both datasets to valid samples
+meta_hill <- meta_hill %>% filter(sample %in% valid_samples)
+genome_counts_filt <- genome_counts_filt %>% 
+  select(genome, all_of(valid_samples)) %>%
+  # Re-filter genomes to ensure they're still present after sample filtering
+  filter(rowSums(across(-genome, ~ .x != 0), na.rm = TRUE) > 0)
+
+# Final validation
+if (nrow(meta_hill) == 0) {
+  stop("Error: No samples remaining after final filtering.")
+}
 
 cat("N Low / High = ",
     sum(meta_hill[[group_col]] == "Low"), " / ",
     sum(meta_hill[[group_col]] == "High"), "\n", sep = "")
 ```
 
-```{r genom_count_filt, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+## Structural zeros analysis
+
+**Note:** Identify structural zeros - genomes that are completely absent (zero counts) in one group (Low or High) but present in the other. For each genome, determine if it is absent in all Low samples or all High samples, and calculate group means for genomes present in only one group. Create a barplot visualization showing the top 30 genomes by absolute mean difference, with negative values indicating presence only in Low group and positive values indicating presence only in High group.
+
+```{r genom_count_filt_diversity, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 # compute structural zeros per genome between High and Low
+
+# Validate required objects exist
+if (!exists("meta_hill") || !exists("group_col")) {
+  stop("Error: meta_hill or group_col not found. Run previous chunk first.")
+}
+
+if (!group_col %in% colnames(meta_hill)) {
+  stop("Error: group_col '", group_col, "' not found in meta_hill.")
+}
+
 low_samps  <- meta_hill$sample[meta_hill[[group_col]] == "Low"]
 high_samps <- meta_hill$sample[meta_hill[[group_col]] == "High"]
 
-sz <- genome_counts_filt %>%
-  rowwise() %>%
-  mutate(
-    all_low0  = all(c_across(all_of(low_samps))  == 0),
-    all_high0 = all(c_across(all_of(high_samps)) == 0),
-    avg_low   = mean(c_across(all_of(low_samps)),  na.rm = TRUE),
-    avg_high  = mean(c_across(all_of(high_samps)), na.rm = TRUE)
-  ) %>%
-  ungroup() %>%
+# Validate groups have samples
+if (length(low_samps) == 0) {
+  stop("Error: No samples found in Low group.")
+}
+if (length(high_samps) == 0) {
+  stop("Error: No samples found in High group.")
+}
+
+# Validate sample columns exist in genome_counts_filt
+missing_low  <- setdiff(low_samps, colnames(genome_counts_filt))
+missing_high <- setdiff(high_samps, colnames(genome_counts_filt))
+
+if (length(missing_low) > 0) {
+  warning("Some Low group samples not found in genome_counts_filt: ", 
+          paste(missing_low, collapse = ", "))
+  low_samps <- intersect(low_samps, colnames(genome_counts_filt))
+}
+if (length(missing_high) > 0) {
+  warning("Some High group samples not found in genome_counts_filt: ", 
+          paste(missing_high, collapse = ", "))
+  high_samps <- intersect(high_samps, colnames(genome_counts_filt))
+}
+
+if (length(low_samps) == 0 || length(high_samps) == 0) {
+  stop("Error: No valid samples remaining in Low or High groups after validation.")
+}
+
+# Validate genome_metadata exists
+if (!exists("genome_metadata") || !"genome" %in% colnames(genome_metadata)) {
+  stop("Error: genome_metadata not found or missing 'genome' column.")
+}
+
+# Optimized: Use vectorized operations instead of rowwise() for better performance
+# Convert to matrix for faster row-wise operations
+genome_mat <- genome_counts_filt %>%
+  tibble::column_to_rownames("genome") %>%
+  as.matrix()
+
+# Vectorized computation: check if all values are zero in each group
+all_low0  <- rowSums(genome_mat[, low_samps, drop = FALSE]) == 0
+all_high0 <- rowSums(genome_mat[, high_samps, drop = FALSE]) == 0
+
+# Vectorized computation: calculate group means
+avg_low   <- rowMeans(genome_mat[, low_samps, drop = FALSE], na.rm = TRUE)
+avg_high  <- rowMeans(genome_mat[, high_samps, drop = FALSE], na.rm = TRUE)
+
+# Filter to structural zeros (present in only one group)
+sz <- tibble(
+  genome = rownames(genome_mat),
+  all_low0 = all_low0,
+  all_high0 = all_high0,
+  avg_low = avg_low,
+  avg_high = avg_high
+) %>%
   filter(all_low0 | all_high0) %>%
   transmute(
     genome,
-    present = case_when(all_low0 & !all_high0 ~ "High",
-                        all_high0 & !all_low0 ~ "Low",
-                        TRUE ~ NA_character_),
-    average = if_else(present == "High", avg_high, avg_low)
+    present = if_else(all_low0, "High", "Low", missing = NA_character_),
+    average = case_when(
+      present == "High" ~ avg_high,
+      present == "Low"  ~ avg_low,
+      TRUE ~ NA_real_
+    )
   ) %>%
+  # Remove rows where present is NA (edge cases)
+  filter(!is.na(present)) %>%
   left_join(genome_metadata %>% select(genome, phylum), by = "genome")
 
-# Top 30 “present-only-in” genomes
-if (nrow(sz)) {
+# Validate results
+if (nrow(sz) == 0) {
+  cat("No structural zeros found (no genomes present in only one group).\n")
+} else {
+  cat("Found ", nrow(sz), " genomes with structural zeros.\n")
+  
+  # Validate average values
+  if (any(is.na(sz$average))) {
+    warning("Some genomes have NA average values. These will be excluded from visualization.")
+    sz <- sz %>% filter(!is.na(average))
+  }
+}
+
+# Top 30 "present-only-in" genomes
+if (nrow(sz) > 0 && !all(is.na(sz$average))) {
+  n_top <- min(30, nrow(sz))  # Use actual number if less than 30
+  
   sz_top <- sz %>%
     mutate(abs_avg = abs(average)) %>%
     arrange(desc(abs_avg)) %>%
-    slice_head(n = 30)
+    slice_head(n = n_top)
+  
+  if (nrow(sz_top) > 0) {
+    xmax <- max(sz_top$abs_avg, na.rm = TRUE) * 1.1
+    
+    # Validate xmax is finite
+    if (!is.finite(xmax) || xmax <= 0) {
+      warning("Invalid xmax value (", xmax, "). Using default range.")
+      xmax <- 1
+    }
+    
+    # Validate present values
+    if (!all(sz_top$present %in% c("Low", "High"))) {
+      warning("Unexpected values in 'present' column. Expected 'Low' or 'High'.")
+      sz_top <- sz_top %>% filter(present %in% c("Low", "High"))
+    }
+    
+    if (nrow(sz_top) > 0) {
+      ggplot(sz_top,
+             aes(x = average,
+                 y = fct_reorder(genome, average),
+                 fill = present)) +
+        geom_col(width = 0.8) +
+        geom_vline(xintercept = 0, linewidth = 0.4) +
+        scale_fill_manual(values = c(Low = "#0072B2", High = "#D55E00"),
+                          name = "Present only in",
+                          drop = FALSE) +
+        coord_cartesian(xlim = c(-xmax, xmax), expand = FALSE) +
+        labs(x = "Mean counts (− = Low only, + = High only)",
+             y = paste("MAG (top", nrow(sz_top), "by |difference|)"),
+             title = paste0("Structural zeros — Hill ", q_choice, " (High vs Low)")) +
+        theme_classic() +
+        theme(legend.position = "top",
+              axis.text.y = element_text(size = 6))
+    } else {
+      cat("No valid data for plotting after filtering.\n")
+    }
+  } else {
+    cat("No valid genomes for visualization after filtering.\n")
+  }
+} else {
+  cat("Skipping plot: no structural zeros found or all values are NA.\n")
+}
+```
 
-  xmax <- max(sz_top$abs_avg, na.rm = TRUE) * 1.1
+## Taxonomic aggregation of structural zeros
 
-  ggplot(sz_top,
-         aes(x = average,
-             y = fct_reorder(genome, average),
-             fill = present)) +
-    geom_col(width = 0.8) +
-    geom_vline(xintercept = 0, linewidth = 0.4) +
-    scale_fill_manual(values = c(Low = "#0072B2", High = "#D55E00"),
-                      name = "Present only in") +
-    coord_cartesian(xlim = c(-xmax, xmax), expand = FALSE) +
-    labs(x = "Mean counts (− = Low only, + = High only)",
-         y = "MAG (top 30 by |difference|)",
-         title = paste0("Structural zeros — Hill ", q_choice, " (High vs Low)")) +
-    theme_classic() +
-    theme(legend.position = "top",
-          axis.text.y = element_text(size = 6))
+**Note:** Aggregate structural zeros by taxonomic groups to identify which phyla, classes, and orders are enriched in Low vs High environmental diversity groups. This provides a higher-level view of taxonomic patterns in structural zeros, complementing the genome-level analysis above.
+
+```{r taxonomic_aggregation_sz, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+# Aggregate structural zeros by taxonomy
+if (exists("sz") && nrow(sz) > 0) {
+  # Phylum-level summary
+  sz_phylum <- sz %>%
+    group_by(phylum, present) %>%
+    summarise(
+      n_genomes = n(),
+      mean_abundance = mean(average, na.rm = TRUE),
+      median_abundance = median(average, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    arrange(desc(n_genomes))
+  
+  cat("\n### Structural zeros by phylum\n")
+  print(knitr::kable(sz_phylum, digits = 3))
+  
+  # Create visualization: phylum-level barplot
+  if (nrow(sz_phylum) > 0) {
+    sz_phylum_plot <- sz_phylum %>%
+      group_by(phylum) %>%
+      mutate(total_genomes = sum(n_genomes)) %>%
+      ungroup() %>%
+      arrange(desc(total_genomes)) %>%
+      slice_head(n = 15)  # Top 15 phyla
+    
+    ggplot(sz_phylum_plot,
+           aes(x = reorder(phylum, total_genomes),
+               y = n_genomes,
+               fill = present)) +
+      geom_col(position = "stack") +
+      scale_fill_manual(values = c(Low = "#0072B2", High = "#D55E00"),
+                        name = "Present only in") +
+      coord_flip() +
+      labs(x = "Phylum",
+           y = "Number of genomes",
+           title = paste0("Structural zeros by phylum — Hill ", q_choice)) +
+      theme_classic() +
+      theme(legend.position = "top",
+            axis.text.y = element_text(size = 8))
+  }
+} else {
+  cat("No structural zeros available for taxonomic aggregation.\n")
+}
+```
+
+## Microbiome diversity comparison
+
+**Note:** Calculate microbiome alpha diversity metrics (richness, neutral, phylogenetic) for all samples using Hill numbers. Validate that the phylogenetic tree exists and prune it to match genomes present in the filtered count data. Calculate richness (q=0, species count), neutral diversity (q=1, Shannon diversity), and phylogenetic diversity (q=1 with tree) for each sample. Merge all diversity metrics and join with sample metadata including environmental diversity groups.
+
+```{r microbiome_diversity_calculation, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+# Calculate microbiome alpha diversity for samples in meta_hill
+
+# Validate genome_tree exists for phylogenetic diversity
+if (!exists("genome_tree")) {
+  warning("genome_tree not found. Phylogenetic diversity will be skipped.")
+  calc_phylogenetic <- FALSE
+} else {
+  calc_phylogenetic <- TRUE
+  # Prune tree to match genomes
+  otus <- genome_counts_filt$genome
+  tips <- genome_tree$tip.label
+  common <- intersect(tips, otus)
+  if (length(common) > 0) {
+    genome_tree_pruned <- drop.tip(genome_tree, setdiff(tips, common))
+  } else {
+    calc_phylogenetic <- FALSE
+    warning("No common genomes between tree and counts. Phylogenetic diversity skipped.")
+  }
+}
+
+# Calculate richness (q=0)
+richness <- genome_counts_filt %>%
+  select(genome, all_of(meta_hill$sample)) %>%
+  tibble::column_to_rownames("genome") %>%
+  select(where(~ !all(. == 0))) %>%
+  hilldiv(., q = 0) %>%
+  t() %>%
+  as.data.frame() %>%
+  dplyr::rename(richness = 1) %>%
+  rownames_to_column(var = "sample")
+
+# Calculate neutral diversity (q=1)
+neutral <- genome_counts_filt %>%
+  select(genome, all_of(meta_hill$sample)) %>%
+  tibble::column_to_rownames("genome") %>%
+  select(where(~ !all(. == 0))) %>%
+  hilldiv(., q = 1) %>%
+  t() %>%
+  as.data.frame() %>%
+  dplyr::rename(neutral = 1) %>%
+  rownames_to_column(var = "sample")
+
+# Calculate phylogenetic diversity if tree is available
+if (calc_phylogenetic && length(common) > 0) {
+  phylogenetic <- genome_counts_filt %>%
+    select(genome, all_of(meta_hill$sample)) %>%
+    filter(genome %in% common) %>%
+    tibble::column_to_rownames("genome") %>%
+    select(where(~ !all(. == 0))) %>%
+    hilldiv(., q = 1, tree = genome_tree_pruned) %>%
+    t() %>%
+    as.data.frame() %>%
+    dplyr::rename(phylogenetic = 1) %>%
+    rownames_to_column(var = "sample")
+} else {
+  phylogenetic <- data.frame(sample = meta_hill$sample, phylogenetic = NA_real_)
+}
+
+# Merge all metrics
+alpha_div <- richness %>%
+  full_join(neutral, by = "sample") %>%
+  full_join(phylogenetic, by = "sample")
+
+# Join with metadata
+alpha_div_meta <- alpha_div %>%
+  left_join(meta_hill %>% select(sample, all_of(c(group_col, hill_col))), by = "sample")
+
+cat("Calculated microbiome alpha diversity for", nrow(alpha_div_meta), "samples.\n")
+```
+
+**Note:** Create boxplots comparing microbiome alpha diversity metrics between Low and High environmental diversity groups. Perform Wilcoxon rank-sum tests to assess statistical significance of differences. Visualize results with boxplots showing distributions and statistical test results.
+
+```{r microbiome_diversity_comparison, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=6, fig.width=10, fig.fullwidth=TRUE}
+if (exists("alpha_div_meta") && nrow(alpha_div_meta) > 0) {
+  # Function to create comparison plot for each metric
+  make_diversity_plot <- function(metric_name, y_label) {
+    if (!metric_name %in% colnames(alpha_div_meta)) {
+      return(NULL)
+    }
+    
+    plot_data <- alpha_div_meta %>%
+      select(sample, all_of(group_col), all_of(metric_name)) %>%
+      filter(!is.na(.data[[metric_name]]))
+    
+    if (nrow(plot_data) == 0) {
+      return(NULL)
+    }
+    
+    # Statistical test
+    low_vals <- plot_data %>% filter(.data[[group_col]] == "Low") %>% pull(.data[[metric_name]])
+    high_vals <- plot_data %>% filter(.data[[group_col]] == "High") %>% pull(.data[[metric_name]])
+    
+    if (length(low_vals) > 0 && length(high_vals) > 0) {
+      test_result <- wilcox.test(low_vals, high_vals)
+      p_val <- test_result$p.value
+      p_label <- ifelse(p_val < 0.001, "p < 0.001",
+                       ifelse(p_val < 0.01, paste0("p = ", round(p_val, 3)),
+                             paste0("p = ", round(p_val, 2))))
+    } else {
+      p_label <- "N/A"
+    }
+    
+    ggplot(plot_data,
+           aes(x = .data[[group_col]], y = .data[[metric_name]], fill = .data[[group_col]])) +
+      geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+      geom_jitter(width = 0.2, alpha = 0.5, size = 1.5) +
+      scale_fill_manual(values = c(Low = "#0072B2", High = "#D55E00"),
+                        guide = "none") +
+      labs(x = "Environmental diversity group",
+           y = y_label,
+           title = paste0(y_label, " by environmental diversity (Hill ", q_choice, ")"),
+           subtitle = p_label) +
+      theme_classic() +
+      theme(plot.subtitle = element_text(hjust = 0.5, face = "bold"))
+  }
+  
+  # Create plots
+  p1 <- make_diversity_plot("richness", "Microbiome richness (q=0)")
+  p2 <- make_diversity_plot("neutral", "Microbiome neutral diversity (q=1)")
+  p3 <- make_diversity_plot("phylogenetic", "Microbiome phylogenetic diversity")
+  
+  # Combine plots
+  if (!is.null(p1) && !is.null(p2)) {
+    if (!is.null(p3)) {
+      (p1 | p2) / p3
+    } else {
+      p1 | p2
+    }
+  } else if (!is.null(p1)) {
+    p1
+  } else if (!is.null(p2)) {
+    p2
+  }
+}
+```
+
+## Correlation analysis
+
+**Note:** Test correlations between environmental Hill diversity and microbiome alpha diversity metrics. This analysis directly quantifies the relationship between environmental diversity and microbiome diversity using Spearman correlation, which is appropriate for potentially non-linear relationships. Create scatter plots with regression lines to visualize these relationships.
+
+```{r correlation_analysis, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=6, fig.width=12, fig.fullwidth=TRUE}
+if (exists("alpha_div_meta") && nrow(alpha_div_meta) > 0 && hill_col %in% colnames(alpha_div_meta)) {
+  # Correlation tests
+  cor_results <- list()
+  
+  metrics_to_test <- c("richness", "neutral", "phylogenetic")
+  metrics_to_test <- metrics_to_test[metrics_to_test %in% colnames(alpha_div_meta)]
+  
+  for (metric in metrics_to_test) {
+    # Remove NAs for correlation
+    cor_data <- alpha_div_meta %>%
+      select(sample, all_of(c(hill_col, metric))) %>%
+      filter(!is.na(.data[[metric]]) & !is.na(.data[[hill_col]]))
+    
+    if (nrow(cor_data) >= 3) {
+      cor_test <- cor.test(cor_data[[hill_col]], cor_data[[metric]], method = "spearman")
+      cor_results[[metric]] <- list(
+        rho = cor_test$estimate,
+        p_value = cor_test$p.value,
+        n = nrow(cor_data)
+      )
+    }
+  }
+  
+  # Print correlation results
+  cat("\n### Spearman correlations: Environmental Hill diversity vs Microbiome alpha diversity\n")
+  for (metric in names(cor_results)) {
+    res <- cor_results[[metric]]
+    cat("\n", metric, ":\n")
+    cat("  rho =", round(res$rho, 3), ", p =", format.pval(res$p_value, digits = 3), 
+        ", n =", res$n, "\n")
+  }
+  
+  # Create scatter plots
+  plot_list <- list()
+  
+  for (metric in metrics_to_test) {
+    plot_data <- alpha_div_meta %>%
+      select(sample, all_of(c(hill_col, metric, group_col))) %>%
+      filter(!is.na(.data[[metric]]) & !is.na(.data[[hill_col]]))
+    
+    if (nrow(plot_data) >= 3) {
+      # Get correlation for subtitle
+      if (metric %in% names(cor_results)) {
+        res <- cor_results[[metric]]
+        subtitle_text <- paste0("rho = ", round(res$rho, 3), 
+                               ", p = ", format.pval(res$p_value, digits = 3))
+      } else {
+        subtitle_text <- ""
+      }
+      
+      p <- ggplot(plot_data,
+                  aes(x = .data[[hill_col]], y = .data[[metric]], color = .data[[group_col]])) +
+        geom_point(size = 2.5, alpha = 0.7) +
+        geom_smooth(method = "lm", se = TRUE, color = "black", linetype = "dashed") +
+        scale_color_manual(values = c(Low = "#0072B2", High = "#D55E00"),
+                          name = "Group") +
+        labs(x = paste0("Environmental Hill diversity (", q_choice, ")"),
+             y = paste0("Microbiome ", metric, " diversity"),
+             title = paste0("Environmental vs Microbiome diversity: ", metric),
+             subtitle = subtitle_text) +
+        theme_classic() +
+        theme(legend.position = "top",
+              plot.subtitle = element_text(hjust = 0.5))
+      
+      plot_list[[metric]] <- p
+    }
+  }
+  
+  # Combine plots
+  if (length(plot_list) > 0) {
+    if (length(plot_list) == 1) {
+      print(plot_list[[1]])
+    } else if (length(plot_list) == 2) {
+      print(plot_list[[1]] | plot_list[[2]])
+    } else {
+      print((plot_list[[1]] | plot_list[[2]]) / plot_list[[3]])
+    }
+  }
+} else {
+  cat("Correlation analysis requires alpha diversity data. Run microbiome diversity calculation first.\n")
 }
 ```

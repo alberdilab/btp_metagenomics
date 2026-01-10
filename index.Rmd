@@ -1,6 +1,6 @@
 ---
 title: "AlberdiLab | Fix et al 2025"
-subtitle: "Brush-tail possum metagenomics"
+subtitle: "Brush-tail possum metagenomics" 
 author:
   - Lukas Fix, Antton Alberdi, Raphael Eisenhofer 
 date: "Last update: `r Sys.Date()`"
@@ -55,6 +55,7 @@ library(janitor)
 library(purrr)
 library(readr)
 library(readxl)
+library(rlang)
 library(stringr)
 library(tibble)
 library(tidyr)
@@ -78,6 +79,7 @@ library(nlme)
 library(phyloseq)
 library(spaa)
 library(vegan)
+library(pairwiseAdonis)
 
 # map visualisation
 library(exactextractr)
@@ -104,9 +106,15 @@ library(knitr)
 library(patchwork)
 library(pheatmap)
 library(R.utils)
+library(RColorBrewer)
 library(rairtable)
 library(tinytable)
 library(UpSetR)
+library(ComplexUpset)
+
+# for web/API interactions
+library(httr)
+library(jsonlite)
 
 ```
 

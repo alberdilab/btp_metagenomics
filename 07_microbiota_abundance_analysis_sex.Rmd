@@ -3,12 +3,16 @@
 
 ANCOM-BC2-style models test which taxa change with sex, with and without random effects and while accounting for structural zeros. Results are summarised at MAG, phylum, family, and genus levels.
 
-```{r load_data_mag_filtdamr_diffe, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+**Note:** Load all required data objects including genome counts, metadata, and color schemes.
+
+```{r load_data_mag_filtdamr_diffe_sex, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 
 load("data/data.Rdata")
 ```
 
-```{r exclude Sample7, message=FALSE, warning=FALSE}
+**Note:** Filter out sample EHI01340 and filter genome counts to only include valid samples.
+
+```{r exclude_Sample7_sex, message=FALSE, warning=FALSE}
 sample_metadata <- sample_metadata %>% dplyr::filter(sample != "EHI01340")
 valid_samples <- sample_metadata$sample
 
@@ -16,26 +20,30 @@ genome_counts_filt <- genome_counts_filt %>%
   dplyr::select(genome, tidyselect::any_of(valid_samples))
 ```
 
-```{r genom_count_filt, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+**Note:** Remove genomes and samples with zero counts across all samples to clean the data.
+
+```{r genom_count_filt_sex, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 genome_counts_filt <- genome_counts_filt %>%
   filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
   select_if(~!all(. == 0))
 ```
 
+**Note:** Create a phyloseq object combining count data, sample metadata, taxonomy table, and phylogenetic tree for downstream analyses.
+
 ```{r phyloseq, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
 #Phyloseq object
 count_phy <- genome_counts_filt %>%
-  column_to_rownames(var="genome")%>%
+  column_to_rownames(var="genome") %>%
   otu_table(., taxa_are_rows=T)
 
-sample_info_tab_phy <- sample_metadata%>%
-  column_to_rownames(var="sample")%>%
+sample_info_tab_phy <- sample_metadata %>%
+  column_to_rownames(var="sample") %>%
   sample_data()
 
-TAX <- genome_metadata%>%
-  column_to_rownames(var="genome")%>%
-  select(1:7)%>%
-  as.matrix()%>%
+TAX <- genome_metadata %>%
+  column_to_rownames(var="genome") %>%
+  select(1:7) %>%
+  as.matrix() %>%
   tax_table()
 tree <- phy_tree(genome_tree)
 
@@ -43,6 +51,8 @@ physeq_all = phyloseq(count_phy, TAX, sample_info_tab_phy, tree)
 ```
 
 ## Structural zeros
+
+**Note:** Identify structural zeros - genomes that are completely absent in one sex group but present in the other. Calculate average abundances for genomes present only in one group and attach phylum-level taxonomy.
 
 ```{r struct_zero, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 # groups
@@ -89,8 +99,10 @@ structural_zeros <- structural_zeros %>%
 
 ```
 
+**Note:** Create a bar plot showing the top 30 genomes with the strongest "present-only-in" patterns, displaying average counts for genomes found exclusively in either Female or Male samples.
+
 ```{r structu_Zero_plot, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-#top 30 strongest “present-only-in” genomes
+#top 30 strongest "present-only-in" genomes
 structural_zeros_top <- structural_zeros %>%
   dplyr::mutate(abs_avg = abs(average)) %>%
   dplyr::arrange(dplyr::desc(abs_avg)) %>%
@@ -116,6 +128,8 @@ ggplot(structural_zeros_top,
 
 ```
 
+**Note:** Create a phylum-level summary bar chart showing the number of MAGs present only in each sex group, organized by phylum.
+
 ```{r chart2, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 #phylum overview of "present only in"
 phylum_summary_sz <- structural_zeros %>%
@@ -136,36 +150,33 @@ ggplot(phylum_summary_sz,
   labs(x = "Phylum", y = "Number of MAGs present only in group") +
   theme_classic() +
   theme(legend.position = "top")
-
-## MAGs in different locations and shared among locations
 ```
 
+## MAGs in different locations and shared among locations
+
+**Note:** Create an UpSet plot showing the distribution of MAGs across different broad environments (Mixed forest, Temperate woodland, Xeric shrubland, Cropland), highlighting unique and shared MAGs.
+
 ```{r chart1, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-locationcolors=c('#408892','#c04062')
 locationcolors=c('#408892','#c04062')
 
 genome_counts_rel <- genome_counts %>%
   mutate_at(vars(-genome),~./sum(.)) %>%
   column_to_rownames(., "genome")
 
-genome_counts_rel_fil<- genome_counts_filt%>% 
-    select(one_of(c("genome",sample_metadata$sample))) %>% 
+genome_counts_rel_fil <- genome_counts_filt %>%
+    select(one_of(c("genome",sample_metadata$sample))) %>%
   column_to_rownames(., "genome")
   
-genome_counts_rel_pa=1*(genome_counts_rel_fil>0)
+genome_counts_rel_pa = 1*(genome_counts_rel_fil>0)
 #MAGrel_pa[1:6,1:6]
-table_upset_analysis_cont=t(aggregate(t(genome_counts_rel_pa),by=list(sample_metadata$sex),FUN=sum)[,-1])
-colnames(table_upset_analysis_cont)=levels(as.factor(sample_metadata$sex))
-table_upset_analysis=(table_upset_analysis_cont>0)*1
-table_upset_analysis=data.frame(table_upset_analysis)
-table_upset_analysis=apply(table_upset_analysis,2,as.integer)
+table_upset_analysis_cont = t(aggregate(t(genome_counts_rel_pa),by=list(sample_metadata$sex),FUN=sum)[,-1])
+colnames(table_upset_analysis_cont) = levels(as.factor(sample_metadata$sex))
+table_upset_analysis = (table_upset_analysis_cont>0)*1
+table_upset_analysis = data.frame(table_upset_analysis)
+table_upset_analysis = apply(table_upset_analysis,2,as.integer)
 rownames(table_upset_analysis) <- rownames(genome_counts_rel_pa)
 
 # === UpSet with Unique vs Shared colors (ComplexUpset) ===
-if (!requireNamespace("ComplexUpset", quietly = TRUE)) install.packages("ComplexUpset")
-if (!requireNamespace("ggplot2", quietly = TRUE)) install.packages("ggplot2")
-library(ComplexUpset)
-library(ggplot2)
 
 # 1) Presence/absence: genomes (rows) x samples (cols)
 pa <- genome_counts_filt %>%
@@ -176,7 +187,8 @@ pa <- genome_counts_filt %>%
 env_by_sample <- setNames(sample_metadata$broad_environment, sample_metadata$sample)
 env_vec <- unname(env_by_sample[colnames(pa)])  # reorder
 agg <- aggregate(t(pa), by = list(env_vec), FUN = function(x) as.integer(sum(x) > 0))
-mat <- t(as.matrix(agg[, -1])); colnames(mat) <- agg$Group.1
+mat <- t(as.matrix(agg[, -1]))
+colnames(mat) <- agg$Group.1
 
 # 3) Long → short labels
 env_map <- c(
@@ -198,9 +210,6 @@ set_colors  <- c(MF="#f56042", TW="#429ef5", XS="#42f58d", C="#b142f5")
 uniqshare_colors <- c(Unique = "#F39C12", Shared = "#7F8C8D")  # tweak if you like
 
 # 6) Plot:
-# ensure UpSetR
-if (!requireNamespace("UpSetR", quietly = TRUE)) install.packages("UpSetR")
-library(UpSetR)
 
 # `table_upset_analysis` is your 0/1 dataframe with columns MF,TW,XS,C
 UpSetR::upset(
@@ -219,11 +228,13 @@ UpSetR::upset(
 )
 
 ```
-## Ancomb2
+## ANCOM-BC2
 ### Enrichment analysis between male and female
 
+**Note:** Create a filtered phyloseq object excluding structural zeros for ANCOM-BC2 analysis. Replace zeros with a small pseudocount (0.00001) to enable log-transformation.
+
 ```{r zero_phylo, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-#phyloseq object considering structual zeros
+#phyloseq object considering structural zeros
 phylo_samples <- sample_metadata %>% 
                     column_to_rownames("sample") %>% 
                     sample_data() #convert to phyloseq sample_data object
@@ -236,7 +247,7 @@ phylo_taxonomy <- genome_metadata %>%
                     filter(genome %in% rownames(phylo_genome)) %>% # remove structural zeros
                     mutate(genome2=genome) %>% #create a pseudo genome name column
                     column_to_rownames("genome2") %>% 
-                    dplyr::select(domain,phylum,class,order,family,genus,species,genome) %>% #add an additional taxonomic level to ensure genome-level analysis (as no all genomes have species-level taxonomic assignments. Otherwise, ANCOMBC2 aggregates analyses per species)
+                    dplyr::select(domain,phylum,class,order,family,genus,species,genome) %>% #add an additional taxonomic level to ensure genome-level analysis (as not all genomes have species-level taxonomic assignments. Otherwise, ANCOMBC2 aggregates analyses per species)
                     as.matrix() %>% 
                     tax_table() #convert to phyloseq tax_table object
 
@@ -244,262 +255,235 @@ physeq_genome_filtered <- phyloseq(phylo_genome, phylo_taxonomy, phylo_samples)
 
 ```
 
+**Note:** Define helper functions to reduce code duplication for ANCOM-BC2 analyses, taxonomy processing, color schemes, and visualization.
+
+```{r helper_functions_ancombc, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+# Helper function to run ANCOM-BC2 analysis
+run_ancombc2_analysis <- function(data, tax_level = NULL, rand_formula = NULL, 
+                                   struc_zero = FALSE, group = NULL, 
+                                   lme_control = NULL, seed = 1234) {
+  set.seed(seed)
+  ancombc2(data = data,
+           assay_name = "counts",
+           tax_level = tax_level,
+           fix_formula = "sex",
+           rand_formula = rand_formula,
+           p_adj_method = "holm",
+           pseudo_sens = TRUE,
+           prv_cut = 0,
+           lib_cut = 0,
+           s0_perc = 0.05,
+           group = group,
+           struc_zero = struc_zero,
+           neg_lb = FALSE,
+           alpha = 0.05,
+           n_cl = 2,
+           verbose = TRUE,
+           global = FALSE,
+           pairwise = FALSE,
+           dunnet = FALSE,
+           trend = FALSE,
+           iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
+           em_control = list(tol = 1e-5, max_iter = 100),
+           lme_control = lme_control,
+           mdfdr_control = list(fwer_ctrl_method = "holm", B = 100),
+           trend_control = NULL)
+}
+
+# Helper function to clean taxonomy table
+clean_taxonomy_table <- function(physeq_obj, include_unclassified = TRUE) {
+  taxonomy <- data.frame(physeq_obj@tax_table) %>%
+    rownames_to_column(., "taxon") %>%
+    mutate_at(vars(order, phylum, family, genus, species), ~ str_replace(., "[dpcofgs]__", ""))
+  
+  if (include_unclassified) {
+    taxonomy <- taxonomy %>%
+      mutate(across(c(family, genus, species), na_if, "")) %>%
+      mutate(family = coalesce(family, paste('Unclassified', order)),
+             genus = coalesce(genus, 
+                            if_else(grepl('^Unclassified', family),
+                                    family, paste('Unclassified', family))),
+             species = coalesce(species, 
+                            if_else(grepl('^Unclassified', genus),
+                                    genus, paste('Unclassified', genus))))
+  }
+  return(taxonomy)
+}
+
+# Helper function to get phylum colors
+get_phylum_colors <- function(taxonomy, add_alpha = TRUE) {
+  colors_alphabetic <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+    mutate_at(vars(phylum), ~ str_replace(., "[dpcofgs]__", "")) %>%
+    right_join(taxonomy, by = join_by(phylum == phylum)) %>%
+    dplyr::select(phylum, colors) %>%
+    mutate(colors = if (add_alpha) str_c(colors, "80") else colors) %>%
+    unique() %>%
+    dplyr::arrange(phylum)
+  
+  return(colors_alphabetic)
+}
+
+# Helper function to extract significant results
+extract_significant_results <- function(ancom_output, taxonomy, p_threshold = 0.05) {
+  results <- ancom_output$res %>%
+    dplyr::select(taxon, lfc_sexMale, p_sexMale) %>%
+    filter(p_sexMale < p_threshold) %>%
+    dplyr::arrange(p_sexMale) %>%
+    merge(., taxonomy, by = "taxon") %>%
+    mutate_at(vars(phylum, species), ~ str_replace(., "[dpcofgs]__", "")) %>%
+    dplyr::arrange(lfc_sexMale)
+  return(results)
+}
+
+# Helper function to prepare color vector for plots
+prepare_tax_color_vector <- function(results_table, taxonomy) {
+  colors_alphabetic <- get_phylum_colors(taxonomy, add_alpha = TRUE)
+  tax_table <- as.data.frame(unique(results_table$phylum))
+  colnames(tax_table)[1] <- "phylum"
+  tax_color <- merge(tax_table, colors_alphabetic, by = "phylum") %>%
+    dplyr::arrange(phylum) %>%
+    dplyr::select(colors) %>%
+    pull()
+  return(tax_color)
+}
+
+# Helper function to create volcano plot
+plot_volcano_ancombc <- function(ancom_output, genome_metadata, genome_tree, 
+                                   p_threshold = 0.05) {
+  phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+    right_join(genome_metadata, by = join_by(phylum == phylum)) %>%
+    arrange(match(genome, genome_tree$tip.label)) %>%
+    select(phylum, colors) %>%
+    unique() %>%
+    arrange(phylum) %>%
+    pull(colors, name = phylum)
+  
+  ancom_output$res %>%
+    na.omit() %>%
+    dplyr::select(genome = taxon, lfc_sexMale, p_sexMale) %>%
+    inner_join(genome_metadata, by = join_by(genome == genome)) %>%
+    mutate(phylum = ifelse(p_sexMale < p_threshold, phylum, NA)) %>%
+    ggplot(., aes(x = lfc_sexMale, y = -log(p_sexMale), color = phylum)) +
+    geom_point(size = 3, show.legend = FALSE) +
+    scale_color_manual(values = phylum_colors) +
+    labs(color = "Significant phylum", 
+         x = "Log-fold difference between sample types", 
+         y = "p-value") +
+    theme_classic()
+}
+
+# Helper function to create bar plot
+plot_ancombc_barplot <- function(results_table, tax_color, y_label = "Species") {
+  results_table %>%
+    mutate(genome = factor(genome, levels = results_table$genome)) %>%
+    ggplot(., aes(x = lfc_sexMale, 
+                   y = forcats::fct_reorder(genome, lfc_sexMale), 
+                   fill = phylum)) +
+    geom_col() +
+    scale_fill_manual(values = tax_color) +
+    geom_hline(yintercept = 0) +
+    theme(panel.background = element_blank(),
+          axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
+          axis.text.x = element_text(size = 12),
+          axis.text.y = element_text(size = 8),
+          axis.title = element_text(size = 14, face = "bold"),
+          legend.text = element_text(size = 12),
+          legend.title = element_text(size = 14, face = "bold"),
+          legend.position = "right", legend.box = "vertical") +
+    xlab("log2FoldChange") +
+    ylab(y_label) +
+    guides(fill = guide_legend(title = "Phylum"))
+}
+```
+
 ### With random effect
 #### MAG level
 
-```{r ancom_rand_pond, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
-set.seed(1234) #set seed for reproducibility
-ancom_rand_output = ancombc2(data = physeq_genome_filtered, 
-                  assay_name = "counts", 
-                  tax_level = NULL, #change to agglomerate analysis to a higher taxonomic range
-                  fix_formula = "sex", #fixed variable(s)
-                  rand_formula = "(1|broad_environment)",
-                  p_adj_method = "holm", 
-                  pseudo_sens = TRUE,
-                  prv_cut =0, 
-                  lib_cut = 0, 
-                  group = NULL, 
-                  struc_zero = FALSE, 
-                  neg_lb = FALSE,
-                  s0_perc = 0.05,
-                  alpha = 0.05, 
-                  n_cl = 2, 
-                  verbose = TRUE,
-                  global = FALSE, 
-                  pairwise = FALSE, 
-                  dunnet = FALSE, 
-                  trend = FALSE,
-                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
-                  em_control = list(tol = 1e-5, max_iter = 100),
-                  lme_control = lme4::lmerControl(),
-                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
-                  trend_control = NULL)
+**Note:** Run ANCOM-BC2 analysis at MAG level with random effects for broad_environment to test differential abundance between sexes, accounting for environmental variation.
 
+```{r ancom_rand_pond, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
+ancom_rand_output <- run_ancombc2_analysis(
+  data = physeq_genome_filtered,
+  tax_level = NULL,
+  rand_formula = "(1|broad_environment)",
+  struc_zero = FALSE,
+  group = NULL,
+  lme_control = lme4::lmerControl()
+)
 ```
+
+**Note:** Process ANCOM-BC2 results to extract significant MAGs (p < 0.05), merge with taxonomy information, and prepare color scheme for phylum-level visualization.
 
 ```{r ancom_rand, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
-taxonomy <- data.frame(physeq_genome_filtered@tax_table) %>%
-  rownames_to_column(., "taxon") %>%
-  mutate_at(vars(order, phylum, family, genus, species), ~ str_replace(., "[dpcofgs]__", ""))%>%
-  mutate(across(c(family,genus, species), na_if, ""))%>%
-    mutate(family = coalesce(family, paste('Unclassified', order)),
-           genus = coalesce(genus, 
-                              if_else(grepl('^Unclassified', family),
-                                      family, paste('Unclassified', family))),
-           species = coalesce(species, 
-                              if_else(grepl('^Unclassified', genus),
-                                      genus, paste('Unclassified', genus))))
-
-ancombc_rand_table_mag <- ancom_rand_output$res %>%
-  dplyr::select(taxon, lfc_sexMale, p_sexMale) %>%
-  filter(p_sexMale < 0.05) %>%
-  dplyr::arrange(p_sexMale) %>%
-  merge(., taxonomy, by="taxon") %>%
-  mutate_at(vars(phylum, species), ~ str_replace(., "[dpcofgs]__", ""))%>%
-  dplyr::arrange(lfc_sexMale)
-
+taxonomy <- clean_taxonomy_table(physeq_genome_filtered, include_unclassified = TRUE)
+ancombc_rand_table_mag <- extract_significant_results(ancom_rand_output, taxonomy)
 ancombc_rand_table_mag
-  
-colors_alphabetic <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
-  mutate_at(vars(phylum), ~ str_replace(., "[dpcofgs]__", ""))  %>%
-  right_join(taxonomy, by=join_by(phylum == phylum)) %>%
-  dplyr::select(phylum, colors) %>%
-  mutate(colors = str_c(colors, "80"))  %>% #add 80% alpha
-	unique() %>%
-	dplyr::arrange(phylum)
-
-tax_table <- as.data.frame(unique(ancombc_rand_table_mag$phylum))
-  
-colnames(tax_table)[1] <- "phylum"
-tax_color <- merge(tax_table, colors_alphabetic, by="phylum")%>%
-	dplyr::arrange(phylum) %>%
-	dplyr::select(colors) %>%
-	pull()
+tax_color <- prepare_tax_color_vector(ancombc_rand_table_mag, taxonomy)
 ```
+**Note:** Create a bar plot showing log2 fold changes for significantly differentially abundant MAGs between sexes, colored by phylum.
+
 ```{r ancombc_rand_plot_phy, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=10, fig.width=8, fig.fullwidth=TRUE, }
-ancombc_rand_table_mag%>%
-      mutate(genome=factor(genome,levels=ancombc_rand_table_mag$genome)) %>%
-ggplot(., aes(x=lfc_sexMale, y=forcats::fct_reorder(genome,lfc_sexMale), fill=phylum)) + #forcats::fct_rev()
-  geom_col() + 
-  scale_fill_manual(values=tax_color) + 
-  geom_hline(yintercept=0) + 
-#  coord_flip()+
-  theme(panel.background = element_blank(),
-        axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
-        axis.text.x = element_text(size = 12),
-        axis.text.y = element_text(size = 8),
-        axis.title = element_text(size = 14, face = "bold"),
-        legend.text = element_text(size = 12),
-        legend.title = element_text(size = 14, face = "bold"),
-        legend.position = "right", legend.box = "vertical")+
-  xlab("log2FoldChange") + 
-  ylab("Species")+
-  guides(fill=guide_legend(title="Phylum"))
+plot_ancombc_barplot(ancombc_rand_table_mag, tax_color, y_label = "Species")
 ```
 
+
+**Note:** Create a volcano plot showing log-fold change vs. p-value for all MAGs, with significant phyla highlighted in color.
 
 ```{r ancom_rand_volcano, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
-phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
-    right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
-    arrange(match(genome, genome_tree$tip.label)) %>%
-    select(phylum, colors) %>%
-    unique() %>%
-    arrange(phylum) %>%
-    pull(colors, name=phylum)
-
-#pdf("figures/different_species_StrucZero_new_violin.pdf",width=12, height=6)
-ancom_rand_output$res %>%
-  na.omit() %>%
-  dplyr::select(genome=taxon, lfc_sexMale, p_sexMale) %>%
-  inner_join(genome_metadata, by = join_by(genome == genome)) %>%
-  mutate(phylum = ifelse(p_sexMale < 0.05, phylum, NA)) %>%
-  ggplot(., aes(x = lfc_sexMale, y = -log(p_sexMale), color = phylum)) +
-  geom_point(size=3, show.legend = FALSE) +
-  #xlim(c(-10,4)) +
-  scale_color_manual(values = phylum_colors) +
-  labs(color = "Significant phylum", x = "Log-fold difference between sample types", y = "p-value") +
-  theme_classic()
-#dev.off()
+plot_volcano_ancombc(ancom_rand_output, genome_metadata, genome_tree)
 ```
 
-#### Controling structural components
+#### Controlling structural components
+
+**Note:** Run ANCOM-BC2 analysis at MAG level with random effects and structural zero detection enabled, grouping by sex to identify taxa that are completely absent in one group.
+
 ```{r ancom_rand_season, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
-set.seed(1234) #set seed for reproducibility
- ancom_rand_output_mag_Struc = ancombc2(data = physeq_all, 
-                  assay_name = "counts", 
-                  tax_level = NULL,
-                  fix_formula = "sex", 
-                  rand_formula = "(1|broad_environment)",
-                  p_adj_method = "holm", 
-                  pseudo_sens = TRUE,
-                  prv_cut =0, 
-                  lib_cut = 0, 
-                  s0_perc = 0.05,
-                  group = "sex", 
-                  struc_zero = TRUE, 
-                  neg_lb = FALSE,
-                  alpha = 0.05, 
-                  n_cl = 2, 
-                  verbose = TRUE,
-                  global = FALSE, 
-                  pairwise = FALSE, 
-                  dunnet = FALSE, 
-                  trend = FALSE,
-                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
-                  em_control = list(tol = 1e-5, max_iter = 100),
-                  lme_control = lme4::lmerControl(),
-                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
-                  trend_control = NULL)
-
+ancom_rand_output_mag_Struc <- run_ancombc2_analysis(
+  data = physeq_all,
+  tax_level = NULL,
+  rand_formula = "(1|broad_environment)",
+  struc_zero = TRUE,
+  group = "sex",
+  lme_control = lme4::lmerControl()
+)
 ```
+
+**Note:** Process ANCOM-BC2 results with structural zero control, extract significant MAGs, merge with taxonomy, and prepare phylum color scheme for visualization.
 
 ```{r ancom_rand1, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
- taxonomy <- data.frame(physeq_genome_filtered@tax_table) %>%
-  rownames_to_column(., "taxon")%>%
-  mutate_at(vars(order, phylum, family, genus, species), ~ str_replace(., "[dpcofgs]__", ""))
-
-ancombc_rand_table_mag_Struc <- ancom_rand_output_mag_Struc$res %>%
-  dplyr::select(taxon, lfc_sexMale, p_sexMale) %>%
-  filter(p_sexMale < 0.05) %>%
-  dplyr::arrange(p_sexMale) %>%
-  merge(., taxonomy, by="taxon") %>%
-  mutate_at(vars(phylum, species), ~ str_replace(., "[dpcofgs]__", ""))%>%
-  dplyr::arrange(lfc_sexMale)
-
+taxonomy <- clean_taxonomy_table(physeq_genome_filtered, include_unclassified = FALSE)
+ancombc_rand_table_mag_Struc <- extract_significant_results(ancom_rand_output_mag_Struc, taxonomy)
 ancombc_rand_table_mag_Struc
-
-colors_alphabetic <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
-  mutate_at(vars(phylum), ~ str_replace(., "[dpcofgs]__", ""))  %>%
-  right_join(taxonomy, by=join_by(phylum == phylum)) %>%
-  dplyr::select(phylum, colors) %>%
-  mutate(colors = str_c(colors, "80"))  %>% #add 80% alpha
-	unique() %>%
-	dplyr::arrange(phylum)
-
-tax_table <- as.data.frame(unique(ancombc_rand_table_mag_Struc$phylum))
-  
-  
-colnames(tax_table)[1] <- "phylum"
-tax_color <- merge(tax_table, colors_alphabetic, by="phylum")%>%
-	dplyr::arrange(phylum) %>%
-	dplyr::select(colors) %>%
-	pull()
+tax_color <- prepare_tax_color_vector(ancombc_rand_table_mag_Struc, taxonomy)
 ```
+**Note:** Create a bar plot showing log2 fold changes for significantly differentially abundant MAGs (with structural zero control) between sexes, colored by phylum.
+
 ```{r ancombc_rand_plot_mag, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=10, fig.width=8, fig.fullwidth=TRUE, }
- ancombc_rand_table_mag_Struc%>%
-      mutate(genome=factor(genome,levels=ancombc_rand_table_mag_Struc$genome)) %>%
-ggplot(., aes(x=lfc_sexMale, y=forcats::fct_reorder(genome,lfc_sexMale), fill=phylum)) + #forcats::fct_rev()
-  geom_col() + 
-  scale_fill_manual(values=tax_color) + 
-  geom_hline(yintercept=0) + 
-#  coord_flip()+
-  theme(panel.background = element_blank(),
-        axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
-        axis.text.x = element_text(size = 12),
-        axis.text.y = element_text(size = 8),
-        axis.title = element_text(size = 14, face = "bold"),
-        legend.text = element_text(size = 12),
-        legend.title = element_text(size = 14, face = "bold"),
-        legend.position = "right", legend.box = "vertical")+
-  xlab("log2FoldChange") + 
-  ylab("Species")+
-  guides(fill=guide_legend(title="Phylum"))
+plot_ancombc_barplot(ancombc_rand_table_mag_Struc, tax_color, y_label = "Species")
 ```
+
+**Note:** Create a volcano plot for ANCOM-BC2 results with structural zero control, showing log-fold change vs. p-value with significant phyla highlighted.
 
 ```{r ancom_rand_volcano_mag, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
-phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
-    right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
-    arrange(match(genome, genome_tree$tip.label)) %>%
-    select(phylum, colors) %>%
-    unique() %>%
-    arrange(phylum) %>%
-    pull(colors, name=phylum)
-
-#pdf("figures/different_species_StrucZero_new_violin.pdf",width=12, height=6)
-ancom_rand_output_mag_Struc$res %>%
-  na.omit() %>%
-  dplyr::select(genome=taxon, lfc_sexMale, p_sexMale) %>%
-  inner_join(genome_metadata, by = join_by(genome == genome)) %>%
-  mutate(phylum = ifelse(p_sexMale < 0.05, phylum, NA)) %>%
-  ggplot(., aes(x = lfc_sexMale, y = -log(p_sexMale), color = phylum)) +
-  geom_point(size=3, show.legend = FALSE) +
-  #xlim(c(-10,4)) +
-  scale_color_manual(values = phylum_colors) +
-  labs(color = "Significant phylum", x = "Log-fold difference between sample types", y = "p-value") +
-  theme_classic()
-#dev.off()
+plot_volcano_ancombc(ancom_rand_output_mag_Struc, genome_metadata, genome_tree)
 ```
 
 #### Phylum level
 
-```{r ancom_phylum, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
+**Note:** Run ANCOM-BC2 analysis aggregated at phylum level with random effects for broad_environment to test differential abundance between sexes.
 
-ancom_rand_output_phylum = ancombc2(data = physeq_genome_filtered, 
-                  assay_name = "counts", 
-                  tax_level = "phylum", #change to agglomerate analysis to a higher taxonomic range
-                  fix_formula = "sex", #fixed variable(s)
-                  rand_formula = "(1|broad_environment)",
-                  p_adj_method = "holm", 
-                  pseudo_sens = TRUE,
-                  prv_cut = 0, 
-                  lib_cut = 0, 
-                  s0_perc = 0.05,
-                  group = NULL, 
-                  struc_zero = FALSE, 
-                  neg_lb = FALSE,
-                  alpha = 0.05, 
-                  n_cl = 2, 
-                  verbose = TRUE,
-                  global = FALSE, 
-                  pairwise = FALSE, 
-                  dunnet = FALSE, 
-                  trend = FALSE,
-                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
-                  em_control = list(tol = 1e-5, max_iter = 100),
-                  lme_control = lme4::lmerControl(),
-                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
-                  trend_control = NULL)
+```{r ancom_phylum, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
+ancom_rand_output_phylum <- run_ancombc2_analysis(
+  data = physeq_genome_filtered,
+  tax_level = "phylum",
+  rand_formula = "(1|broad_environment)",
+  struc_zero = FALSE,
+  group = NULL,
+  lme_control = lme4::lmerControl()
+)
 ```
+
+**Note:** Extract and display significantly differentially abundant phyla (p < 0.05) from the ANCOM-BC2 results, sorted by p-value.
 
 ```{r ancom_rand_phylum, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
 ancom_rand_output_phylum$res %>%
@@ -509,33 +493,21 @@ ancom_rand_output_phylum$res %>%
 ```
 
 #### Family level
+
+**Note:** Run ANCOM-BC2 analysis aggregated at family level with random effects for broad_environment to test differential abundance between sexes.
+
 ```{r ancom_family, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
-ancom_rand_output_family = ancombc2(data = physeq_genome_filtered, 
-                  assay_name = "counts", 
-                  tax_level = "family", #change to agglomerate analysis to a higher taxonomic range
-                  fix_formula = "sex", #fixed variable(s)
-                  rand_formula = "(1|broad_environment)",
-                  p_adj_method = "holm", 
-                  pseudo_sens = TRUE,
-                  prv_cut = 0, 
-                  lib_cut = 0, 
-                  s0_perc = 0.05,
-                  group = NULL, 
-                  struc_zero = FALSE, 
-                  neg_lb = FALSE,
-                  alpha = 0.05, 
-                  n_cl = 2, 
-                  verbose = TRUE,
-                  global = FALSE, 
-                  pairwise = FALSE, 
-                  dunnet = FALSE, 
-                  trend = FALSE,
-                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
-                  em_control = list(tol = 1e-5, max_iter = 100),
-                  lme_control = lme4::lmerControl(),
-                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
-                  trend_control = NULL)
+ancom_rand_output_family <- run_ancombc2_analysis(
+  data = physeq_genome_filtered,
+  tax_level = "family",
+  rand_formula = "(1|broad_environment)",
+  struc_zero = FALSE,
+  group = NULL,
+  lme_control = lme4::lmerControl()
+)
 ```
+
+**Note:** Extract and display significantly differentially abundant families (p < 0.05) from the ANCOM-BC2 results, sorted by p-value.
 
 ```{r ancom_rand_family, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 
@@ -546,33 +518,21 @@ ancom_rand_output_family$res %>%
 ```
 
 #### Genera
+
+**Note:** Run ANCOM-BC2 analysis aggregated at genus level with random effects for broad_environment to test differential abundance between sexes.
+
 ```{r ancom_genera, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
-ancom_rand_output_gen = ancombc2(data = physeq_genome_filtered, 
-                  assay_name = "counts", 
-                  tax_level = "genus", #change to agglomerate analysis to a higher taxonomic range
-                  fix_formula = "sex", #fixed variable(s)
-                  rand_formula = "(1|broad_environment)",
-                  p_adj_method = "holm", 
-                  pseudo_sens = TRUE,
-                  prv_cut = 0, 
-                  lib_cut = 0, 
-                  s0_perc = 0.05,
-                  group = NULL, 
-                  struc_zero = FALSE, 
-                  neg_lb = FALSE,
-                  alpha = 0.05, 
-                  n_cl = 2, 
-                  verbose = TRUE,
-                  global = FALSE, 
-                  pairwise = FALSE, 
-                  dunnet = FALSE, 
-                  trend = FALSE,
-                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
-                  em_control = list(tol = 1e-5, max_iter = 100),
-                  lme_control = lme4::lmerControl(),
-                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
-                  trend_control = NULL)
+ancom_rand_output_gen <- run_ancombc2_analysis(
+  data = physeq_genome_filtered,
+  tax_level = "genus",
+  rand_formula = "(1|broad_environment)",
+  struc_zero = FALSE,
+  group = NULL,
+  lme_control = lme4::lmerControl()
+)
 ```
+
+**Note:** Extract and display significantly differentially abundant genera (p < 0.05) from the ANCOM-BC2 results, sorted by p-value.
 
 ```{r ancom_rand_genera, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
 ancom_rand_output_gen$res %>%
@@ -586,257 +546,91 @@ ancom_rand_output_gen$res %>%
 ### Without random effect
 #### MAG level
 
-```{r ancom_rand_pond2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE }
-set.seed(1234) #set seed for reproducibility
-ancom_rand_output_norand = ancombc2(data = physeq_genome_filtered, 
-                  assay_name = "counts", 
-                  tax_level = NULL, #change to agglomerate analysis to a higher taxonomic range
-                  fix_formula = "sex", #fixed variable(s)
-                  rand_formula = "(1|broad_environment)",
-                  p_adj_method = "holm", 
-                  pseudo_sens = TRUE,
-                  prv_cut =0, 
-                  lib_cut = 0, 
-                  s0_perc = 0.05,
-                  group = NULL, 
-                  struc_zero = FALSE, 
-                  neg_lb = FALSE,
-                  alpha = 0.05, 
-                  n_cl = 2, 
-                  verbose = TRUE,
-                  global = FALSE, 
-                  pairwise = FALSE, 
-                  dunnet = FALSE, 
-                  trend = FALSE,
-                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
-                  em_control = list(tol = 1e-5, max_iter = 100),
-                  lme_control = NULL,
-                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
-                  trend_control = NULL)
+**Note:** Run ANCOM-BC2 analysis at MAG level without random effects to test differential abundance between sexes (chunk is set to eval=FALSE, not executed).
 
+```{r ancom_rand_pond2, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+ancom_rand_output_norand <- run_ancombc2_analysis(
+  data = physeq_genome_filtered,
+  tax_level = NULL,
+  rand_formula = NULL,
+  struc_zero = FALSE,
+  group = NULL,
+  lme_control = NULL
+)
 ```
 
-```{r ancom_rand2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
-taxonomy <- data.frame(physeq_genome_filtered@tax_table) %>%
-  rownames_to_column(., "taxon") %>%
-  mutate_at(vars(order, phylum, family, genus, species), ~ str_replace(., "[dpcofgs]__", ""))%>%
-  mutate(across(c(family,genus, species), na_if, ""))%>%
-    mutate(family = coalesce(family, paste('Unclassified', order)),
-           genus = coalesce(genus, 
-                              if_else(grepl('^Unclassified', family),
-                                      family, paste('Unclassified', family))),
-           species = coalesce(species, 
-                              if_else(grepl('^Unclassified', genus),
-                                      genus, paste('Unclassified', genus))))
+**Note:** Process ANCOM-BC2 results without random effects, extract significant MAGs, merge with taxonomy, and prepare phylum color scheme (chunk is set to eval=FALSE, not executed).
 
-ancombc_rand_table_mag_norand <- ancom_rand_output_norand$res %>%
-  dplyr::select(taxon, lfc_sexMale, p_sexMale) %>%
-  filter(p_sexMale < 0.05) %>%
-  dplyr::arrange(p_sexMale) %>%
-  merge(., taxonomy, by="taxon") %>%
-  mutate_at(vars(phylum, species), ~ str_replace(., "[dpcofgs]__", ""))%>%
-  dplyr::arrange(lfc_sexMale)
-  
-colors_alphabetic <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
-  mutate_at(vars(phylum), ~ str_replace(., "[dpcofgs]__", ""))  %>%
-  right_join(taxonomy, by=join_by(phylum == phylum)) %>%
-  dplyr::select(phylum, colors) %>%
-  mutate(colors = str_c(colors, "80"))  %>% #add 80% alpha
-	unique() %>%
-	dplyr::arrange(phylum)
-
-tax_table <- as.data.frame(unique(ancombc_rand_table_mag_norand$phylum))
-  
-  
-colnames(tax_table)[1] <- "phylum"
-tax_color <- merge(tax_table, colors_alphabetic, by="phylum")%>%
-	dplyr::arrange(phylum) %>%
-	dplyr::select(colors) %>%
-	pull()
+```{r ancom_rand2, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+taxonomy <- clean_taxonomy_table(physeq_genome_filtered, include_unclassified = TRUE)
+ancombc_rand_table_mag_norand <- extract_significant_results(ancom_rand_output_norand, taxonomy)
+tax_color <- prepare_tax_color_vector(ancombc_rand_table_mag_norand, taxonomy)
 ```
 
-```{r ancombc_rand_plot_mag2, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=10, fig.width=8, fig.fullwidth=TRUE, eval = FALSE }
-ancombc_rand_table_mag_norand%>%
-      mutate(genome=factor(genome,levels=ancombc_rand_table_mag_norand$genome)) %>%
-ggplot(., aes(x=lfc_sexMale, y=forcats::fct_reorder(genome,lfc_sexMale), fill=phylum)) + #forcats::fct_rev()
-  geom_col() + 
-  scale_fill_manual(values=tax_color) + 
-  geom_hline(yintercept=0) + 
-#  coord_flip()+
-  theme(panel.background = element_blank(),
-        axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
-        axis.text.x = element_text(size = 12),
-        axis.text.y = element_text(size = 8),
-        axis.title = element_text(size = 14, face = "bold"),
-        legend.text = element_text(size = 12),
-        legend.title = element_text(size = 14, face = "bold"),
-        legend.position = "right", legend.box = "vertical")+
-  xlab("log2FoldChange") + 
-  ylab("Species")+
-  guides(fill=guide_legend(title="Phylum"))
+**Note:** Create a bar plot for ANCOM-BC2 results without random effects showing log2 fold changes for significant MAGs (chunk is set to eval=FALSE, not executed).
+
+```{r ancombc_rand_plot_mag2, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=10, fig.width=8, fig.fullwidth=TRUE}
+plot_ancombc_barplot(ancombc_rand_table_mag_norand, tax_color, y_label = "Species")
 ```
 
 
-```{r ancom_rand_volcano2, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
-phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
-    right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
-    arrange(match(genome, genome_tree$tip.label)) %>%
-    select(phylum, colors) %>%
-    unique() %>%
-    arrange(phylum) %>%
-    pull(colors, name=phylum)
+**Note:** Create a volcano plot for ANCOM-BC2 results without random effects (chunk is set to eval=FALSE, not executed).
 
-#pdf("figures/different_species_StrucZero_new_violin.pdf",width=12, height=6)
-ancom_rand_output_norand$res %>%
-  na.omit() %>%
-  dplyr::select(genome=taxon, lfc_sexMale, p_sexMale) %>%
-  inner_join(genome_metadata, by = join_by(genome == genome)) %>%
-  mutate(phylum = ifelse(p_sexMale < 0.05, phylum, NA)) %>%
-  ggplot(., aes(x = lfc_sexMale, y = -log(p_sexMale), color = phylum)) +
-  geom_point(size=3, show.legend = FALSE) +
-  #xlim(c(-10,4)) +
-  scale_color_manual(values = phylum_colors) +
-  labs(color = "Significant phylum", x = "Log-fold difference between sample types", y = "p-value") +
-  theme_classic()
-#dev.off()
+```{r ancom_rand_volcano2, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+plot_volcano_ancombc(ancom_rand_output_norand, genome_metadata, genome_tree)
 ```
 
-#### Controling structural components
+#### Controlling structural components
+
+**Note:** Run ANCOM-BC2 analysis at MAG level without random effects but with structural zero detection enabled, grouping by sex.
+
 ```{r ancom_rand_struct12, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
-ancom_rand_output_mag_Struc_norand = ancombc2(data = physeq_all, 
-                  assay_name = "counts", 
-                  tax_level = NULL, #change to agglomerate analysis to a higher taxonomic range
-                  fix_formula = "sex", #fixed variable(s)
- #                 rand_formula = "(1|broad_environment)",
-                  p_adj_method = "holm", 
-                  pseudo_sens = TRUE,
-                  prv_cut =0, 
-                  lib_cut = 0, 
-                  s0_perc = 0.05,
-                  group = "sex", 
-                  struc_zero = TRUE, 
-                  neg_lb = FALSE,
-                  alpha = 0.05, 
-                  n_cl = 2, 
-                  verbose = TRUE,
-                  global = FALSE, 
-                  pairwise = FALSE, 
-                  dunnet = FALSE, 
-                  trend = FALSE,
-                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
-                  em_control = list(tol = 1e-5, max_iter = 100),
-                  lme_control = NULL,
-                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
-                  trend_control = NULL)
-
+ancom_rand_output_mag_Struc_norand <- run_ancombc2_analysis(
+  data = physeq_all,
+  tax_level = NULL,
+  rand_formula = NULL,
+  struc_zero = TRUE,
+  group = "sex",
+  lme_control = NULL
+)
 ```
+
+**Note:** Process ANCOM-BC2 results without random effects but with structural zero control, extract significant MAGs, merge with taxonomy, and prepare phylum color scheme.
 
 ```{r ancom_rand12, comment="", echo=FALSE, message=FALSE, warning=FALSE,  }
-taxonomy <- data.frame(physeq_genome_filtered@tax_table) %>%
-  rownames_to_column(., "taxon")%>%
-  mutate_at(vars(order, phylum, family, genus, species), ~ str_replace(., "[dpcofgs]__", ""))%>%
-  mutate(across(c(family,genus, species), na_if, ""))
-
-ancombc_rand_table_mag_Struc_norand <- ancom_rand_output_mag_Struc_norand$res %>%
-  dplyr::select(taxon, lfc_sexMale, p_sexMale) %>%
-  filter(p_sexMale < 0.05) %>%
-  dplyr::arrange(p_sexMale) %>%
-  merge(., taxonomy, by="taxon") %>%
-  mutate_at(vars(phylum, species), ~ str_replace(., "[dpcofgs]__", ""))%>%
-  dplyr::arrange(lfc_sexMale)
-  
-colors_alphabetic <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
-  mutate_at(vars(phylum), ~ str_replace(., "[dpcofgs]__", ""))  %>%
-  right_join(taxonomy, by=join_by(phylum == phylum)) %>%
-  dplyr::select(phylum, colors) %>%
-  mutate(colors = str_c(colors, "80"))  %>% #add 80% alpha
-	unique() %>%
-	dplyr::arrange(phylum)
-
-tax_table <- as.data.frame(unique(ancombc_rand_table_mag_Struc_norand$phylum))
-  
-  
-colnames(tax_table)[1] <- "phylum"
-tax_color <- merge(tax_table, colors_alphabetic, by="phylum")%>%
-	dplyr::arrange(phylum) %>%
-	dplyr::select(colors) %>%
-	pull()
+taxonomy <- clean_taxonomy_table(physeq_genome_filtered, include_unclassified = FALSE)
+ancombc_rand_table_mag_Struc_norand <- extract_significant_results(ancom_rand_output_mag_Struc_norand, taxonomy)
+tax_color <- prepare_tax_color_vector(ancombc_rand_table_mag_Struc_norand, taxonomy)
 ```
+
+**Note:** Create a bar plot showing log2 fold changes for significantly differentially abundant MAGs (without random effects, with structural zero control) between sexes, colored by phylum.
 
 ```{r ancombc_rand_plot_mag12, comment="", echo=FALSE, message=FALSE, warning=FALSE, fig.height=10, fig.width=8, fig.fullwidth=TRUE, }
-ancombc_rand_table_mag_Struc_norand%>%
-      mutate(genome=factor(genome,levels=ancombc_rand_table_mag_Struc_norand$genome)) %>%
-ggplot(., aes(x=lfc_sexMale, y=forcats::fct_reorder(genome,lfc_sexMale), fill=phylum)) + #forcats::fct_rev()
-  geom_col() + 
-  scale_fill_manual(values=tax_color) + 
-  geom_hline(yintercept=0) + 
-#  coord_flip()+
-  theme(panel.background = element_blank(),
-        axis.line = element_line(size = 0.5, linetype = "solid", colour = "black"),
-        axis.text.x = element_text(size = 12),
-        axis.text.y = element_text(size = 8),
-        axis.title = element_text(size = 14, face = "bold"),
-        legend.text = element_text(size = 12),
-        legend.title = element_text(size = 14, face = "bold"),
-        legend.position = "right", legend.box = "vertical")+
-  xlab("log2FoldChange") + 
-  ylab("Species")+
-  guides(fill=guide_legend(title="Phylum"))
+plot_ancombc_barplot(ancombc_rand_table_mag_Struc_norand, tax_color, y_label = "Species")
 ```
 
-```{r ancom_rand_volcano_mag12, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
-phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
-    right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
-    arrange(match(genome, genome_tree$tip.label)) %>%
-    select(phylum, colors) %>%
-    unique() %>%
-    arrange(phylum) %>%
-    pull(colors, name=phylum)
+**Note:** Create a volcano plot for ANCOM-BC2 results without random effects but with structural zero control, showing log-fold change vs. p-value with significant phyla highlighted.
 
-#pdf("figures/different_species_StrucZero_new_violin.pdf",width=12, height=6)
-ancom_rand_output_mag_Struc_norand$res %>%
-  na.omit() %>%
-  dplyr::select(genome=taxon, lfc_sexMale, p_sexMale) %>%
-  inner_join(genome_metadata, by = join_by(genome == genome)) %>%
-  mutate(phylum = ifelse(p_sexMale < 0.05, phylum, NA)) %>%
-  ggplot(., aes(x = lfc_sexMale, y = -log(p_sexMale), color = phylum)) +
-  geom_point(size=3, show.legend = FALSE) +
-  #xlim(c(-10,4)) +
-  scale_color_manual(values = phylum_colors) +
-  labs(color = "Significant phylum", x = "Log-fold difference between sample types", y = "p-value") +
-  theme_classic()
-#dev.off()
+```{r ancom_rand_volcano_mag12, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
+plot_volcano_ancombc(ancom_rand_output_mag_Struc_norand, genome_metadata, genome_tree)
 ```
 
 #### Phylum level
 
+**Note:** Run ANCOM-BC2 analysis aggregated at phylum level without random effects to test differential abundance between sexes.
+
 ```{r ancom_phylum2, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
-ancom_rand_output_phylum_norand = ancombc2(data = physeq_genome_filtered, 
-                  assay_name = "counts", 
-                  tax_level = "phylum", #change to agglomerate analysis to a higher taxonomic range
-                  fix_formula = "sex", #fixed variable(s)
-  #                rand_formula = "(1|broad_environment)",
-                  p_adj_method = "holm", 
-                  pseudo_sens = TRUE,
-                  prv_cut = 0, 
-                  lib_cut = 0, 
-                  s0_perc = 0.05,
-                  group = NULL, 
-                  struc_zero = FALSE, 
-                  neg_lb = FALSE,
-                  alpha = 0.05, 
-                  n_cl = 2, 
-                  verbose = TRUE,
-                  global = FALSE, 
-                  pairwise = FALSE, 
-                  dunnet = FALSE, 
-                  trend = FALSE,
-                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
-                  em_control = list(tol = 1e-5, max_iter = 100),
-                  lme_control = NULL,
-                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
-                  trend_control = NULL)
+ancom_rand_output_phylum_norand <- run_ancombc2_analysis(
+  data = physeq_genome_filtered,
+  tax_level = "phylum",
+  rand_formula = NULL,
+  struc_zero = FALSE,
+  group = NULL,
+  lme_control = NULL
+)
 ```
+
+**Note:** Extract and display significantly differentially abundant phyla (p < 0.05) from ANCOM-BC2 results without random effects, sorted by p-value.
 
 ```{r ancom_rand_phylum2, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 ancom_rand_output_phylum_norand$res %>%
@@ -846,33 +640,21 @@ ancom_rand_output_phylum_norand$res %>%
 ```
 
 #### Family level
+
+**Note:** Run ANCOM-BC2 analysis aggregated at family level without random effects to test differential abundance between sexes.
+
 ```{r ancom_family2, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
-ancom_rand_output_family_norand = ancombc2(data = physeq_genome_filtered, 
-                  assay_name = "counts", 
-                  tax_level = "family", #change to agglomerate analysis to a higher taxonomic range
-                  fix_formula = "sex", #fixed variable(s)
-   #               rand_formula = "(1|broad_environment)",
-                  p_adj_method = "holm", 
-                  pseudo_sens = TRUE,
-                  prv_cut = 0, 
-                  lib_cut = 0, 
-                  s0_perc = 0.05,
-                  group = NULL, 
-                  struc_zero = FALSE, 
-                  neg_lb = FALSE,
-                  alpha = 0.05, 
-                  n_cl = 2, 
-                  verbose = TRUE,
-                  global = FALSE, 
-                  pairwise = FALSE, 
-                  dunnet = FALSE, 
-                  trend = FALSE,
-                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
-                  em_control = list(tol = 1e-5, max_iter = 100),
-                  lme_control = NULL,
-                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
-                  trend_control = NULL)
+ancom_rand_output_family_norand <- run_ancombc2_analysis(
+  data = physeq_genome_filtered,
+  tax_level = "family",
+  rand_formula = NULL,
+  struc_zero = FALSE,
+  group = NULL,
+  lme_control = NULL
+)
 ```
+
+**Note:** Extract and display significantly differentially abundant families (p < 0.05) from ANCOM-BC2 results without random effects, sorted by p-value.
 
 ```{r ancom_rand_family2, comment="", echo=FALSE, message=FALSE, warning=FALSE, }
 ancom_rand_output_family_norand$res %>%
@@ -882,33 +664,21 @@ ancom_rand_output_family_norand$res %>%
 ```
 
 #### Genera
+
+**Note:** Run ANCOM-BC2 analysis aggregated at genus level without random effects to test differential abundance between sexes.
+
 ```{r ancom_genera2, comment="", echo=FALSE, message=FALSE, warning=FALSE,  }
-ancom_rand_output_gen_norand = ancombc2(data = physeq_genome_filtered, 
-                  assay_name = "counts", 
-                  tax_level = "genus", #change to agglomerate analysis to a higher taxonomic range
-                  fix_formula = "sex", #fixed variable(s)
- #                 rand_formula = "(1|broad_environment)",
-                  p_adj_method = "holm", 
-                  pseudo_sens = TRUE,
-                  prv_cut = 0, 
-                  lib_cut = 0, 
-                  s0_perc = 0.05,
-                  group = NULL, 
-                  struc_zero = FALSE, 
-                  neg_lb = FALSE,
-                  alpha = 0.05, 
-                  n_cl = 2, 
-                  verbose = TRUE,
-                  global = FALSE, 
-                  pairwise = FALSE, 
-                  dunnet = FALSE, 
-                  trend = FALSE,
-                  iter_control = list(tol = 1e-5, max_iter = 20, verbose = FALSE),
-                  em_control = list(tol = 1e-5, max_iter = 100),
-                  lme_control = NULL,
-                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
-                  trend_control = NULL)
+ancom_rand_output_gen_norand <- run_ancombc2_analysis(
+  data = physeq_genome_filtered,
+  tax_level = "genus",
+  rand_formula = NULL,
+  struc_zero = FALSE,
+  group = NULL,
+  lme_control = NULL
+)
 ```
+
+**Note:** Extract and display significantly differentially abundant genera (p < 0.05) from ANCOM-BC2 results without random effects, sorted by p-value.
 
 ```{r ancom_rand_genera2, comment="", echo=FALSE, message=FALSE, warning=FALSE,  }
 ancom_rand_output_gen_norand$res %>%
@@ -916,6 +686,8 @@ ancom_rand_output_gen_norand$res %>%
   filter(p_sexMale < 0.05) %>%
   dplyr::arrange(p_sexMale) 
 ```
+
+**Note:** Save all ANCOM-BC2 analysis results to an Rdata file for later use.
 
 ```{r ancom_save, comment="", echo=FALSE, message=FALSE, warning=FALSE }
  save(ancom_rand_output,

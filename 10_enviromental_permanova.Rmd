@@ -3,16 +3,26 @@
 
 We test whether environmental α-diversity (Hill h0/h1/h2 of land-cover) relates to microbiome β-diversity (Bray–Curtis), and visualise relationships (e.g., NMDS axes vs. Hill metrics) and distance-matrix structure.
 
+## Load data
+
+**Note:** Load all required data objects including sample metadata, beta diversity matrices, and Hill diversity metrics from the RData files created in previous chapters.
+
 ```{r load_data_comparison, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 load("data/data.Rdata")
 load("data/beta.Rdata")
 load("data/hill.Rdata")
 ```
 
-```{r exclude Sample10, message=FALSE, warning=FALSE}
+## Data preparation
+
+**Note:** Filter out sample EHI01340 from the metadata and Hill diversity data. This sample was removed because it could not be mapped to MAGs, ensuring consistency across downstream analyses.
+
+```{r exclude_Sample10_permanova, message=FALSE, warning=FALSE}
 sample_metadata <- sample_metadata %>% dplyr::filter(sample != "EHI01340")
 hill_long       <- hill_long       %>% dplyr::filter(id     != "EHI01340")
 ```
+
+**Note:** Transform Hill diversity data from long to wide format, creating separate columns for each Hill diversity metric (env_hill_h0, env_hill_h1, env_hill_h2). Join with sample metadata to create a combined metadata object for downstream analyses.
 
 ```{r Pivot the Hill-long to wide, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 # Creates columns: env_hill_h0, env_hill_h1, env_hill_h2
@@ -27,8 +37,108 @@ env_hill_df <- hill_long %>%
 
 meta <- sample_metadata %>%
   dplyr::left_join(env_hill_df, by = "sample")
-
 ```
+
+## Helper functions
+
+**Note:** Helper function to align metadata with distance matrices. This eliminates code duplication when aligning metadata for multiple distance matrices. Defined early as it's needed by multiple analysis sections.
+
+```{r Helper function to align metadata, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+# OPTIMIZED: Helper function to align metadata with distance matrix
+align_metadata <- function(meta, dist_mat) {
+  meta %>%
+    dplyr::filter(sample %in% attr(dist_mat, "Labels")) %>%
+    dplyr::arrange(match(sample, attr(dist_mat, "Labels")))
+}
+```
+
+**Note:** Optimized helper function that accepts pre-calculated NMDS object instead of recalculating. This eliminates redundant NMDS calculations when creating multiple plots.
+
+```{r Helper to make each plot OPTIMIZED, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+# OPTIMIZED: Accept pre-calculated NMDS instead of recalculating
+make_nmds_plot <- function(nmds_obj, meta_aligned, qvar, title) {
+  pts  <- as.data.frame(nmds_obj$points)
+  pts[[qvar]] <- meta_aligned[[qvar]]
+
+  ggplot2::ggplot(pts, ggplot2::aes(MDS1, MDS2, color = .data[[qvar]])) +
+    ggplot2::geom_point(size = 3, alpha = 0.8, shape = 21, stroke = 0.5) +
+    ggplot2::theme_minimal(base_size = 14) +
+    ggplot2::scale_color_viridis_c(option = "plasma", direction = -1) +
+    ggplot2::labs(color = title, x = "NMDS1", y = "NMDS2") +
+    ggplot2::theme(
+      panel.grid = element_blank(),
+      axis.text  = element_text(size = 12),
+      axis.title = element_text(face = "bold"),
+      legend.title = element_text(face = "bold")
+    )
+}
+```
+
+## Ordination analysis
+
+**Note:** Extract distance matrices from beta diversity objects for use in ordination analyses. These matrices represent Bray-Curtis dissimilarities between samples at different diversity orders.
+
+```{r Prepare distance matrices, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+bray_dist0n <- beta_q0n$S
+bray_dist1n <- beta_q1n$S
+bray_dist1f <- beta_q1f$S
+```
+
+**Note:** Calculate all NMDS ordinations once upfront. These are expensive operations (trymax = 500 iterations each) and were previously calculated redundantly 3+ times. This optimization saves significant computation time.
+
+```{r Calculate all NMDS ordinations once, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+# Calculate all NMDS ordinations upfront - expensive operation, do once
+nmds0n <- vegan::metaMDS(bray_dist0n, k = 2, trymax = 500, trace = 0)
+nmds1n <- vegan::metaMDS(bray_dist1n, k = 2, trymax = 500, trace = 0)
+nmds1f <- vegan::metaMDS(bray_dist1f, k = 2, trymax = 500, trace = 0)
+```
+
+**Note:** Align metadata with each distance matrix using the helper function. This ensures proper sample order matching for ordination and visualization.
+
+```{r Align metadata for all matrices, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+aligned0 <- align_metadata(meta, bray_dist0n)
+aligned1n <- align_metadata(meta, bray_dist1n)
+aligned1f <- align_metadata(meta, bray_dist1f)
+
+# OPTIMIZED: Use pre-calculated NMDS objects instead of recalculating
+p1 <- make_nmds_plot(nmds0n, aligned0, "env_hill_h0", "Environmental Hill q0")
+p2 <- make_nmds_plot(nmds1n, aligned1n, "env_hill_h1", "Environmental Hill q1")
+p3 <- make_nmds_plot(nmds1f, aligned1f, "env_hill_h2", "Environmental Hill q2")
+
+cowplot::plot_grid(p1, p2, p3, ncol = 3)
+```
+
+## Grouping variables
+
+**Note:** Create grouping variables for environmental Hill diversity metrics. Calculate medians once to avoid redundant calculations. Split into tertiles (Low, Mid, High) and median-based groups (Low, High) for visualization and statistical testing.
+
+```{r Splitting into quantiles or medians OPTIMIZED, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+# OPTIMIZED: Calculate medians once instead of three times
+med_h0 <- median(meta$env_hill_h0, na.rm = TRUE)
+med_h1 <- median(meta$env_hill_h1, na.rm = TRUE)
+med_h2 <- median(meta$env_hill_h2, na.rm = TRUE)
+
+meta <- meta %>%
+  dplyr::mutate(
+    env_hill_q0_group     = ggplot2::cut_number(env_hill_h0, 3, labels = c("Low","Mid","High")),
+    env_hill_q1_group     = ggplot2::cut_number(env_hill_h1, 3, labels = c("Low","Mid","High")),
+    env_hill_q2_group     = ggplot2::cut_number(env_hill_h2, 3, labels = c("Low","Mid","High")),
+    env_hill_q0_group_med = ifelse(env_hill_h0 <= med_h0, "Low", "High"),
+    env_hill_q1_group_med = ifelse(env_hill_h1 <= med_h1, "Low", "High"),
+    env_hill_q2_group_med = ifelse(env_hill_h2 <= med_h2, "Low", "High")
+  )
+```
+
+**Note:** Verify the grouping variables were created correctly by displaying frequency tables. This ensures balanced group sizes for downstream analyses.
+
+```{r checking validity, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+table(meta$env_hill_q0_group)
+table(meta$env_hill_q0_group_med)
+```
+
+## PERMANOVA analysis
+
+**Note:** Define function to run PERMANOVA tests for each environmental Hill diversity metric (h0, h1, h2) against beta diversity distance matrices. The function aligns metadata with distance matrix samples, ensures sample order matches, and performs PERMANOVA with 999 permutations for each Hill metric. This eliminates code duplication when testing multiple beta diversity matrices.
 
 ```{r PERMANOVAs for q0, q1n, q1f, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 run_permanova <- function(beta_obj, meta) {
@@ -54,191 +164,286 @@ run_permanova <- function(beta_obj, meta) {
 run_permanova(beta_q0n, meta)
 run_permanova(beta_q1n, meta)
 run_permanova(beta_q1f, meta)
-
 ```
 
-```{r Prepare distance matrices, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-bray_dist0n <- beta_q0n$S
-bray_dist1n <- beta_q1n$S
-bray_dist1f <- beta_q1f$S
+## Mantel tests
+
+**Note:** Test correlations between environmental Hill diversity and beta diversity using Mantel tests. This is more appropriate than linear regression on NMDS axes since it tests relationships directly on distance matrices, which is the appropriate scale for beta diversity analysis.
+
+```{r Mantel tests for Hill diversity, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+# Create distance matrices for environmental variables (Euclidean distance)
+# Need to align with distance matrix samples first
+meta_for_mantel <- align_metadata(meta, bray_dist0n)
+
+env_dist_h0 <- dist(meta_for_mantel$env_hill_h0)
+env_dist_h1 <- dist(meta_for_mantel$env_hill_h1)
+env_dist_h2 <- dist(meta_for_mantel$env_hill_h2)
+
+# Mantel tests for q0n
+mantel_h0_q0n <- vegan::mantel(bray_dist0n, env_dist_h0, permutations = 999)
+mantel_h1_q0n <- vegan::mantel(bray_dist0n, env_dist_h1, permutations = 999)
+mantel_h2_q0n <- vegan::mantel(bray_dist0n, env_dist_h2, permutations = 999)
+
+cat("\n=== Mantel tests for q0n beta diversity ===\n")
+cat("\nHill h0:\n")
+print(mantel_h0_q0n)
+cat("\nHill h1:\n")
+print(mantel_h1_q0n)
+cat("\nHill h2:\n")
+print(mantel_h2_q0n)
+
+# Mantel tests for q1n
+meta_for_mantel_q1n <- align_metadata(meta, bray_dist1n)
+env_dist_h0_q1n <- dist(meta_for_mantel_q1n$env_hill_h0)
+env_dist_h1_q1n <- dist(meta_for_mantel_q1n$env_hill_h1)
+env_dist_h2_q1n <- dist(meta_for_mantel_q1n$env_hill_h2)
+
+mantel_h0_q1n <- vegan::mantel(bray_dist1n, env_dist_h0_q1n, permutations = 999)
+mantel_h1_q1n <- vegan::mantel(bray_dist1n, env_dist_h1_q1n, permutations = 999)
+mantel_h2_q1n <- vegan::mantel(bray_dist1n, env_dist_h2_q1n, permutations = 999)
+
+cat("\n=== Mantel tests for q1n beta diversity ===\n")
+cat("\nHill h0:\n")
+print(mantel_h0_q1n)
+cat("\nHill h1:\n")
+print(mantel_h1_q1n)
+cat("\nHill h2:\n")
+print(mantel_h2_q1n)
+
+# Mantel tests for q1f
+meta_for_mantel_q1f <- align_metadata(meta, bray_dist1f)
+env_dist_h0_q1f <- dist(meta_for_mantel_q1f$env_hill_h0)
+env_dist_h1_q1f <- dist(meta_for_mantel_q1f$env_hill_h1)
+env_dist_h2_q1f <- dist(meta_for_mantel_q1f$env_hill_h2)
+
+mantel_h0_q1f <- vegan::mantel(bray_dist1f, env_dist_h0_q1f, permutations = 999)
+mantel_h1_q1f <- vegan::mantel(bray_dist1f, env_dist_h1_q1f, permutations = 999)
+mantel_h2_q1f <- vegan::mantel(bray_dist1f, env_dist_h2_q1f, permutations = 999)
+
+cat("\n=== Mantel tests for q1f beta diversity ===\n")
+cat("\nHill h0:\n")
+print(mantel_h0_q1f)
+cat("\nHill h1:\n")
+print(mantel_h1_q1f)
+cat("\nHill h2:\n")
+print(mantel_h2_q1f)
 ```
 
+## Betadisper tests
 
-```{r Helper to make each plot, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-make_nmds_plot <- function(dist_mat, meta_aligned, qvar, title) {
-  nmds <- vegan::metaMDS(dist_mat, k = 2, trymax = 500, trace = 0)
-  pts  <- as.data.frame(nmds$points)
-  pts[[qvar]] <- meta_aligned[[qvar]]
-
-  ggplot2::ggplot(pts, ggplot2::aes(MDS1, MDS2, color = .data[[qvar]])) +
-    ggplot2::geom_point(size = 3, alpha = 0.8, shape = 21, stroke = 0.5) +
-    ggplot2::theme_minimal(base_size = 14) +
-    ggplot2::scale_color_viridis_c(option = "plasma", direction = -1) +
-    ggplot2::labs(color = title, x = "NMDS1", y = "NMDS2") +
-    ggplot2::theme(
-      panel.grid = element_blank(),
-      axis.text  = element_text(size = 12),
-      axis.title = element_text(face = "bold"),
-      legend.title = element_text(face = "bold")
-    )
-}
-
-
-```
-
-```{r Align metadata once for q0, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-aligned0 <- meta %>%
-  dplyr::filter(sample %in% attr(bray_dist0n, "Labels")) %>%
-  dplyr::arrange(match(sample, attr(bray_dist0n, "Labels")))
-
-aligned1n <- meta %>%
-  dplyr::filter(sample %in% attr(bray_dist1n, "Labels")) %>%
-  dplyr::arrange(match(sample, attr(bray_dist1n, "Labels")))
-
-aligned1f <- meta %>%
-  dplyr::filter(sample %in% attr(bray_dist1f, "Labels")) %>%
-  dplyr::arrange(match(sample, attr(bray_dist1f, "Labels")))
-
-p1 <- make_nmds_plot(bray_dist0n, aligned0, "env_hill_h0", "Environmental Hill q0")
-p2 <- make_nmds_plot(bray_dist1n, aligned1n, "env_hill_h1", "Environmental Hill q1")
-p3 <- make_nmds_plot(bray_dist1f, aligned1f, "env_hill_h2", "Environmental Hill q2")
-
-cowplot::plot_grid(p1, p2, p3, ncol = 3)
-
-```
-
-```{r Envfit, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-fit <- vegan::envfit(nmds0n, aligned0[, c("env_hill_h0", "env_hill_h1", "env_hill_h2")])
-
-# Scores extrahieren
-fit_scores <- as.data.frame(scores(fit, display = "vectors"))
-fit_scores$variable <- rownames(fit_scores)
-
-ggplot(pts0n, aes(MDS1, MDS2)) +
-  geom_point(color = "grey50", size = 2) +
-  geom_segment(data = fit_scores,
-               aes(x = 0, y = 0, xend = NMDS1, yend = NMDS2),
-               arrow = arrow(length = unit(0.25, "cm")),
-               color = "red", size = 1) +
-  geom_text(data = fit_scores,
-            aes(x = NMDS1, y = NMDS2, label = variable),
-            vjust = -0.8, color = "red", fontface = "bold") +
-  theme_minimal(base_size = 14)
-
-
-```
+**Note:** Test for homogeneity of multivariate dispersions (variance) across Hill diversity tertile groups using betadisper. This tests whether groups differ in their dispersion around the centroid, which is an assumption of PERMANOVA. Tests all three beta diversity matrices for consistency.
 
 ```{r Betadisper by tertiles, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-bd <- vegan::betadisper(
+# Betadisper for q0n
+bd_q0n <- vegan::betadisper(
   bray_dist0n,
   ggplot2::cut_number(aligned0$env_hill_h0, 3)
 )
-plot(bd)
-anova(bd)
+cat("\n=== Betadisper for q0n beta diversity ===\n")
+plot(bd_q0n)
+anova(bd_q0n)
 
+# Betadisper for q1n
+bd_q1n <- vegan::betadisper(
+  bray_dist1n,
+  ggplot2::cut_number(aligned1n$env_hill_h1, 3)
+)
+cat("\n=== Betadisper for q1n beta diversity ===\n")
+plot(bd_q1n)
+anova(bd_q1n)
+
+# Betadisper for q1f
+bd_q1f <- vegan::betadisper(
+  bray_dist1f,
+  ggplot2::cut_number(aligned1f$env_hill_h2, 3)
+)
+cat("\n=== Betadisper for q1f beta diversity ===\n")
+plot(bd_q1f)
+anova(bd_q1f)
 ```
 
-```{r  Splitting into quantiles or medians, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-meta <- meta %>%
-  dplyr::mutate(
-    env_hill_q0_group     = ggplot2::cut_number(env_hill_h0, 3, labels = c("Low","Mid","High")),
-    env_hill_q1_group     = ggplot2::cut_number(env_hill_h1, 3, labels = c("Low","Mid","High")),
-    env_hill_q2_group     = ggplot2::cut_number(env_hill_h2, 3, labels = c("Low","Mid","High")),
-    env_hill_q0_group_med = ifelse(env_hill_h0 <= median(env_hill_h0, na.rm = TRUE), "Low", "High"),
-    env_hill_q1_group_med = ifelse(env_hill_h1 <= median(env_hill_h1, na.rm = TRUE), "Low", "High"),
-    env_hill_q2_group_med = ifelse(env_hill_h2 <= median(env_hill_h2, na.rm = TRUE), "Low", "High")
+## Correlation tests
+
+**Note:** Test correlations between environmental Hill diversity variables and NMDS ordination axes using Spearman correlation. This is more appropriate than linear regression for non-metric ordination and provides correlation coefficients and significance tests.
+
+```{r Correlation tests: Hill diversity vs NMDS axes, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+# Correlation tests for all Hill metrics vs NMDS axes
+cor_results <- list()
+
+# For q0 NMDS
+for (hill_var in c("env_hill_h0", "env_hill_h1", "env_hill_h2")) {
+  cor_mds1 <- cor.test(aligned0[[hill_var]], nmds0n$points[,1], method = "spearman")
+  cor_mds2 <- cor.test(aligned0[[hill_var]], nmds0n$points[,2], method = "spearman")
+  cor_results[[paste0(hill_var, "_MDS1")]] <- cor_mds1
+  cor_results[[paste0(hill_var, "_MDS2")]] <- cor_mds2
+}
+
+# For q1n NMDS
+for (hill_var in c("env_hill_h0", "env_hill_h1", "env_hill_h2")) {
+  cor_mds1 <- cor.test(aligned1n[[hill_var]], nmds1n$points[,1], method = "spearman")
+  cor_mds2 <- cor.test(aligned1n[[hill_var]], nmds1n$points[,2], method = "spearman")
+  cor_results[[paste0(hill_var, "_q1n_MDS1")]] <- cor_mds1
+  cor_results[[paste0(hill_var, "_q1n_MDS2")]] <- cor_mds2
+}
+
+# For q1f NMDS
+for (hill_var in c("env_hill_h0", "env_hill_h1", "env_hill_h2")) {
+  cor_mds1 <- cor.test(aligned1f[[hill_var]], nmds1f$points[,1], method = "spearman")
+  cor_mds2 <- cor.test(aligned1f[[hill_var]], nmds1f$points[,2], method = "spearman")
+  cor_results[[paste0(hill_var, "_q1f_MDS1")]] <- cor_mds1
+  cor_results[[paste0(hill_var, "_q1f_MDS2")]] <- cor_mds2
+}
+
+# Display results
+cat("\n=== Spearman correlations: Hill diversity vs NMDS axes ===\n")
+cat("\n--- q0n NMDS ---\n")
+for (name in grep("_MDS", names(cor_results), value = TRUE)) {
+  if (!grepl("_q1", name)) {
+    cat("\n", name, ":\n")
+    print(cor_results[[name]])
+  }
+}
+cat("\n--- q1n NMDS ---\n")
+for (name in grep("_q1n_MDS", names(cor_results), value = TRUE)) {
+  cat("\n", name, ":\n")
+  print(cor_results[[name]])
+}
+cat("\n--- q1f NMDS ---\n")
+for (name in grep("_q1f_MDS", names(cor_results), value = TRUE)) {
+  cat("\n", name, ":\n")
+  print(cor_results[[name]])
+}
+```
+
+## Visualization
+
+Associations between environmental α-diversity (Hill h0/h1/h2) and microbiome ordination (NMDS1/2), with fitted vectors and a subset heatmap of Bray–Curtis distances.
+
+**Note:** Create combined scatterplots showing relationships between all environmental Hill diversity metrics and NMDS ordination axes. This provides a comprehensive view of how environmental diversity relates to microbiome β-diversity ordination. Uses loess smoothing instead of linear regression, which is more appropriate for potentially non-linear relationships.
+
+```{r Combined scatterplot: All Hill metrics vs NMDS, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+# Create combined data frame for all Hill metrics
+pts_all <- as.data.frame(nmds0n$points) %>%
+  dplyr::mutate(sample = rownames(.)) %>%
+  dplyr::left_join(aligned0 %>% dplyr::select(sample, env_hill_h0, env_hill_h1, env_hill_h2), by = "sample") %>%
+  tidyr::pivot_longer(cols = c(env_hill_h0, env_hill_h1, env_hill_h2), 
+                      names_to = "hill_metric", 
+                      values_to = "hill_value",
+                      names_prefix = "env_hill_") %>%
+  tidyr::pivot_longer(cols = c(MDS1, MDS2), 
+                      names_to = "nmds_axis", 
+                      values_to = "nmds_value")
+
+# Create faceted scatterplot
+p_combined <- ggplot2::ggplot(pts_all, ggplot2::aes(x = hill_value, y = nmds_value)) +
+  ggplot2::geom_point(alpha = 0.6, size = 1.5) +
+  ggplot2::geom_smooth(method = "loess", se = TRUE, color = "red", linewidth = 1) +
+  ggplot2::facet_grid(nmds_axis ~ hill_metric, scales = "free_x") +
+  ggplot2::theme_minimal(base_size = 12) +
+  ggplot2::labs(x = "Environmental Hill diversity", y = "NMDS axis value") +
+  ggplot2::theme(
+    strip.text = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
   )
 
-table(meta$env_hill_q0_group)
-table(meta$env_hill_q0_group_med)
-
+p_combined
 ```
 
-```{r checking validty, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-table(meta$env_hill_q0_group)
-table(meta$env_hill_q0_group_med)
-```
-**visualisation**
+**Note:** Fit environmental Hill diversity vectors (h0, h1, h2) onto the q0 NMDS ordination using envfit. This tests the correlation between environmental variables and ordination axes, displaying significant vectors as arrows on the ordination plot. Improved visualization using ggplot2 for consistency with other plots.
 
-Associations between environmental α-diversity (Hill h1) and microbiome ordination (NMDS1/2), with fitted vectors and a subset heatmap of Bray–Curtis distances.
-
-```{r tidy NMDS‐points data frame, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-nmds0n <- vegan::metaMDS(bray_dist0n, k = 2, trymax = 500, trace = 0)
-pts0n <- as.data.frame(nmds0n$points) %>%
-  dplyr::mutate(sample = rownames(.)) %>%
-  dplyr::left_join(meta %>% dplyr::select(sample, env_hill_q0_group), by = "sample")
-
-p_box1 <- ggplot2::ggplot(pts0n, ggplot2::aes(x = env_hill_q0_group, y = MDS1, fill = env_hill_q0_group)) +
-  ggplot2::geom_boxplot() +
-  ggplot2::scale_fill_viridis_d(name = "q0 group") +
-  ggplot2::theme_minimal() +
-  ggplot2::labs(x = "Hill q0 tertile", y = "NMDS1", title = "NMDS1 by q0 group")
-
-p_box2 <- ggplot2::ggplot(pts0n, ggplot2::aes(x = env_hill_q0_group, y = MDS2, fill = env_hill_q0_group)) +
-  ggplot2::geom_boxplot() +
-  ggplot2::scale_fill_viridis_d(name = "q0 group") +
-  ggplot2::theme_minimal() +
-  ggplot2::labs(x = "Hill q0 tertile", y = "NMDS2", title = "NMDS2 by q0 group")
-
-cowplot::plot_grid(p_box1, p_box2, ncol = 2)
-
-```
-
-```{r Scatterplots: Hill α‐diversity vs. NMDS axes}
-# Scatterplots: Hill α‐diversity (q1) vs. NMDS axes
-nmds1n <- vegan::metaMDS(bray_dist1n, k = 2, trymax = 500, trace = 0)
-
-pts1n <- as.data.frame(nmds1n$points) %>%
-  dplyr::mutate(sample = rownames(.)) %>%
-  dplyr::left_join(aligned1n %>% dplyr::select(sample, env_hill_h1), by = "sample")
-
-ggplot2::ggplot(pts1n, ggplot2::aes(env_hill_h1, MDS1)) +
-  ggplot2::geom_point() +
-  ggplot2::geom_smooth(method = "lm", se = FALSE) +
-  ggplot2::theme_minimal() +
-  ggplot2::labs(x = "Hill q1 (environmental α)", y = "NMDS1", title = "NMDS1 vs Hill q1")
-
-ggplot2::ggplot(pts1n, ggplot2::aes(env_hill_h1, MDS2)) +
-  ggplot2::geom_point() +
-  ggplot2::geom_smooth(method = "lm", se = FALSE) +
-  ggplot2::theme_minimal() +
-  ggplot2::labs(x = "Hill q1 (environmental α)", y = "NMDS2", title = "NMDS2 vs Hill q1")
-
-```
-
-```{r Envfit arrows over ggplot NMDS s}
+```{r Envfit ggplot visualization, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+# OPTIMIZED: Use pre-calculated nmds0n from above
 # Fit environmental Hill vectors (h0/h1/h2) onto the q0 NMDS
-nmds0n <- vegan::metaMDS(bray_dist0n, k = 2, trymax = 500, trace = 0)
-
 fit <- vegan::envfit(
   nmds0n,
   aligned0[, c("env_hill_h0", "env_hill_h1", "env_hill_h2")],
   permutations = 999
 )
 
-# Base plotting (robust and simple)
-plot(nmds0n, type = "n")
-points(nmds0n, pch = 19, col = "grey30")
-plot(fit, p.max = 0.05, col = "black")
+# Extract scores for significant vectors only
+fit_scores <- as.data.frame(vegan::scores(fit, display = "vectors")) %>%
+  dplyr::mutate(variable = rownames(.)) %>%
+  dplyr::mutate(p_value = fit$vectors$pvals) %>%
+  dplyr::filter(p_value < 0.05)  # Only significant vectors
 
+# Create base plot data
+pts0n_plot <- as.data.frame(nmds0n$points) %>%
+  dplyr::mutate(sample = rownames(.))
+
+# Create ggplot visualization
+p_envfit <- ggplot2::ggplot(pts0n_plot, ggplot2::aes(x = MDS1, y = MDS2)) +
+  ggplot2::geom_point(color = "grey50", size = 2.5, alpha = 0.7) +
+  ggplot2::geom_segment(data = fit_scores,
+                       ggplot2::aes(x = 0, y = 0, xend = NMDS1, yend = NMDS2),
+                       arrow = ggplot2::arrow(length = ggplot2::unit(0.3, "cm"), type = "closed"),
+                       color = "red", linewidth = 1.2) +
+  ggplot2::geom_text(data = fit_scores,
+                    ggplot2::aes(x = NMDS1 * 1.15, y = NMDS2 * 1.15, label = variable),
+                    hjust = 0, vjust = 0.5, color = "red", fontface = "bold", size = 4.5) +
+  ggplot2::theme_minimal(base_size = 14) +
+  ggplot2::coord_fixed() +
+  ggplot2::labs(
+    title = "NMDS ordination with environmental vectors (p < 0.05)",
+    x = "NMDS1",
+    y = "NMDS2"
+  ) +
+  ggplot2::theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    panel.grid = element_blank(),
+    axis.text = element_text(size = 12),
+    axis.title = element_text(face = "bold")
+  )
+
+p_envfit
 ```
 
-```{r Heatmap of pairwise dissimilarities}
-if (!requireNamespace("pheatmap", quietly = TRUE)) install.packages("pheatmap")
-library(pheatmap)
+**Note:** Create an improved heatmap visualization of Bray-Curtis dissimilarity matrix with sample grouping information. This shows clustering patterns in microbiome β-diversity and how they relate to environmental Hill diversity groups. Uses all samples (or a representative subset if too large) with grouping annotations.
 
-set.seed(42)
-labels0 <- attr(bray_dist0n, "Labels")
-sub_samps <- sample(labels0, min(30, length(labels0)))
+```{r Improved heatmap with grouping, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 
-mat_sub <- as.matrix(bray_dist0n)[sub_samps, sub_samps]
-dm_sub  <- as.dist(mat_sub)
+# Get sample grouping information from meta (which has the grouping variables)
+# Join with the distance matrix labels to ensure proper alignment
+sample_groups <- meta %>%
+  dplyr::filter(sample %in% attr(bray_dist0n, "Labels")) %>%
+  dplyr::select(sample, env_hill_q0_group) %>%
+  dplyr::arrange(match(sample, attr(bray_dist0n, "Labels")))
 
+# Create annotation for heatmap
+annotation_row <- data.frame(
+  Hill_q0_group = sample_groups$env_hill_q0_group
+)
+rownames(annotation_row) <- sample_groups$sample
+
+# Color palette for groups (viridis-like colors)
+ann_colors <- list(
+  Hill_q0_group = c("Low" = "#440154FF", "Mid" = "#21908CFF", "High" = "#FDE725FF")
+)
+
+# If too many samples, use a subset for visualization
+n_samples <- length(attr(bray_dist0n, "Labels"))
+if (n_samples > 50) {
+  set.seed(42)
+  sub_samps <- sample(attr(bray_dist0n, "Labels"), 50)
+  mat_plot <- as.matrix(bray_dist0n)[sub_samps, sub_samps]
+  annotation_plot <- annotation_row[sub_samps, , drop = FALSE]
+  title_text <- "Bray–Curtis dissimilarity (q0) — 50 samples (subset)"
+} else {
+  mat_plot <- as.matrix(bray_dist0n)
+  annotation_plot <- annotation_row
+  title_text <- paste("Bray–Curtis dissimilarity (q0) —", n_samples, "samples")
+}
+
+# Create heatmap with grouping
 pheatmap::pheatmap(
-  mat_sub,
-  clustering_distance_rows = dm_sub,
-  clustering_distance_cols = dm_sub,
-  main = "Bray–Curtis dissimilarity (q0) — 30 samples"
+  mat_plot,
+  clustering_distance_rows = as.dist(mat_plot),
+  clustering_distance_cols = as.dist(mat_plot),
+  annotation_row = annotation_plot,
+  annotation_colors = ann_colors,
+  main = title_text,
+  show_rownames = FALSE,
+  show_colnames = FALSE,
+  color = colorRampPalette(c("#440154", "#21908C", "#FDE725"))(100)
 )
 
 ```

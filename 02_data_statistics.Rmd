@@ -1,41 +1,71 @@
 # Data statistics
 
+**Note:** Load all required data objects including sample metadata, genome counts, and other prepared datasets from the RData file created in the data preparation chapter.
+
 ```{r load_data_stats}
 load("data/data.Rdata")
 ```
 
 #Visualisation of geographical location of samples and their respectiv envirotypes
 
+## Helper Functions
+
+**Note:** Define helper function to filter and aggregate geographic data by environment variable. This eliminates code duplication and allows reuse for both broad and local environment classifications.
+
+```{r helper_geographic_filter, echo=FALSE, message=FALSE, warning=FALSE}
+# Helper function to filter and aggregate geographic data
+filter_geographic_data <- function(metadata, env_var = "broad_environment") {
+  # Define extended boundary to include all possum data points
+  lat_min <- -45.0
+  lat_max <- -28.0
+  lon_min <- 110.0
+  lon_max <- 150.0
+  
+  # Full dataset with all points (Tasmania & Australia border)
+  full_possums <- metadata %>%
+    filter(latitude >= lat_min & latitude <= lat_max, 
+           longitude >= lon_min & longitude <= lon_max)
+  
+  # Filter for Tasmania only
+  tasmania_possums <- full_possums %>%
+    filter(latitude < -38 & latitude > -45,
+           longitude > 140 & longitude < 150)
+  
+  # Aggregate possum count per location using dynamic column name
+  env_col <- sym(env_var)
+  full_possums_count <- full_possums %>%
+    group_by(latitude, longitude, !!env_col) %>%
+    summarise(count = n(), .groups = "drop")
+  
+  tasmania_possums_count <- tasmania_possums %>%
+    group_by(latitude, longitude, !!env_col) %>%
+    summarise(count = n(), .groups = "drop")
+  
+  return(list(
+    full_possums = full_possums,
+    tasmania_possums = tasmania_possums,
+    full_possums_count = full_possums_count,
+    tasmania_possums_count = tasmania_possums_count
+  ))
+}
+```
+
 ## Filter Data
 
+**Note:** Filter sample metadata by geographic boundaries to create datasets for full Australia/Tasmania region and Tasmania-only region. Aggregate sample counts per location and broad environment type to prepare data for mapping visualization.
+
 ```{r filter_data}
-# Define extended boundary to include all possum data points
-lat_min <- -45.0  # Slightly smaller than -42.93
-lat_max <- -28.0  # Slightly larger than -30.65
-lon_min <- 110.0  # Slightly smaller than 116.47
-lon_max <- 150.0  # Slightly larger than 148.28
-
-# Full dataset with all points (Tasmania & Australia border)
-full_possums <- sample_metadata %>%
-  filter(latitude >= lat_min & latitude <= lat_max, 
-         longitude >= lon_min & longitude <= lon_max)
-
-# Filter for Tasmania only
-tasmania_possums <- full_possums %>%
-  filter(latitude < -38 & latitude > -45,  # Tasmania lat range
-         longitude > 140 & longitude < 150)  # Tasmania lon range
-
-# Aggregate possum count per location
-full_possums_count <- full_possums %>%
-  group_by(latitude, longitude, broad_environment) %>%
-  summarise(count = n(), .groups = "drop")
-
-tasmania_possums_count <- tasmania_possums %>%
-  group_by(latitude, longitude, broad_environment) %>%
-  summarise(count = n(), .groups = "drop")
+# Filter by broad environment
+broad_env_data <- filter_geographic_data(sample_metadata, "broad_environment")
+full_possums <- broad_env_data$full_possums
+tasmania_possums <- broad_env_data$tasmania_possums
+full_possums_count <- broad_env_data$full_possums_count
+tasmania_possums_count <- broad_env_data$tasmania_possums_count
 ```
 
 ## Load Map
+
+**Note:** Load Australia country boundary data from Natural Earth dataset to use as the base map for geographic visualizations. This provides the geographic context for plotting sample locations.
 
 ```{r load_map}
 # Load world map
@@ -45,11 +75,9 @@ australia_map <- ne_countries(scale = "medium", returnclass = "sf") %>%
 
 ## Plot Possum Locations
 
-```{r plot_maps, warning=FALSE, message=FALSE}
+**Note:** Create two side-by-side map visualizations showing sample locations colored by broad environment type. The first plot shows the full dataset across Australia, while the second plot zooms into Tasmania. Point sizes represent the number of samples per location. Combine both plots and save to PDF for publication.
 
-# Get Tasmania data range to set zoom
-lat_range <- range(tasmania_possums$latitude, na.rm = TRUE)
-lon_range <- range(tasmania_possums$longitude, na.rm = TRUE)
+```{r plot_maps, warning=FALSE, message=FALSE}
 
 # Count total possums
 total_full <- sum(full_possums_count$count)
@@ -63,7 +91,7 @@ map_plot_full <- ggplot() +
              alpha = 0.8) +
   theme_minimal() + 
   labs(title = paste("PD - Full Dataset (", total_full, ")"),
-       x = "Longitude", y = "Latitude", color = "Environment Type", size = "Count", shape = "species") +
+       x = "Longitude", y = "Latitude", color = "Environment Type", size = "Count") +
   theme(legend.position = "none",
         plot.title = element_text(size = 14, face = "bold"))
 
@@ -77,7 +105,7 @@ map_plot_zoomed <- ggplot() +
   theme_minimal() + 
   labs(title = paste("PD - Tasmania (", total_tasmania, ")"),
        x = "Longitude", y = "Latitude",
-       color = "Environment Type", size = "Count", shape = "species" ) +
+       color = "Environment Type", size = "Count") +
   theme(legend.position = "right", 
         axis.text.x = element_text(angle = 0, hjust = 0.5),
         plot.title = element_text(size = 14, face = "bold"))
@@ -97,49 +125,23 @@ ggsave(
   device   = cairo_pdf  # nice for text/embedding fonts
 )
 ```
+
+**Note:** Filter sample metadata again, this time grouping by local_environment instead of broad_environment. This creates alternative datasets for mapping with more detailed environment classifications. Aggregate sample counts per location and local environment type.
+
 ```{r filter_data2}
-# Define extended boundary to include all possum data points
-lat_min <- -45.0  # Slightly smaller than -42.93
-lat_max <- -28.0  # Slightly larger than -30.65
-lon_min <- 110.0  # Slightly smaller than 116.47
-lon_max <- 150.0  # Slightly larger than 148.28
-
-# Full dataset with all points (Tasmania & Australia border)
-full_possums <- sample_metadata %>%
-  filter(latitude >= lat_min & latitude <= lat_max, 
-         longitude >= lon_min & longitude <= lon_max)
-
-# Filter for Tasmania only
-tasmania_possums <- full_possums %>%
-  filter(latitude < -38 & latitude > -45,  # Tasmania lat range
-         longitude > 140 & longitude < 150)  # Tasmania lon range
-
-# Aggregate possum count per location
-full_possums_count <- full_possums %>%
-  group_by(latitude, longitude, local_environment) %>%
-  summarise(count = n(), .groups = "drop")
-
-tasmania_possums_count <- tasmania_possums %>%
-  group_by(latitude, longitude, local_environment) %>%
-  summarise(count = n(), .groups = "drop")
-```
-
-## Load Map
-
-```{r load_map2}
-# Load world map
-australia_map <- ne_countries(scale = "medium", returnclass = "sf") %>%
-  filter(admin == "Australia")
+# Filter by local environment
+local_env_data <- filter_geographic_data(sample_metadata, "local_environment")
+full_possums <- local_env_data$full_possums
+tasmania_possums <- local_env_data$tasmania_possums
+full_possums_count <- local_env_data$full_possums_count
+tasmania_possums_count <- local_env_data$tasmania_possums_count
 ```
 
 ## Plot Possum Locations
 
-```{r plot_maps2, warning=FALSE, message=FALSE}
-library(RColorBrewer)
+**Note:** Create two side-by-side map visualizations showing sample locations colored by local environment type using a viridis color scale. The first plot shows the full dataset, while the second plot zooms into Tasmania. This provides a more detailed view of environmental classifications compared to the broad environment maps.
 
-# Get Tasmania data range to set zoom
-lat_range <- range(tasmania_possums$latitude, na.rm = TRUE)
-lon_range <- range(tasmania_possums$longitude, na.rm = TRUE)
+```{r plot_maps2, warning=FALSE, message=FALSE}
 
 # Count total possums
 total_full <- sum(full_possums_count$count)
@@ -183,6 +185,8 @@ map_plot_zoomed <- ggplot() +
 
 ```
 
+**Note:** Create a custom legend plot showing all local environment types with their average sample counts. This standalone legend can be used alongside the maps to clearly identify environment types and their relative sampling intensity. The legend is ordered by mean count and uses the same color scheme as the maps.
+
 ```{r combined_legend, warning=FALSE, message=FALSE}
 
 # Step 1: Create simplified/aggregated legend data
@@ -191,7 +195,7 @@ legend_data <- tasmania_possums_count %>%
   summarise(mean_count = mean(count, na.rm = TRUE)) %>%
   filter(!is.na(local_environment)) %>%
   arrange(desc(mean_count)) %>%
-  mutate(env_label = paste0(local_environment))
+  mutate(env_label = local_environment)
 
 # Step 2: Plot custom "legend" with clean layout
 custom_legend_plot <- ggplot(legend_data, aes(x = 1, y = reorder(env_label, mean_count),
@@ -217,6 +221,8 @@ custom_legend_plot
 
 ## Sequencing reads statistics
 
+**Note:** Calculate summary statistics for sequencing reads across all samples. Convert read counts to gigabases (GB) by multiplying by read length (150 bp) and dividing by 1 billion. Compute total, mean, and standard deviation, then format as "mean ± SD" for display in a formatted table.
+
 ```{r reads_stats2}
 sample_metadata %>% 
     summarise(Total=sum(reads_post_fastp * 150 / 1000000000) %>% round(2), 
@@ -227,38 +233,49 @@ sample_metadata %>%
 ```
 
 ## DNA fractions
+
+**Note:** Calculate the distribution of sequencing data across different categories: low quality bases (removed during quality filtering), bases mapped to host genome, unmapped bases (microbial but not in MAGs), and bases mapped to MAGs. Compute these fractions for each sample and convert to gigabases. Display per-sample breakdown and overall mean values in formatted tables.
+
 ```{r dna_fractions_stats2}
 sequence_fractions <- read_counts %>%
   pivot_longer(-genome, names_to = "sample", values_to = "value") %>%
   group_by(sample) %>%
-  summarise(mags = sum(value)) %>%
-	left_join(sample_metadata, by = join_by(sample == sample)) %>%
-	select(sample,mags,metagenomic_bases,host_bases,bases_lost_fastp_percent) %>%
-	mutate(mags_bases = mags*146) %>%
-	mutate(lowqual_bases = ((metagenomic_bases+host_bases)/(1-bases_lost_fastp_percent))-(metagenomic_bases+host_bases)) %>%
-	mutate(unmapped_bases = metagenomic_bases - mags_bases) %>%
-	mutate(unmapped_bases = ifelse(unmapped_bases < 0, 0, unmapped_bases)) %>%
+  summarise(mags = sum(value), .groups = "drop") %>%
+	left_join(sample_metadata, by = join_by(sample)) %>%
+	select(sample, mags, metagenomic_bases, host_bases, bases_lost_fastp_percent) %>%
+	mutate(
+	  mags_bases = mags * 146,
+	  lowqual_bases = ((metagenomic_bases + host_bases) / (1 - bases_lost_fastp_percent)) - (metagenomic_bases + host_bases),
+	  unmapped_bases = pmax(metagenomic_bases - mags_bases, 0)
+	) %>%
 	select(sample, lowqual_bases, host_bases, unmapped_bases, mags_bases)
 
+# Display per-sample breakdown
 sequence_fractions %>%
-  mutate_at(vars(-sample), ~./1000000000) %>%
-  rename("Sample"=1, "Low quality"=2, "Mapped to host"=3, "Unmapped"=4, "Mapped to MAGs"=5) %>%
+  mutate(across(-sample, ~ . / 1000000000)) %>%
+  rename("Sample" = sample, "Low quality" = lowqual_bases, "Mapped to host" = host_bases, 
+         "Unmapped" = unmapped_bases, "Mapped to MAGs" = mags_bases) %>%
   tt()
 
+# Display mean values
 sequence_fractions %>%
-  mutate_at(vars(-sample), ~./1000000000) %>%
-  rename("Sample"=1, "Low quality"=2, "Mapped to host"=3, "Unmapped"=4, "Mapped to MAGs"=5) %>%
+  mutate(across(-sample, ~ . / 1000000000)) %>%
   summarise(across(where(is.numeric), mean, na.rm = TRUE)) %>%
+  rename("Low quality" = lowqual_bases, "Mapped to host" = host_bases, 
+         "Unmapped" = unmapped_bases, "Mapped to MAGs" = mags_bases) %>%
   tt()
 
 ```
 
+**Note:** Create a stacked bar chart showing the distribution of sequencing data across different fractions (low quality, host, unmapped, MAGs) for each sample. Each bar represents one sample with colored segments showing the proportion of data in each category. This visualization helps assess data quality and the proportion of microbial data successfully recovered as MAGs.
 
 ```{r dna_fractions_plot, message=FALSE, warning=FALSE, fig.height=6, fig.width=10, fig.fullwidth=TRUE}
 sequence_fractions %>%
 	pivot_longer(!sample, names_to = "fraction", values_to = "value") %>%
-	mutate(value = value / 1000000000) %>%
-	mutate(fraction = factor(fraction, levels = c("lowqual_bases","host_bases","unmapped_bases","mags_bases"))) %>%
+	mutate(
+	  value = value / 1000000000,
+	  fraction = factor(fraction, levels = c("lowqual_bases","host_bases","unmapped_bases","mags_bases"))
+	) %>%
   
 	ggplot(., aes(x = sample, y = value, fill=fraction)) +
 	    geom_bar(position="stack", stat = "identity") +
@@ -274,22 +291,32 @@ sequence_fractions %>%
 
 ## Recovered microbial fraction
 
+**Note:** Compare the proportion of prokaryotic sequences recovered as MAGs versus the estimated proportion from SingleM analysis. Calculate MAG recovery proportion as the percentage of microbial bases (MAGs + unmapped) that were successfully assembled into MAGs. Create a connected line plot showing both estimates per sample, allowing comparison between recovered and estimated microbial fractions. Handle edge cases where estimates are zero or exceed 100%.
+
 ```{r data_estimations_plot1, message=FALSE, warning=FALSE, fig.height=6, fig.width=10, fig.fullwidth=TRUE}
 singlem_table <- sequence_fractions %>%
-	mutate(mags_proportion = round((mags_bases / (mags_bases + unmapped_bases))*100,2)) %>%
-	left_join(sample_metadata, by = join_by(sample == sample))  %>%
-	mutate(singlem_proportion = round(singlem_fraction,2)) %>%
-	select(sample,mags_proportion,singlem_proportion) %>%
-	mutate(mags_proportion = ifelse(singlem_proportion == 0, 0, mags_proportion)) %>% #convert zeros to NA
-	mutate(singlem_proportion = ifelse(singlem_proportion == 0, NA, singlem_proportion)) %>% #convert zeros to NA
-	mutate(singlem_proportion = ifelse(singlem_proportion < mags_proportion, NA, singlem_proportion)) %>% #if singlem is smaller, then NA, to simplify plot
-	mutate(singlem_proportion = ifelse(singlem_proportion > 100, 100, singlem_proportion)) #simplify
+	mutate(
+	  mags_proportion = ifelse(
+	    (mags_bases + unmapped_bases) > 0,
+	    round((mags_bases / (mags_bases + unmapped_bases)) * 100, 2),
+	    0
+	  )
+	) %>%
+	left_join(sample_metadata, by = join_by(sample)) %>%
+	mutate(
+	  singlem_proportion = round(singlem_fraction, 2),
+	  mags_proportion = ifelse(singlem_proportion == 0, 0, mags_proportion),
+	  singlem_proportion = ifelse(singlem_proportion == 0, NA, singlem_proportion),
+	  singlem_proportion = ifelse(singlem_proportion < mags_proportion, NA, singlem_proportion),
+	  singlem_proportion = ifelse(singlem_proportion > 100, 100, singlem_proportion)
+	) %>%
+	select(sample, mags_proportion, singlem_proportion)
 
 singlem_table %>%
 	pivot_longer(!sample, names_to = "proportion", values_to = "value") %>%
 	mutate(proportion = factor(proportion, levels = c("mags_proportion","singlem_proportion"))) %>%
-	ggplot(., aes(x = value, y = sample, color=proportion)) +
-			geom_line(aes(group = sample), color = "#f8a538") +
+	ggplot(., aes(x = value, y = sample, color = proportion, group = sample)) +
+			geom_line(color = "#f8a538", alpha = 0.5) +
 			geom_point() +
       scale_color_manual(name="Proportion",
                     breaks=c("mags_proportion","singlem_proportion"),

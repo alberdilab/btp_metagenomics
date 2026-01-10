@@ -3,11 +3,15 @@
 
 Per-sample relative abundance profiles (phylum → family → genus) and rollups by sex and broad environment. This chapter shows which clades dominate overall and how composition shifts across groups.
 
+**Note:** Load all required data objects including genome counts, metadata, and color schemes.
+
 ```{r gut_load_data_tax, message=FALSE, warning=FALSE}
 load("data/data.Rdata")
 ```
 
-```{r exclude Sample2, message=FALSE, warning=FALSE}
+**Note:** Filter out sample EHI01340, recode environment names to readable format, and filter genome counts to only include valid samples.
+
+```{r exclude_Sample2_community, message=FALSE, warning=FALSE}
 sample_metadata<- sample_metadata %>% filter(sample!="EHI01340")
 
 sample_metadata <- sample_metadata%>% 
@@ -25,14 +29,127 @@ genome_counts_filt <- genome_counts_filt %>%
 
 ```
 
+**Note:** Define helper functions used throughout the analysis: `count_phyla_by_group` (counts phyla in filtered samples), `create_taxonomy_summary` (creates summary tables with relative abundances), and `calc_summary_stats` (calculates mean±SD statistics).
+
+```{r helper_functions_community, message=FALSE, warning=FALSE}
+# Helper function to count phyla by filtered group
+count_phyla_by_group <- function(filter_var, filter_value, domain_filter = "d__Bacteria") {
+  filtered_samples <- sample_metadata %>%
+    filter(.data[[filter_var]] == filter_value) %>%
+    pull(sample)
+  
+  filtered_genomes <- genome_counts_filt %>%
+    column_to_rownames("genome") %>%
+    select(all_of(filtered_samples)) %>%
+    as.data.frame() %>%
+    filter(rowSums(across(where(is.numeric))) > 0) %>%
+    rownames_to_column("genome") %>%
+    pull(genome)
+  
+  genome_metadata %>%
+    filter(genome %in% filtered_genomes, domain == domain_filter) %>%
+    distinct(phylum) %>%
+    nrow()
+}
+
+# Helper function to create taxonomy summary tables
+create_taxonomy_summary <- function(tax_level, group_vars) {
+  # tax_level: "phylum", "family", or "genus"
+  # group_vars: vector of additional grouping variables (e.g., c("broad_environment", "sex"))
+  # Note: "sample" and tax_level are automatically included in grouping
+  # For genus, phylum should come before genus in grouping order
+  
+  # Build group_by expression with explicit column order
+  # For genus, ensure phylum comes before genus
+  if (tax_level == "genus" && "phylum" %in% group_vars) {
+    # Remove phylum from group_vars and insert it before genus
+    group_vars_no_phylum <- group_vars[group_vars != "phylum"]
+    group_expr <- c("sample", "phylum", tax_level, group_vars_no_phylum)
+    # Column order for output: sample, phylum, genus, then other vars, then relabun
+    col_order <- c("sample", "phylum", tax_level, group_vars_no_phylum, "relabun")
+  } else {
+    group_expr <- c("sample", tax_level, group_vars)
+    # Column order for output: sample, tax_level, then other vars, then relabun
+    col_order <- c("sample", tax_level, group_vars, "relabun")
+  }
+  
+  result <- genome_counts_filt %>%
+    mutate_at(vars(-genome), ~ . / sum(.)) %>%
+    pivot_longer(-genome, names_to = "sample", values_to = "count") %>%
+    left_join(sample_metadata, by = join_by(sample == sample)) %>%
+    left_join(genome_metadata, by = join_by(genome == genome)) %>%
+    group_by(across(all_of(group_expr))) %>%
+    summarise(relabun = sum(count))
+  
+  # Reorder columns to match original order
+  result %>% select(all_of(col_order))
+}
+
+# Helper function to calculate summary statistics by groups
+calc_summary_stats <- function(data, tax_col, group_col = NULL, group_values = NULL) {
+  # Calculate total statistics
+  result <- data %>%
+    group_by(across(all_of(tax_col))) %>%
+    summarise(
+      total_mean = mean(relabun * 100, na.rm = TRUE),
+      total_sd = sd(relabun * 100, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  # Add statistics for each group value if provided
+  if (!is.null(group_col) && !is.null(group_values)) {
+    for (val in group_values) {
+      group_stats <- data %>%
+        filter(.data[[group_col]] == val) %>%
+        group_by(across(all_of(tax_col))) %>%
+        summarise(
+          mean_val = mean(relabun * 100, na.rm = TRUE),
+          sd_val = sd(relabun * 100, na.rm = TRUE),
+          .groups = "drop"
+        )
+      
+      result <- result %>%
+        left_join(group_stats, by = tax_col) %>%
+        rename(!!str_c(val, "_mean") := mean_val, !!str_c(val, "_sd") := sd_val)
+    }
+  }
+  
+  # Format the output
+  result <- result %>%
+    mutate(Total = str_c(round(total_mean, 3), "±", round(total_sd, 3)))
+  
+  # Add formatted columns for each group value
+  if (!is.null(group_col) && !is.null(group_values)) {
+    for (val in group_values) {
+      mean_col <- str_c(val, "_mean")
+      sd_col <- str_c(val, "_sd")
+      col_name <- str_replace_all(val, " ", "_")  # Convert spaces to underscores
+      result[[col_name]] <- str_c(round(result[[mean_col]], 3), "±", round(result[[sd_col]], 3))
+    }
+    
+    # Create vector of column names with underscores
+    group_col_names <- str_replace_all(group_values, " ", "_")
+    
+    result %>%
+      arrange(-total_mean) %>%
+      select(all_of(tax_col), Total, all_of(group_col_names))
+  } else {
+    result %>%
+      arrange(-total_mean) %>%
+      select(all_of(tax_col), Total)
+  }
+}
+```
 
 ## Taxonomy overview 
 
 ### Phylum level
 
+**Note:** Create stacked bar plot showing relative abundance of phyla per sample. Data is normalized using Total Sum Scaling (TSS), then joined with metadata and visualized as stacked bars colored by phylum.
+
 ```{r taxonomy_barplot, fig.height=6, fig.width=10, fig.fullwidth=TRUE, message=FALSE, warning=FALSE}
 genome_counts_filt %>%
-  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
+  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS normalisation
   pivot_longer(-genome, names_to = "sample", values_to = "count") %>% #reduce to minimum number of columns
   left_join(., genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata
   left_join(., sample_metadata, by = join_by(sample == sample)) %>% #append sample metadata
@@ -56,12 +173,17 @@ genome_counts_filt %>%
                                               Relative abundance of microbiota phylum per sample
 
 **Number of MAGs**
+
+**Note:** Count and display the total number of Metagenome-Assembled Genomes (MAGs) in the dataset.
+
 ```{r mag, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 nmags <- nrow(genome_counts)
 cat(nmags)
 ```
 
 **Number of bacteria phyla**
+
+**Note:** Count and display the number of unique bacterial phyla present in the dataset.
 
 ```{r phyla, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 genome_metadata %>% 
@@ -75,6 +197,8 @@ genome_metadata %>%
 
 **Number of Archaea phyla**
 
+**Note:** Count and display the number of unique archaeal phyla present in the dataset.
+
 ```{r arch, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 genome_metadata %>% 
   filter(domain == "d__Archaea")%>%
@@ -87,30 +211,22 @@ genome_metadata %>%
 
 ***Phylum relative abundances***
 
+**Note:** Create phylum-level summary table with relative abundances grouped by sample, phylum, broad_environment, and sex.
+
 ```{r taxonomy_phylum_summary, warning=FALSE, comments="", message=FALSE}
-phylum_summary <- genome_counts_filt %>%
-  mutate_at(vars(-genome),~./sum(.)) %>%
-  pivot_longer(-genome, names_to = "sample", values_to = "count") %>%
-  left_join(sample_metadata, by = join_by(sample == sample)) %>%
-  left_join(genome_metadata, by = join_by(genome == genome)) %>%
-  group_by(sample,phylum,broad_environment, sex) %>%
-  summarise(relabun=sum(count))
+phylum_summary <- create_taxonomy_summary("phylum", c("broad_environment", "sex"))
 ```
+
+**Note:** Calculate summary statistics (mean±SD) for phylum relative abundances across all samples.
 
 ```{r taxonomy_phylum_summary_envir, warning=FALSE, comments="", message=FALSE}
-phylum_summary %>%
-  group_by(phylum) %>%
-  summarise(
-    total_mean = mean(relabun * 100, na.rm = TRUE),
-    total_sd = sd(relabun * 100, na.rm = TRUE)
-  ) %>%
-  mutate(Total = str_c(round(total_mean, 3), "±", round(total_sd, 3))) %>%
-  arrange(-total_mean) %>%
-  dplyr::select(phylum, Total)
-
+calc_summary_stats(phylum_summary, "phylum")
 ```
 
-phylum relativ abundance - total
+phylum relative abundance - total
+
+**Note:** Create jitter plot showing relative abundance distribution for the top 20 phyla. Phyla are ordered by mean abundance and colored by phylum.
+
 ```{r taxonomy_jitterplot_phylum, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
 phylum_arrange <- phylum_summary %>%
     group_by(phylum) %>%
@@ -120,8 +236,6 @@ phylum_arrange <- phylum_summary %>%
     pull()
 
 phylum_summary %>%
-    left_join(genome_metadata %>% select(phylum,phylum) %>% unique(),by=join_by(phylum==phylum)) %>%
-#    left_join(sample_metadata,by=join_by(sample==sample)) %>%
     filter(phylum %in% phylum_arrange[1:20]) %>%
     mutate(phylum=factor(phylum,levels=rev(phylum_arrange[1:20]))) %>%
     filter(relabun > 0) %>%
@@ -129,220 +243,75 @@ phylum_summary %>%
         scale_color_manual(values=phylum_colors[-8]) +
         geom_jitter(alpha=0.5) +
         theme_minimal() + 
-        labs(y="phylum", x="Relative abundance", color="Phylum")
+        labs(y="Phylum", x="Relative abundance", color="Phylum")
 ```
 **Bacteria phyla in individuals from females**
 
+**Note:** Count and display the number of bacterial phyla found in samples from female individuals.
+
 ```{r phyla_nat_female, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-
-female_sample <- sample_metadata %>% 
-  filter(sex=="Female") %>% 
-  dplyr::select(sample) %>% 
-  pull()
-
-female_genomes <- genome_counts_filt %>% 
-  column_to_rownames("genome") %>% 
-  select(all_of(female_sample)) %>%
-  as.data.frame() %>%
-  filter(rowSums(across(where(is.numeric)))!=0)%>% 
-  rownames_to_column("genome")%>% 
-  dplyr::select(genome) %>% 
-  pull()
-
-genome_metadata %>% 
-  filter(genome %in% female_genomes) %>% 
-  filter(domain == "d__Bacteria")%>%
-  dplyr::select(phylum) %>%
-  unique() %>%
-  pull() %>%
-  length() %>% 
-  cat()
+count_phyla_by_group("sex", "Female") %>% cat()
 ```
 
 **Bacteria phyla in individuals from males**
+
+**Note:** Count and display the number of bacterial phyla found in samples from male individuals.
+
 ```{r phyla_nat_male, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-
-male_sample <- sample_metadata %>% 
-  filter(sex=="Male") %>% 
-  dplyr::select(sample) %>% 
-  pull()
-
-male_genomes <- genome_counts_filt %>% 
-  column_to_rownames("genome") %>% 
-  select(all_of(male_sample)) %>%
-  as.data.frame() %>%
-  filter(rowSums(across(where(is.numeric)))!=0)%>% 
-  rownames_to_column("genome")%>% 
-  dplyr::select(genome) %>% 
-  pull()
-
-genome_metadata %>% 
-  filter(genome %in% male_genomes) %>% 
-  filter(domain == "d__Bacteria")%>%
-  dplyr::select(phylum) %>%
-  unique() %>%
-  pull() %>%
-  length() %>% 
-  cat()
+count_phyla_by_group("sex", "Male") %>% cat()
 ```
-phylum relativ abundance - sex
-```{r taxonomy_phylum_summary_sex, warning=FALSE, comments="", message=FALSE}
-phylum_summary %>%
-  group_by(phylum) %>%
-  summarise(
-    total_mean = mean(relabun * 100, na.rm = TRUE),
-    total_sd = sd(relabun * 100, na.rm = TRUE),
-    le_mean = mean(ifelse(sex == "Female", relabun * 100, NA), na.rm = TRUE),
-    le_sd = sd(ifelse(sex == "Female", relabun * 100, NA), na.rm = TRUE),
-    ha_mean = mean(ifelse( sex== "Male", relabun * 100, NA), na.rm = TRUE),
-    ha_sd = sd(ifelse(sex == "Male", relabun * 100, NA), na.rm = TRUE)
-  ) %>%
-  mutate(
-    Total = str_c(round(total_mean, 3), "±", round(total_sd, 3)),
-    Female = str_c(round(le_mean, 3), "±", round(le_sd, 3)),
-    Male = str_c(round(ha_mean, 3), "±", round(ha_sd, 3))
-  ) %>%
-  arrange(-total_mean) %>%
-  select(phylum, Total, Female, Male)
+phylum relative abundance - sex
 
+**Note:** Calculate summary statistics (mean±SD) for phylum relative abundances grouped by sex (Female and Male).
+
+```{r taxonomy_phylum_summary_sex, warning=FALSE, comments="", message=FALSE}
+calc_summary_stats(phylum_summary, "phylum", "sex", c("Female", "Male"))
 ```
 
 **Bacteria phyla in individuals from Temperate woodland**
 
+**Note:** Count and display the number of bacterial phyla found in samples from Temperate woodland environment.
+
 ```{r phyla_nat, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-
-Temperate_woodland_samples <- sample_metadata %>% 
-  filter(broad_environment=="Temperate woodland") %>% 
-  dplyr::select(sample) %>% 
-  pull()
-
-Temperate_woodland_genomes <- genome_counts_filt %>% 
-  column_to_rownames("genome") %>% 
-  select(all_of(Temperate_woodland_samples)) %>%
-  as.data.frame() %>%
-  filter(rowSums(across(where(is.numeric)))!=0)%>% 
-  rownames_to_column("genome")%>% 
-  dplyr::select(genome) %>% 
-  pull()
-
-genome_metadata %>% 
-  filter(genome %in% Temperate_woodland_genomes) %>% 
-  filter(domain == "d__Bacteria")%>%
-  dplyr::select(phylum) %>%
-  unique() %>%
-  pull() %>%
-  length() %>% 
-  cat()
+count_phyla_by_group("broad_environment", "Temperate woodland") %>% cat()
 ```
 
 
 **Bacteria phyla in individuals from Xeric shrubland**
 
-```{r phyla_cap_xeric, comment="", echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+**Note:** Count and display the number of bacterial phyla found in samples from Xeric shrubland environment.
 
-xeric_shrubland_samples <- sample_metadata %>% 
-  filter(broad_environment=="Xeric shrubland") %>% 
-  dplyr::select(sample) %>% 
-  pull()
-
-xeric_shrubland_genomes <- genome_counts_filt %>% 
-  column_to_rownames("genome") %>% 
-  select(all_of(xeric_shrubland_samples)) %>%
-  as.data.frame() %>%
-  filter(rowSums(across(where(is.numeric)))!=0)%>% 
-  rownames_to_column("genome")%>% 
-  dplyr::select(genome) %>% 
-  pull()
-
-genome_metadata %>% 
-  filter(genome %in% xeric_shrubland_genomes) %>% 
-  filter(domain == "d__Bacteria")%>%
-  dplyr::select(phylum) %>%
-  unique() %>%
-  pull() %>%
-  length() %>% 
-  cat()
+```{r phyla_cap_xeric, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+count_phyla_by_group("broad_environment", "Xeric shrubland") %>% cat()
 ```
-**Bacteria phyla in individuals from mixed_forest**
+**Bacteria phyla in individuals from Mixed forest**
+
+**Note:** Count and display the number of bacterial phyla found in samples from Mixed forest environment.
+
 ```{r phyla_cap_forest, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-
-mixed_forest_samples <- sample_metadata %>% 
-  filter(broad_environment=="Mixed forest") %>% 
-  dplyr::select(sample) %>% 
-  pull()
-
-mixed_forest_genomes <- genome_counts_filt %>% 
-  column_to_rownames("genome") %>% 
-  select(all_of(mixed_forest_samples)) %>%
-  as.data.frame() %>%
-  filter(rowSums(across(where(is.numeric)))!=0)%>% 
-  rownames_to_column("genome")%>% 
-  dplyr::select(genome) %>% 
-  pull()
-
-genome_metadata %>% 
-  filter(genome %in% mixed_forest_genomes) %>% 
-  filter(domain == "d__Bacteria")%>%
-  dplyr::select(phylum) %>%
-  unique() %>%
-  pull() %>%
-  length() %>% 
-  cat()
+count_phyla_by_group("broad_environment", "Mixed forest") %>% cat()
 ```
 
-**Bacteria phyla in individuals from cropland**
+**Bacteria phyla in individuals from Cropland**
+
+**Note:** Count and display the number of bacterial phyla found in samples from Cropland environment.
+
 ```{r phyla_cap_cropland, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-
-cropland_samples <- sample_metadata %>% 
-  filter(broad_environment=="Cropland") %>% 
-  dplyr::select(sample) %>% 
-  pull()
-
-cropland_genomes <- genome_counts_filt %>% 
-  column_to_rownames("genome") %>% 
-  select(all_of(cropland_samples)) %>%
-  as.data.frame() %>%
-  filter(rowSums(across(where(is.numeric)))!=0)%>% 
-  rownames_to_column("genome")%>% 
-  dplyr::select(genome) %>% 
-  pull()
-
-genome_metadata %>% 
-  filter(genome %in% cropland_genomes) %>% 
-  filter(domain == "d__Bacteria")%>%
-  dplyr::select(phylum) %>%
-  unique() %>%
-  pull() %>%
-  length() %>% 
-  cat()
+count_phyla_by_group("broad_environment", "Cropland") %>% cat()
 ```
 
-phylum relativ abundance - broad environment clusters
-```{r taxonomy_phylum_summary_broad_environment, warning=FALSE, comments="", message=FALSE}
-phylum_summary %>%
-  group_by(phylum) %>%
-  summarise(
-    total_mean = mean(relabun * 100, na.rm = TRUE),
-    total_sd = sd(relabun * 100, na.rm = TRUE),
-    le_mean = mean(ifelse(broad_environment == "Cropland", relabun * 100, NA), na.rm = TRUE),
-    le_sd = sd(ifelse(broad_environment == "Cropland", relabun * 100, NA), na.rm = TRUE),
-    ha_mean = mean(ifelse(broad_environment == "Mixed forest", relabun * 100, NA), na.rm = TRUE),
-    ha_sd = sd(ifelse(broad_environment == "Mixed forest", relabun * 100, NA), na.rm = TRUE),
-    er_mean = mean(ifelse(broad_environment == "Xeric shrubland", relabun * 100, NA), na.rm = TRUE),
-    er_sd = sd(ifelse(broad_environment == "Xeric shrubland", relabun * 100, NA), na.rm = TRUE),
-    go_mean = mean(ifelse(broad_environment == "Temperate woodland", relabun * 100, NA), na.rm = TRUE),
-    go_sd = sd(ifelse(broad_environment == "Temperate woodland", relabun * 100, NA), na.rm = TRUE)
-  ) %>%
-  mutate(
-    Total = str_c(round(total_mean, 3), "±", round(total_sd, 3)),
-    Cropland = str_c(round(le_mean, 3), "±", round(le_sd, 3)),
-    Mixed_forest = str_c(round(ha_mean, 3), "±", round(ha_sd, 3)),
-    Xeric_shrubland = str_c(round(er_mean, 3), "±", round(er_sd, 3)),
-    Temperate_woodland = str_c(round(go_mean, 3), "±", round(go_sd, 3))
-  ) %>%
-  arrange(-total_mean) %>%
-  select(phylum, Total, Cropland, Temperate_woodland, Mixed_forest, Xeric_shrubland)
+phylum relative abundance - broad environment clusters
 
+**Note:** Calculate summary statistics (mean±SD) for phylum relative abundances grouped by broad environment type (all five environment types).
+
+```{r taxonomy_phylum_summary_broad_environment, warning=FALSE, comments="", message=FALSE}
+calc_summary_stats(
+  phylum_summary, 
+  "phylum", 
+  "broad_environment", 
+  c("Cropland", "Mixed forest", "Xeric shrubland", "Temperate woodland", "Temperate shrubland")
+) %>%
+  select(phylum, Total, Cropland, Temperate_woodland, Mixed_forest, Xeric_shrubland, Temperate_shrubland)
 ```
 
 
@@ -350,25 +319,15 @@ phylum_summary %>%
 
 ***Family summary grouped by sex***
 
+**Note:** Create family-level summary table with relative abundances grouped by sample, family, broad_environment, and sex. Then calculate summary statistics grouped by sex.
+
 ```{r taxonomy_family_summary_origin_sex, warning=FALSE, comments="", message=FALSE}
-family_summary %>%
-    group_by(family) %>%
-   summarise(
-    total_mean = mean(relabun * 100, na.rm = TRUE),
-    total_sd = sd(relabun * 100, na.rm = TRUE),
-    le_mean = mean(ifelse(sex == "Female", relabun * 100, NA), na.rm = TRUE),
-    le_sd = sd(ifelse(sex == "Female", relabun * 100, NA), na.rm = TRUE),
-    ha_mean = mean(ifelse( sex== "Male", relabun * 100, NA), na.rm = TRUE),
-    ha_sd = sd(ifelse(sex == "Male", relabun * 100, NA), na.rm = TRUE)
-  ) %>%
-  mutate(
-    Total = str_c(round(total_mean, 3), "±", round(total_sd, 3)),
-    Female = str_c(round(le_mean, 3), "±", round(le_sd, 3)),
-    Male = str_c(round(ha_mean, 3), "±", round(ha_sd, 3))
-  ) %>%
-  arrange(-total_mean) %>%
-  select(family, Total, Female, Male)
+family_summary <- create_taxonomy_summary("family", c("broad_environment", "sex"))
+calc_summary_stats(family_summary, "family", "sex", c("Female", "Male"))
 ```
+
+**Note:** Create jitter plot showing relative abundance distribution for the top 20 families, faceted by sex. Families are colored by their phylum and ordered by mean abundance.
+
 ```{r taxonomy_jitterplot_family_sex, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
 family_arrange <- family_summary %>%
     group_by(family) %>%
@@ -377,7 +336,7 @@ family_arrange <- family_summary %>%
     select(family) %>%
     pull()
 
-# Per environment
+# Per sex
 family_summary %>%
     left_join(genome_metadata %>% select(family,phylum) %>% unique(),by=join_by(family==family)) %>%
     filter(family %in% family_arrange[1:20]) %>%
@@ -392,62 +351,21 @@ family_summary %>%
 
 ```
 
-```{r taxonomy_family_summary_sex, warning=FALSE, comments="", message=FALSE}
-family_summary %>%
-    group_by(family) %>%
-    summarise(
-    total_mean = mean(relabun * 100, na.rm = TRUE),
-    total_sd = sd(relabun * 100, na.rm = TRUE),
-    le_mean = mean(ifelse(sex == "Female", relabun * 100, NA), na.rm = TRUE),
-    le_sd = sd(ifelse(sex == "Female", relabun * 100, NA), na.rm = TRUE),
-    ha_mean = mean(ifelse( sex== "Male", relabun * 100, NA), na.rm = TRUE),
-    ha_sd = sd(ifelse(sex == "Male", relabun * 100, NA), na.rm = TRUE)
-  ) %>%
-  mutate(
-    Total = str_c(round(total_mean, 3), "±", round(total_sd, 3)),
-    Female = str_c(round(le_mean, 3), "±", round(le_sd, 3)),
-    Male = str_c(round(ha_mean, 3), "±", round(ha_sd, 3))
-  ) %>%
-  arrange(-total_mean) %>%
-    dplyr::select(family,Total,Female, Male)
-```
-
 ***family relative abundance - broad environment clusters***
 
-```{r taxonomy_family_summary, warning=FALSE, comments="", message=FALSE}
-family_summary <- genome_counts_filt %>%
-  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
-  pivot_longer(-genome, names_to = "sample", values_to = "count") %>% #reduce to minimum number of columns
-  left_join(sample_metadata, by = join_by(sample == sample)) %>% #append sample metadata
-  left_join(genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata
-  group_by(sample,family, broad_environment, sex) %>%
-  summarise(relabun=sum(count))
-```
+**Note:** Calculate summary statistics (mean±SD) for family relative abundances grouped by broad environment type (all five environment types).
 
 ```{r taxonomy_family_summary_origin_environment, warning=FALSE, comments="", message=FALSE}
-family_summary %>%
-    group_by(family) %>%
-    summarise(
-    total_mean = mean(relabun * 100, na.rm = TRUE),
-    total_sd = sd(relabun * 100, na.rm = TRUE),
-    le_mean = mean(ifelse(broad_environment == "Cropland", relabun * 100, NA), na.rm = TRUE),
-    le_sd = sd(ifelse(broad_environment == "Cropland", relabun * 100, NA), na.rm = TRUE),
-    ha_mean = mean(ifelse(broad_environment == "Mixed forest", relabun * 100, NA), na.rm = TRUE),
-    ha_sd = sd(ifelse(broad_environment == "Mixed forest", relabun * 100, NA), na.rm = TRUE),
-    er_mean = mean(ifelse(broad_environment == "Xeric shrubland", relabun * 100, NA), na.rm = TRUE),
-    er_sd = sd(ifelse(broad_environment == "Xeric shrubland", relabun * 100, NA), na.rm = TRUE),
-    go_mean = mean(ifelse(broad_environment == "Temperate woodland", relabun * 100, NA), na.rm = TRUE),
-    go_sd = sd(ifelse(broad_environment == "Temperate woodland", relabun * 100, NA), na.rm = TRUE)
-  ) %>%
-  mutate(
-    Total = str_c(round(total_mean, 3), "±", round(total_sd, 3)),
-    Cropland = str_c(round(le_mean, 3), "±", round(le_sd, 3)),
-    Mixed_forest = str_c(round(ha_mean, 3), "±", round(ha_sd, 3)),
-    Xeric_shrubland = str_c(round(er_mean, 3), "±", round(er_sd, 3)),
-    Temperate_woodland = str_c(round(go_mean, 3), "±", round(go_sd, 3))
-  ) %>%
-    dplyr::select(family,Total,Cropland, Temperate_woodland, Mixed_forest, Xeric_shrubland)
+calc_summary_stats(
+  family_summary, 
+  "family", 
+  "broad_environment", 
+  c("Cropland", "Mixed forest", "Xeric shrubland", "Temperate woodland", "Temperate shrubland")
+) %>%
+  select(family, Total, Cropland, Temperate_woodland, Mixed_forest, Xeric_shrubland, Temperate_shrubland)
 ```
+
+**Note:** Create jitter plot showing relative abundance distribution for the top 20 families, faceted by broad environment. Families are colored by their phylum and ordered by mean abundance.
 
 ```{r taxonomy_jitterplot_family, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
 family_arrange <- family_summary %>%
@@ -472,58 +390,19 @@ family_summary %>%
 
 ```
 
-```{r taxonomy_family_summary_broad_environment, warning=FALSE, comments="", message=FALSE}
-family_summary %>%
-    group_by(family) %>%
-    summarise(total_mean=mean(relabun*100, na.rm=T),
-              total_sd=sd(relabun*100, na.rm=T),
-              le_mean=mean(relabun[broad_environment=="Cropland"]*100, na.rm=T),
-             le_sd=sd(relabun[broad_environment=="Cropland"]*100, na.rm=T),
-              ha_mean=mean(relabun[broad_environment=="Mixed forest"]*100, na.rm=T),
-              ha_sd=sd(relabun[broad_environment=="Mixed forest"]*100, na.rm=T),
-              er_mean=mean(relabun[broad_environment=="Xeric shrubland"]*100, na.rm=T),
-              er_sd=sd(relabun[broad_environment=="Xeric shrubland"]*100, na.rm=T),
-              go_mean=mean(relabun[broad_environment=="Temperate woodland"]*100, na.rm=T),
-              go_sd=sd(relabun[broad_environment=="Temperate woodland"]*100, na.rm=T)) %>%
-    mutate(Total=str_c(round(total_mean,3),"±",round(total_sd,3)),
-          Cropland=str_c(round(le_mean,3),"±",round(le_sd,3)),
-          Mixed_forest=str_c(round(ha_mean,3),"±",round(ha_sd,3)),
-          Xeric_shrubland=str_c(round(er_mean,3),"±",round(er_sd,3)),
-          Temperate_woodland=str_c(round(go_mean,3),"±",round(go_sd,3))) %>% 
-    arrange(-total_mean) %>% 
-    dplyr::select(family,Total,Cropland,Temperate_woodland, Mixed_forest,Xeric_shrubland)
-```
-
 ### Genus level
 
-*** Percetange of genera in each group of sex***
+*** Percentage of genera in each group of sex***
+
+**Note:** Create genus-level summary table with relative abundances grouped by sample, phylum, genus, and sex.
 
 ```{r taxonomy_genus_summary_sex, warning=FALSE, comments="", message=FALSE}
-genus_summary <- genome_counts_filt %>%
-  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
-  pivot_longer(-genome, names_to = "sample", values_to = "count") %>% #reduce to minimum number of columns
-  left_join(sample_metadata, by = join_by(sample == sample)) %>% #append sample metadata
-  left_join(genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata
-  group_by(sample,phylum,genus,sex) %>%
-  summarise(relabun=sum(count)) 
-# %>%
-#   filter(genus != "g__") %>%
-#   mutate(genus= sub("^g__", "", genus))
-
-genus_summary %>%
-    group_by(genus) %>%
-    summarise(total_mean=mean(relabun*100, na.rm=T),
-              total_sd=sd(relabun*100, na.rm=T),
-              le_mean=mean(relabun[sex=="Female"]*100, na.rm=T),
-             le_sd=sd(relabun[sex=="Female"]*100, na.rm=T),
-              ha_mean=mean(relabun[sex=="Male"]*100, na.rm=T),
-              ha_sd=sd(relabun[sex=="Male"]*100, na.rm=T)) %>%
-    mutate(Total=str_c(round(total_mean,3),"±",round(total_sd,3)),
-          Female=str_c(round(le_mean,3),"±",round(le_sd,3)),
-          Male=str_c(round(ha_mean,3),"±",round(ha_sd,3))) %>% 
-    arrange(-total_mean) %>% 
-    dplyr::select(genus,Total,Male,Female) 
+genus_summary <- create_taxonomy_summary("genus", c("phylum", "sex"))
+calc_summary_stats(genus_summary, "genus", "sex", c("Female", "Male")) %>%
+  select(genus, Total, Male, Female) 
 ```
+
+**Note:** Create jitter plot showing relative abundance distribution for all genera, faceted by sex. Genera are colored by phylum and ordered by mean abundance. Smaller font size is used for y-axis labels to accommodate many genera.
 
 ```{r taxonomy_jitterplot_genus_sex, fig.height=14, fig.width=10, fig.fullwidth=TRUE, message=FALSE, warning=FALSE}
 genus_summary_sort <- genus_summary %>%
@@ -540,72 +419,79 @@ genus_summary %>%
   facet_grid(.~sex)+
   theme_minimal() + 
   theme(axis.text.y = element_text(size=6))+
-  labs(y="Family", x="Relative abundance", color="Phylum")
+  labs(y="Genus", x="Relative abundance", color="Phylum")
 
 ```
 
-*** Percetange of genera in each group of broad environment clusters***
+*** Percentage of genera in each group of broad environment clusters***
 
+**Note:** Calculate summary statistics (mean±SD) for genus relative abundances grouped by broad environment type (all five environment types).
 ```{r taxonomy_genus_summary, warning=FALSE, comments="", message=FALSE}
-genus_summary <- genome_counts_filt %>%
-  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
-  pivot_longer(-genome, names_to = "sample", values_to = "count") %>% #reduce to minimum number of columns
-  left_join(sample_metadata, by = join_by(sample == sample)) %>% #append sample metadata
-  left_join(genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata
-  group_by(sample,phylum,genus,broad_environment) %>%
-  summarise(relabun=sum(count)) 
-# %>%
-#   filter(genus != "g__") %>%
-#   mutate(genus= sub("^g__", "", genus))
-
-genus_summary %>%
-    group_by(genus) %>%
-    summarise(total_mean=mean(relabun*100, na.rm=T),
-              total_sd=sd(relabun*100, na.rm=T),
-              le_mean=mean(relabun[broad_environment=="Cropland"]*100, na.rm=T),
-             le_sd=sd(relabun[broad_environment=="Cropland"]*100, na.rm=T),
-              ha_mean=mean(relabun[broad_environment=="Mixed forest"]*100, na.rm=T),
-              ha_sd=sd(relabun[broad_environment=="Mixed forest"]*100, na.rm=T),
-              er_mean=mean(relabun[broad_environment=="Xeric shrubland"]*100, na.rm=T),
-              er_sd=sd(relabun[broad_environment=="Xeric shrubland"]*100, na.rm=T),
-              go_mean=mean(relabun[broad_environment=="Temperate woodland"]*100, na.rm=T),
-              go_sd=sd(relabun[broad_environment=="Temperate woodland"]*100, na.rm=T)) %>%
-    mutate(Total=str_c(round(total_mean,3),"±",round(total_sd,3)),
-          Cropland=str_c(round(le_mean,3),"±",round(le_sd,3)),
-          Mixed_forest=str_c(round(ha_mean,3),"±",round(ha_sd,3)),
-          Xeric_shrubland=str_c(round(er_mean,3),"±",round(er_sd,3)),
-          Temperate_woodland=str_c(round(go_mean,3),"±",round(go_sd,3))) %>% 
-    arrange(-total_mean) %>% 
-    dplyr::select(genus,Total, Cropland,Temperate_woodland, Mixed_forest,Xeric_shrubland) 
+genus_summary <- create_taxonomy_summary("genus", c("phylum", "broad_environment"))
+calc_summary_stats(
+  genus_summary, 
+  "genus", 
+  "broad_environment", 
+  c("Cropland", "Mixed forest", "Xeric shrubland", "Temperate woodland", "Temperate shrubland")
+) %>%
+  select(genus, Total, Cropland, Temperate_woodland, Mixed_forest, Xeric_shrubland, Temperate_shrubland) 
 ```
+
+**Note:** Create jitter plot showing relative abundance distribution for all genera, faceted by broad environment. Genera are colored by phylum and ordered by mean abundance. Smaller font size is used for y-axis labels to accommodate many genera.
 
 ```{r taxonomy_jitterplot_genus, fig.height=14, fig.width=10, fig.fullwidth=TRUE, message=FALSE, warning=FALSE}
+# Recreate genus_summary with broad_environment to ensure it's available
+genus_summary <- create_taxonomy_summary("genus", c("phylum", "broad_environment"))
+
+# Verify broad_environment column exists and has data
+if (!"broad_environment" %in% names(genus_summary)) {
+  stop("Error: broad_environment column is missing from genus_summary. Columns are: ", paste(names(genus_summary), collapse=", "))
+}
+
+# Check if broad_environment has any non-NA values
+if (all(is.na(genus_summary$broad_environment))) {
+  stop("Error: broad_environment column exists but contains only NA values")
+}
+
 genus_summary_sort <- genus_summary %>%
     group_by(genus) %>%
     summarise(mean=mean(relabun, na.rm=T),sd=sd(relabun, na.rm=T)) %>%
     arrange(-mean) 
 
-genus_summary %>%
-  mutate(genus=factor(genus, levels=rev(genus_summary_sort %>% pull(genus)))) %>%
+# Create plot data ensuring broad_environment is explicitly included
+plot_data <- genus_summary %>%
   filter(relabun > 0) %>%
+  mutate(genus=factor(genus, levels=rev(genus_summary_sort %>% pull(genus))))
+
+# Verify broad_environment is still in plot_data
+if (!"broad_environment" %in% names(plot_data)) {
+  stop("Error: broad_environment column lost during data preparation")
+}
+
+plot_data %>%
   ggplot(aes(x=relabun, y=genus, group=genus, color=phylum)) +
   scale_color_manual(values=phylum_colors) +
   geom_jitter(alpha=0.5) + 
   facet_grid(.~broad_environment)+
   theme_minimal() + 
   theme(axis.text.y = element_text(size=6))+
-  labs(y="Family", x="Relative abundance", color="Phylum")
+  labs(y="Genus", x="Relative abundance", color="Phylum")
 
 ```
 
 
 **Number of MAGs without genera-level annotation**
+
+**Note:** Count and display the number of MAGs that lack genus-level annotation (where genus == "g__").
+
 ```{r nongenera_gut, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 genome_metadata %>%
   filter(genus == "g__") %>%
   nrow() %>% 
   cat()
 ```
+
+**Note:** Calculate and display the percentage of MAGs without genus-level annotation, broken down by phylum. Shows both count and percentage per phylum.
 
 ```{r nongene_phylum_gut, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 total_mag_phylum <- genome_metadata %>%
@@ -621,6 +507,9 @@ genome_metadata %>%
 ```
 
 **Percentage of MAGs without genus-level annotation**
+
+**Note:** Calculate and display the overall percentage of MAGs in the dataset that lack genus-level annotation.
+
 ```{r gen_percet, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 nongenera <- genome_metadata %>%
   filter(genus == "g__") %>%
@@ -632,12 +521,18 @@ cat(perct)
 
 
 **Number of MAGs without species-level annotation**
+
+**Note:** Count and display the number of MAGs that lack species-level annotation (where species == "s__").
+
 ```{r nonspe, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 genome_metadata %>%
   filter(species == "s__") %>%
-  summarize(Mag_nospecies = n())
-
+  summarize(Mag_nospecies = n()) %>%
+  pull() %>%
+  cat()
 ```
+
+**Note:** Calculate and display statistics for MAGs without species-level annotation, broken down by phylum. Shows count, percentage without species annotation, and percentage with species annotation per phylum.
 
 ```{r nonspe_phylum, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 total_mag_phylum <- genome_metadata %>%
@@ -655,6 +550,9 @@ genome_metadata %>%
 ```
 
 **Percentage of MAGs without species-level annotation**
+
+**Note:** Calculate and display the overall percentage of MAGs in the dataset that lack species-level annotation.
+
 ```{r sp_percet, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 nonspecies <- genome_metadata %>%
   filter(species == "s__") %>%
