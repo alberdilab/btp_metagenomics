@@ -3,9 +3,19 @@
 .Rhistory
 .RData
 .Ruserdata
+.RDataTmp*
 
 # Ignore any GeoTIFFs under data/
 data/**/*.tif
 
 # Ignore any high-res PNGs under data/
 data/**/*.png
+
+# Ignore bookdown cache files
+_main_cache/
+_main_files/
+_bookdown_files/
+
+# Ignore large model files (consider using Git LFS if needed)
+# hmsc/*.rds
+# hmsc/model*
