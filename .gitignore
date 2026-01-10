@@ -17,5 +17,5 @@ _main_files/
 _bookdown_files/
 
 # Ignore large model files (consider using Git LFS if needed)
-# hmsc/*.rds
-# hmsc/model*
+hmsc/*.rds
+hmsc/model*
