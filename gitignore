@@ -1,4 +1,0 @@
-# .gitignore - ignore large GeoTIFFs that are downloaded at runtime
-# This prevents pushing .tif files to GitHub and relies on your R script to download them
-
-data/**/*.tif
