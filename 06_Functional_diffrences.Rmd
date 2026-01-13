@@ -285,6 +285,21 @@ create_nmds_plot <- function(beta_matrix,
                              show_centroids = TRUE,
                              xlim = NULL,
                              ylim = NULL) {
+  # Access global variables explicitly with fallbacks
+  if (exists("sample_metadata", envir = .GlobalEnv)) {
+    sample_metadata <- get("sample_metadata", envir = .GlobalEnv)
+  } else {
+    stop("sample_metadata not found in global environment")
+  }
+  
+  if (exists("treatment_colors", envir = .GlobalEnv)) {
+    treatment_colors <- get("treatment_colors", envir = .GlobalEnv)
+  } else {
+    # Fallback: use default colors
+    treatment_colors <- c("#f56042", "#429ef5", "#42f58d", "#b142f5", "#f5e642", 
+                          "#FFA500", "#FF69B4", "#00CED1", "#9370DB", "#FFD700")
+  }
+  
   # Calculate NMDS and get stress value
   nmds_obj <- beta_matrix$S %>%
     vegan::metaMDS(trymax = 500, k = 2, trace = 0)
@@ -303,6 +318,57 @@ create_nmds_plot <- function(beta_matrix,
     ) %>%
     ungroup()
   
+  # Determine all factor levels - check both the joined data and original metadata
+  # First, check if broad_environment is a factor in the joined data
+  if (is.factor(nmds_scores$broad_environment)) {
+    # Get levels from the factor (this includes all levels, even if not in data)
+    all_env_levels <- levels(nmds_scores$broad_environment)
+  } else if (is.factor(sample_metadata$broad_environment)) {
+    # If not a factor in joined data, check original metadata
+    all_env_levels <- levels(sample_metadata$broad_environment)
+    # Convert to factor with these levels
+    nmds_scores$broad_environment <- factor(nmds_scores$broad_environment, levels = all_env_levels)
+  } else {
+    # If not a factor anywhere, get unique values
+    all_env_levels <- unique(nmds_scores$broad_environment)
+    all_env_levels <- all_env_levels[!is.na(all_env_levels)]
+    nmds_scores$broad_environment <- factor(nmds_scores$broad_environment, levels = all_env_levels)
+  }
+  
+  # Remove NA from levels if present
+  all_env_levels <- all_env_levels[!is.na(all_env_levels)]
+  n_levels <- length(all_env_levels)
+  
+  # Ensure we have enough colors - ALWAYS recycle to match number of levels
+  # This is critical: we need colors for ALL factor levels
+  # Check if treatment_colors has values
+  if (length(treatment_colors) == 0) {
+    # Fallback: create default colors if treatment_colors is empty
+    treatment_colors <- grDevices::rainbow(n_levels)
+  }
+  
+  # Always create color vector with exactly n_levels colors (recycling if needed)
+  # This ensures we have exactly the right number of colors for all factor levels
+  color_values <- rep(treatment_colors, length.out = n_levels)
+  
+  # Debug: print if we're recycling (optional, can remove later)
+  if (n_levels > length(treatment_colors)) {
+    message(paste0("Recycling ", length(treatment_colors), " colors to create ", 
+                   n_levels, " colors for ", n_levels, " factor levels"))
+  }
+  
+  # Create named vector - names must match ALL factor level values exactly
+  # This ensures ggplot2 can match each level to its color
+  names(color_values) <- as.character(all_env_levels)
+  
+  # Ensure broad_environment is a factor with all levels (even if not all appear in data)
+  # This is critical - ggplot2 needs colors for ALL factor levels, not just those in the data
+  nmds_scores$broad_environment <- factor(nmds_scores$broad_environment, levels = all_env_levels)
+  
+  # Final verification: ensure color vector has the right length
+  stopifnot(length(color_values) == n_levels)
+  stopifnot(all(names(color_values) %in% all_env_levels))
+  
   # Create base plot
   p <- nmds_scores %>%
     ggplot(aes(x = NMDS1, y = NMDS2, 
@@ -318,10 +384,9 @@ create_nmds_plot <- function(beta_matrix,
     ) +
     # Add sample points
     geom_point(size = point_size, alpha = 0.8) +
-    # Color scale with proper capitalization
+    # Color scale with proper mapping - use named vector for automatic matching
     scale_color_manual(
-      values = treatment_colors,
-      labels = c("tasmania" = "Tasmania", "australia" = "Australia")
+      values = color_values
     ) +
     # Shape scale
     scale_shape_discrete(name = "Island")
@@ -437,6 +502,8 @@ create_nmds_plot(beta_q1p,
                  ylim = nmds_limits$ylim)
 ```
 
+
+[Simply the graph to make it easier explained - community gifts-nmds sample vs gifts]
 ### Functional diversity
 
 **Note:** Create NMDS ordination plot for functional beta diversity. Performs metaMDS on the distance matrix, extracts NMDS scores, joins with sample metadata, calculates group centroids for each broad environment, and visualizes samples colored by environment and shaped by island, with segments connecting samples to their group centroids.
@@ -475,5 +542,43 @@ create_nmds_plot(beta_q1f,
                  show_labels = FALSE,
                  xlim = func_limits$xlim,
                  ylim = func_limits$ylim)
+```
+
+**Note:** Create a zoomed-in version of the NMDS plot using community-weighted function-level GIFTs (GIFTs_functions_community). Calculates Euclidean distance matrix from the function-level community data and visualizes with axes fitted to the data range for better visualization.
+
+```{r beta_div_nmds_gift_functions_community_plot_zoomed, comment="", message=FALSE, warning=FALSE, fig.height=7, fig.width=10, fig.fullwidth=TRUE}
+# Calculate distance matrix from GIFTs_functions_community
+# Ensure samples are in rows and functions in columns
+gift_functions_dist <- GIFTs_functions_community %>%
+  as.data.frame() %>%
+  stats::dist(method = "euclidean")
+
+# Create a structure similar to beta_q1f (with $S component) for compatibility with create_nmds_plot
+gift_functions_beta <- list(S = gift_functions_dist)
+
+# Calculate function-level community specific limits with more y-axis padding
+gift_func_nmds_obj <- gift_functions_beta$S %>%
+  vegan::metaMDS(trymax = 500, k = 2, trace = 0)
+
+gift_func_scores <- gift_func_nmds_obj %>%
+  vegan::scores() %>%
+  tibble::as_tibble(rownames = "sample")
+
+x_range_gift_func <- range(gift_func_scores$NMDS1, na.rm = TRUE)
+y_range_gift_func <- range(gift_func_scores$NMDS2, na.rm = TRUE)
+
+# Add padding: 5% for x-axis, 50% for y-axis (more stretch on y)
+x_padding_gift_func <- diff(x_range_gift_func) * 0.05
+y_padding_gift_func <- diff(y_range_gift_func) * 0.50
+
+gift_func_limits <- list(
+  xlim = c(x_range_gift_func[1] - x_padding_gift_func, x_range_gift_func[2] + x_padding_gift_func),
+  ylim = c(y_range_gift_func[1] - y_padding_gift_func, y_range_gift_func[2] + y_padding_gift_func)
+)
+
+create_nmds_plot(gift_functions_beta, 
+                 show_labels = FALSE,
+                 xlim = gift_func_limits$xlim,
+                 ylim = gift_func_limits$ylim)
 ```
 

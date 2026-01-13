@@ -1,11 +1,15 @@
 # Hmsc analysis
 
+**Note:** Load all required data objects including genome counts, metadata, GIFT database, and color schemes. Read GIFT color mapping file to create legend labels for functional groups.
+
 ```{r load_data_hmsc_17}
 load("data/data.Rdata")
 
 gift_colors <- read_tsv("data/gift_colors.tsv") %>% 
   mutate(legend=str_c(Code_function," - ",Function))
 ```
+
+**Note:** Set HMSC model parameters for MCMC sampling: number of samples, thinning interval, transient (burn-in) period, and posterior support thresholds for determining significant associations.
 
 ```{r parameters_hmsc_17}
 #Parameters
@@ -15,6 +19,8 @@ transient=nSamples * thin
 support_threshold=0.9
 negsupport_threshold=1-support_threshold
 ```
+
+**Note:** Load the unfitted HMSC model object and import the fitted model posterior samples from HPC. The fitted model is downloaded from a remote server, then posterior samples are imported and processed according to the specified sampling parameters.
 
 ```{r load_model_17, warning=FALSE, comments="", message=FALSE, cache=TRUE}
 #Load unfitted
@@ -30,6 +36,8 @@ unlink(tmp)
 postList = importFromHPC[1:4]
 fit_model_17 = importPosteriorFromHPC(m, postList, nSamples, thin, transient)
 ```
+
+**Note:** Compute variance partitioning to quantify the proportion of variance explained by each environmental variable and random effect (animal, site) for each genome. Calculate predicted values and evaluate model fit using R², displaying the distribution of R² values across genomes.
 
 ```{r varpart_all_17, warning=FALSE, comments="", message=FALSE, cache=TRUE}
 # Compute variance partitioning
@@ -48,6 +56,8 @@ preds = computePredictedValues(fit_model_17)
 MF = evaluateModelFit(hM=fit_model_17, predY=preds) 
 hist(MF$R2, xlim = c(0,1), main=paste0("Mean = ", round(mean(MF$R2),2)))
 ```
+
+**Note:** Create a phylogenetic tree visualization with variance partitioning results displayed as stacked bars next to each tip. The tree shows phylum annotations and variance contributions from each predictor variable, allowing visualization of how environmental and random effects vary across the phylogenetic tree.
 
 ```{r varpart_tree_plot_17, warning=FALSE, message=FALSE, fig.height=8, fig.width=7, eval = FALSE}
 # 1) Build the phylogeny in the same species set/order as varpart
@@ -120,6 +130,8 @@ vp_tree +
 
 ```
 ## Phylogenetic signal
+
+**Note:** Assess phylogenetic signal in the model by extracting the Rho parameter from the posterior distribution. Rho quantifies the strength of phylogenetic correlation in species responses, with values near 1 indicating strong phylogenetic signal and values near 0 indicating weak signal. Calculate credible intervals and visualize the posterior distribution.
 
 ```{r phylogenetic_signal_17, warning=FALSE, message=FALSE, eval = FALSE}
 # Convert to coda object to inspect Rho (phylogenetic signal)
@@ -211,6 +223,8 @@ postestimates_tree +
 
 ```
 
+**Note:** Examine the congruence between devil and temperature associations at the taxonomic level. Create contingency tables showing how many genomes have each combination of devil and temperature responses (positive, negative, neutral). Visualize taxonomic patterns by phylum to identify whether certain taxonomic groups show consistent response patterns.
+
 ```{r congruence_devil_temperature_taxa_17, warning=FALSE, message=FALSE}
 # Long table of trends for devil and temperature per genome
 devil_temp_trends <- post_table %>%
@@ -246,6 +260,8 @@ devil_temp_phylum %>%
   theme_minimal(base_size = 8)
 ```
 
+**Note:** Map GIFT functional annotations (bundle-level) to element-level for genomes included in the HMSC model. Join functional trait data with posterior support trends to enable analysis of functional differences between genomes with different environmental associations.
+
 ```{r functional_response_17, warning=FALSE, comments="", message=FALSE, fig.dim=c(8, 10), cache=TRUE}
 elements_response <- genome_gifts[rownames(post_table),colnames(genome_gifts) %in% GIFT_db$Code_bundle] %>%
   to.elements(.,GIFT_db=GIFT_db) %>% 
@@ -254,6 +270,8 @@ elements_response <- genome_gifts[rownames(post_table),colnames(genome_gifts) %i
   pivot_longer(!genome,names_to="GIFT", values_to="value") %>% 
   left_join(post_table %>% rownames_to_column(var = "genome"), by="genome")
 ```
+
+**Note:** Examine functional congruence between devil and temperature associations. Filter to genomes with non-neutral responses for both variables, then summarize functional element signals by devil-temperature response combinations. Aggregate to functional groups and visualize the top 12 most variable functional groups to identify functional traits that show different patterns across response combinations.
 
 ```{r congruence_devil_temperature_functional_17, warning=FALSE, message=FALSE}
 # elements_response has: genome, GIFT, value, and trend columns (devil, temperature, ...)
@@ -308,6 +326,8 @@ func_congruence_group %>%
 
 ## Association with devil
 
+**Note:** Summarize devil associations across taxonomic levels. Count and calculate percentages of genomes with positive and negative devil associations at phylum, order, family, and genus levels. This helps identify which taxonomic groups show the strongest associations with devil presence.
+
 ```{r association_devil_17, warning=FALSE, comments="", message=FALSE, fig.dim=c(8, 10), cache=TRUE}
 post_table$devil %>% table()
   
@@ -361,6 +381,8 @@ post_table %>%
             percent_negative = mean(devil == "Negative") * 100) %>% 
   arrange(-percent_positive)
 ```
+**Note:** Extract posterior mean and support values for the devil coefficient (β) for each genome. Create a scatter plot showing the relationship between the mean β coefficient and posterior support, colored by phylum. This visualization helps identify genomes with strong, well-supported associations with devil presence.
+
 ```{r beta_devil_17, warning=FALSE, comments="", message=FALSE, fig.dim=c(8, 10), cache=TRUE}
 # Mean beta for 'devil' per genome
 devil_estimate <- getPostEstimate(hM = fit_model_17, parName = "Beta")$mean %>%
@@ -399,6 +421,8 @@ devil_beta %>%
   theme_minimal()
 
 ```
+**Note:** Calculate 80% credible intervals (10th and 90th percentiles) for the devil β coefficient for each genome. Filter to genomes with credible non-zero effects (where the credible interval does not include zero) and visualize these with error bars, ordered by mean β value.
+
 ```{r devil_credible_intervals_17, warning=FALSE, comments="", message=FALSE}
 # Credible intervals for 'devil'
 devil_q <- getPostEstimate(hM = fit_model_17,
@@ -434,6 +458,8 @@ devil_ci %>%
        y = "Genomes") +
   theme(legend.position = "none")
 ```
+**Note:** Identify and visualize the top 30 genomes with the strongest positive and top 30 with the strongest negative credible devil associations. Create a forest plot showing these top genomes with their credible intervals, ordered by mean β coefficient and colored by phylum.
+
 ```{r devil_topgenomes_17, warning=FALSE, comments="", message=FALSE}
 ## Association with devil – credible intervals (top genomes)
 
@@ -470,6 +496,8 @@ devil_ci_top %>%
   theme(legend.position = "right")
 
 ```
+**Note:** Summarize devil β coefficients at the phylum level by calculating mean β and 80% credible intervals (10th and 90th percentiles) for each phylum. Visualize phylum-level associations with error bars to show the overall pattern of devil associations across major taxonomic groups.
+
 ```{r devil_phylum_ci_17, warning=FALSE, comments="", message=FALSE}
 devil_phylum_ci <- devil_ci %>%
   group_by(phylum) %>%
@@ -491,6 +519,8 @@ devil_phylum_ci %>%
   labs(x = "Mean devil β (per phylum)",
        y = "Phylum")
 ```
+**Note:** Create summary tables of genomes with credible positive and negative devil associations. Filter genomes where the 80% credible interval excludes zero, then extract taxonomic information and β statistics. Display these as formatted tables showing the genomes with the strongest associations.
+
 ```{r devil_overview_17, warning=FALSE, comments="", message=FALSE}
 devil_positive <- devil_ci %>%
   filter(q10 > 0) %>%
@@ -505,6 +535,8 @@ devil_negative <- devil_ci %>%
 devil_positive %>% tt()  # tinytable
 devil_negative %>% tt()
 ```
+
+**Note:** Compare functional element (GIFT) abundances between genomes with positive versus negative devil associations. For each functional element, calculate mean abundances in each group, compute differences, and perform t-tests. Adjust p-values using Benjamini-Hochberg FDR correction to identify functional elements that differ significantly between devil-associated groups.
 
 ```{r devil_functions_17, warning=FALSE, comments="", message=FALSE}
 functional_differences_devil <- elements_response %>% 
@@ -527,6 +559,8 @@ functional_differences_devil <- elements_response %>%
   arrange(p_adj)
 ```
 
+
+**Note:** Create a volcano plot visualizing functional differences between positive and negative devil-associated genomes. Plot mean difference (fold change) against -log10(FDR), with functional elements colored by their functional group. Highlight significant elements that meet both fold change and FDR thresholds, with labels for the most significant hits.
 
 ```{r devil_functions_plot_17, warning=FALSE, comments="", message=FALSE}
 fc_threshold <- 0.2      # minimum absolute mean difference to call interesting
@@ -580,6 +614,8 @@ functional_differences_devil_logfold %>%
   ) +
   theme_minimal(base_size = 12)
 ```
+
+**Note:** Aggregate devil β coefficients to the functional group level by calculating mean β across all genomes carrying each functional trait. Identify the top 15 functional groups with strongest positive and negative associations, then create a forest plot showing functional group-level associations with credible intervals, colored by functional group.
 
 ```{r devil_function_top_forest_17, warning=FALSE, message=FALSE, fig.height=7}
 # Map genomes to functional groups (GIFT 3-letter "func" code)
@@ -653,6 +689,8 @@ ggplot(
 
 ## Association with temperature
 
+**Note:** Summarize temperature associations across taxonomic levels. Count and calculate percentages of genomes with positive and negative temperature associations at phylum, order, family, and genus levels. This helps identify which taxonomic groups show the strongest associations with temperature.
+
 ```{r association_temperature_17, warning=FALSE, comments="", message=FALSE, fig.dim=c(8, 10), cache=TRUE}
 post_table$temperature %>% table()
   
@@ -706,6 +744,8 @@ post_table %>%
             percent_negative = mean(temperature == "Negative") * 100) %>% 
   arrange(-percent_positive)
 ```
+**Note:** Extract posterior mean and support values for the temperature coefficient (β) for each genome. Create a scatter plot showing the relationship between the mean β coefficient and posterior support, colored by phylum. This visualization helps identify genomes with strong, well-supported associations with temperature.
+
 ```{r beta_temperature_17, warning=FALSE, comments="", message=FALSE}
 temp_estimate <- getPostEstimate(hM = fit_model_17, parName = "Beta")$mean %>%
   as.data.frame() %>%
@@ -737,6 +777,8 @@ temp_beta %>%
        colour = "Phylum") +
   theme_minimal()
 ```
+**Note:** Calculate 80% credible intervals (10th and 90th percentiles) for the temperature β coefficient for each genome. Filter to genomes with credible non-zero effects (where the credible interval does not include zero) and visualize these with error bars, ordered by mean β value.
+
 ```{r temperature_credible_intervals_17, warning=FALSE, comments="", message=FALSE}
 temp_q <- getPostEstimate(hM = fit_model_17,
                           parName = "Beta",
@@ -769,6 +811,8 @@ temp_ci %>%
        y = "Genomes") +
   theme(legend.position = "none")
 ```
+
+**Note:** Identify and visualize the top 30 genomes with the strongest positive and top 30 with the strongest negative credible temperature associations. Create a forest plot showing these top genomes with their credible intervals, faceted by association direction (positive/negative), ordered by mean β coefficient and colored by phylum.
 
 ```{r temperature_ci_top30_17, fig.height=10, fig.width=6}
 # --- Temperature credible intervals: top 30 genomes ---
@@ -815,6 +859,8 @@ temp_ci_top %>%
 
 ### 2) Temperature – phylum-level summary of β
 
+**Note:** Summarize temperature β coefficients at the phylum level by calculating mean β and 80% credible intervals (10th and 90th percentiles) for each phylum. Visualize phylum-level associations with error bars to show the overall pattern of temperature associations across major taxonomic groups.
+
 ```{r temperature_phylum_ci_17, warning=FALSE, message=FALSE}
 temp_phylum_ci <- temp_ci %>%
   dplyr::group_by(phylum) %>%
@@ -841,6 +887,8 @@ temp_phylum_ci %>%
 ```
 
 
+**Note:** Compare functional element (GIFT) abundances between genomes with positive versus negative temperature associations. For each functional element, calculate mean abundances in each group, compute differences, and perform t-tests. Adjust p-values using Benjamini-Hochberg FDR correction to identify functional elements that differ significantly between temperature-associated groups.
+
 ```{r functional_differences_temperature_17, warning=FALSE, comments="", message=FALSE}
 functional_differences_temperature <- elements_response %>% 
   filter(temperature !="Neutral") %>% 
@@ -862,6 +910,8 @@ functional_differences_temperature <- elements_response %>%
   arrange(p_adj)
 ```
 
+
+**Note:** Create a volcano plot visualizing functional differences between positive and negative temperature-associated genomes. Plot mean difference (fold change) against -log10(FDR), with functional elements colored by their functional group. Highlight significant elements that meet both fold change and FDR thresholds, with labels for the most significant hits.
 
 ```{r temperature_functions_plot_17, warning=FALSE, comments="", message=FALSE}
 fc_threshold <- 0.2      # minimum absolute mean difference to call interesting
@@ -922,6 +972,8 @@ functional_differences_temperature_logfold %>%
   theme_minimal(base_size = 12)
 
 ```
+
+**Note:** Aggregate temperature β coefficients to the functional group level by calculating mean β across all genomes carrying each functional trait. Identify the top 15 functional groups with strongest positive and negative associations, then create a forest plot showing functional group-level associations with credible intervals, colored by functional group.
 
 ```{r temperature_function_top_forest_17, warning=FALSE, message=FALSE, fig.height=7}
 # Map genomes to functional groups (GIFT 3-letter codes)

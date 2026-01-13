@@ -116,7 +116,7 @@ genome_counts_filt <- read_counts_filt %>%
 **Note:** Convert genome annotations into GIFT (Genome-Inferred Functional Traits) format using the distillR package. This aggregates gene-level annotations into functional trait profiles for each genome, which are used for community-level functional analysis. The function processes annotations from columns 9, 10, and 19 of the annotation table.
 
 ```{r distill_annotations, warning=FALSE, comments="", message=FALSE, eval=FALSE}
- genome_gifts <- distill(genome_annotations,GIFT_db,genomecol=2,annotcol=c(9,10,19), verbosity=F)
+ genome_gifts <- distill(genome_annotations,GIFT_db2,genomecol=2,annotcol=c(9,10,19), verbosity=F)
 ```
 
 
