@@ -1,5 +1,5 @@
 
-#abundance analysis of micrb community in diffrent enviroment diversitys
+# Abundance analysis of microbial community in different environment diversities
 
 This chapter analyzes differential abundance of microbial genomes between samples with low and high environmental diversity (Hill diversity metrics h0, h1, h2). We use ANCOM-BC2 to identify significantly differentially abundant genomes and visualize results with barplots and volcano plots.
 
