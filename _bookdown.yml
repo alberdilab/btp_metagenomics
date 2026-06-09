@@ -20,5 +20,6 @@ rmd_files:
   - 14_hmsc_analysis_2.Rmd
   - 15_hmsc_analysis_tasmania_env+ani.Rmd
   - 16_hmsc_analysis_tasmania_env_only.Rmd
-  
+  - 17_hmsc_setup_final.Rmd
+  - 18_hmsc_analysis_final.Rmd
 
