@@ -23,28 +23,11 @@ predictors <- inner_join(animal_variables, location_variables, by = "id") %>%
 
 ## Filter genomes
 
+The genome set is pinned in `data/model_final_genomes.tsv` (576 genomes) so it matches the fitted model on ERDA. Do not re-derive this list from prevalence filters unless you intend to refit the model on HPC.
+
 ```{r filter_genomes_final, comment="", message=FALSE, warning=FALSE, eval=FALSE}
-prevalent_genomes <- genome_counts_filt %>%
-  select(genome, all_of(predictors$sample)) %>%
-  rowwise() %>%
-  mutate(nonzero_prop = mean(c_across(-genome) > 0)) %>%
-  ungroup() %>%
-  filter(nonzero_prop > 0.10) %>%
-  select(-nonzero_prop) %>%
+genomes_to_model <- read_tsv("data/model_final_genomes.tsv", show_col_types = FALSE) %>%
   pull(genome)
-
-widespread_genomes <- genome_counts_filt %>%
-  pivot_longer(!genome, names_to = "sample", values_to = "count") %>%
-  left_join(location_variables, by = join_by("sample" == "id")) %>%
-  filter(sample %in% predictors$sample) %>%
-  group_by(genome, site) %>%
-  summarise(nonzero_samples = sum(count > 0), .groups = "drop") %>%
-  group_by(genome) %>%
-  summarise(nonzero_sites = sum(nonzero_samples > 0), .groups = "drop") %>%
-  filter(nonzero_sites > 5) %>%
-  pull(genome)
-
-genomes_to_model <- intersect(prevalent_genomes, widespread_genomes)
 ```
 
 ## Build model inputs
@@ -112,7 +95,11 @@ save(m, file = "hmsc/model_final")
 
 ## In the HPC
 
-```{sh, eval=FALSE}
+The commands below are for the HPC cluster only. They are shown for reference and are **not executed** when knitting this book locally. The launch script is also saved as `launch_hmsc_model_final.sh` in the project root.
+
+### Prepare the initiation object
+
+```bash
 conda activate hmsc-hpc
 
 model="hmsc/model_final"
@@ -130,7 +117,9 @@ export init
 Rscript hmsc.r $model $init
 ```
 
-```{sh, eval=FALSE}
+### Launch script
+
+```bash
 cat <<'EOF' > launch_hmsc_model_final.sh
 #!/bin/bash
 #SBATCH --job-name=hmsc_model_final
@@ -148,15 +137,15 @@ source activate hmsc-hpc
 
 # Set output files
 output="output/Hmsc_model_final.rds"
-mkdir -p output
+mkdir output
 
 # Run model fit
 srun python3 -m hmsc.run_gibbs_sampler --input $init --output $output --samples $samples --transient $transient --thin $thin --verbose 100
 EOF
 ```
 
-```{sh, eval=FALSE}
+### Submit job
+
+```bash
 sbatch launch_hmsc_model_final.sh
 ```
-
-After the HPC run completes, upload `output/Hmsc_model_final.rds` to ERDA and update the download URL in `18_hmsc_analysis_final.Rmd`.

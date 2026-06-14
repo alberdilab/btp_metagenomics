@@ -14,7 +14,7 @@ source activate hmsc-hpc
 
 # Set output files
 output="output/Hmsc_model_final.rds"
-mkdir -p output
+mkdir output
 
 # Run model fit
 srun python3 -m hmsc.run_gibbs_sampler --input $init --output $output --samples $samples --transient $transient --thin $thin --verbose 100

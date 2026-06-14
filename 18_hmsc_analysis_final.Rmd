@@ -294,30 +294,24 @@ create_forest_plot <- function(data, x_var = "mean", y_var = NULL, xmin_var = "q
 **Note:** Load the unfitted HMSC model object and download the fitted model from HPC. Import posterior samples from the HPC output and combine them into a fitted model object for downstream analysis.
 
 ```{r load_model_18, warning=FALSE, comments="", message=FALSE, cache=TRUE}
-# Load unfitted
+#Load unfitted
 load(file = "hmsc/model_final")
 
-# Load fitted posterior (local HPC output or ERDA mirror after upload)
-fitted_path <- "output/Hmsc_model_final.rds"
-erda_url <- "https://sid.erda.dk/share_redirect/Gh0WbM42c4/Hmsc_model_final.rds"
+#Load fitted (as a temporary file)
+tmp <- tempfile(fileext = ".rds")
+options(timeout = max(600, getOption("timeout"))) 
+download.file("https://sid.erda.dk/share_redirect/Gh0WbM42c4/Hmsc_model_final.rds", tmp, mode = "wb")
+hpc_fit <- readRDS(tmp)
+unlink(tmp)
 
-if (file.exists(fitted_path)) {
-  importFromHPC <- readRDS(fitted_path)[[1]]
-} else {
-  tmp <- tempfile(fileext = ".rds")
-  options(timeout = max(600, getOption("timeout")))
-  tryCatch(
-    download.file(erda_url, tmp, mode = "wb"),
-    error = function(e) {
-      stop(
-        "Fitted model not found. Run chapter 17 on HPC first, or upload ",
-        "output/Hmsc_model_final.rds to ERDA and update erda_url.",
-        call. = FALSE
-      )
-    }
+importFromHPC <- hpc_fit$list
+n_sp_fit <- ncol(importFromHPC[[1]][[1]]$Beta)
+if (length(m$spNames) != n_sp_fit) {
+  stop(
+    "Unfitted model (", length(m$spNames), " genomes) does not match fitted posterior (",
+    n_sp_fit, " genomes). Use the canonical hmsc/model_final built from data/model_final_genomes.tsv.",
+    call. = FALSE
   )
-  importFromHPC <- readRDS(tmp)[[1]]
-  unlink(tmp)
 }
 
 postList <- importFromHPC[1:4]

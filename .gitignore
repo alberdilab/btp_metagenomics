@@ -16,6 +16,7 @@ _main_cache/
 _main_files/
 _bookdown_files/
 
-# Ignore large model files (consider using Git LFS if needed)
-hmsc/*.rds
-hmsc/model*
+# Fitted HMSC posteriors exceed GitHub's 100 MB limit (hosted on ERDA)
+hmsc/Hmsc_model_*.rds
+
+.positai
