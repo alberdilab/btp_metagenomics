@@ -1,0 +1,1262 @@
+
+# Environment types
+
+Environmental context around each sample: we extract land-cover within 100/200/400 m buffers using 200m as the primary buffer zone for the main analysis (using the QML palette to map classes), group them into interpretable categories, normalise per sample, and plot stacked compositions; selected bioclim layers are prepared for downstream use.
+
+## Landcover percentage
+**Generate Bufferzones**
+```{r extract-buffer, message=FALSE, warning=FALSE}
+# PROJ database (required before terra reads CRS on macOS)
+if (!nzchar(Sys.getenv("PROJ_LIB"))) {
+  sf_pkg <- tryCatch(find.package("sf", quiet = TRUE), error = function(e) character())
+  if (length(sf_pkg)) {
+    proj_lib <- file.path(sf_pkg, "proj")
+    if (file.exists(file.path(proj_lib, "proj.db"))) {
+      Sys.setenv(PROJ_LIB = proj_lib)
+    }
+  }
+}
+
+# Read once, filter once
+sample_points <- read.csv("sample_points.csv", stringsAsFactors = FALSE) |>
+  dplyr::filter(id != "EHI01340")
+
+# WGS84 points (source CRS)
+points_sf <- st_as_sf(sample_points, coords = c("longitude", "latitude"), crs = 4326)
+
+# --- Build a virtual mosaic (VRT) to save RAM ---
+tile_files <- list.files("Landcover/Tif", pattern = "\\.tif$", full.names = TRUE)
+stopifnot(length(tile_files) > 0)
+
+mosaic_vrt <- terra::vrt(tile_files)
+lc_crs     <- terra::crs(mosaic_vrt, proj = TRUE)
+if (!nzchar(lc_crs)) {
+  # GA landcover tiles: GDA94 / Australian Albers (EPSG:3577)
+  lc_crs <- "+proj=aea +lat_0=0 +lon_0=132 +lat_1=-18 +lat_2=-36 +x_0=0 +y_0=0 +ellps=GRS80 +units=m +no_defs"
+}
+
+# Meter-accurate buffers in the landcover tile CRS (GDA94 / Australian Albers)
+points_lc <- st_transform(points_sf, lc_crs)
+
+# Buffers at 100/200/400 m; 200 m = primary
+radii_m <- c(100, 200, 400)
+buffers_list <- setNames(lapply(radii_m, \(r) st_buffer(points_lc, dist = r)), as.character(radii_m))
+buffers <- buffers_list[["200"]]  # primary buffer
+
+# Extract landcover data for the primary buffer (200m)
+extracted <- exactextractr::exact_extract(mosaic_vrt, buffers)
+```
+
+```{r style, message=FALSE, warning=FALSE}
+
+summary_list <- lapply(seq_along(extracted), function(i) {
+  df  <- extracted[[i]]
+  agg <- aggregate(df$coverage_fraction,
+                   by   = list(class = round(df$value)),
+                   FUN  = sum)
+  colnames(agg) <- c("land_cover_class", "fraction")
+  agg$percent <- round(100 * agg$fraction / sum(agg$fraction), 2)
+  agg$id      <- sample_points$id[i]
+  agg
+})
+result_df <- bind_rows(summary_list)
+
+# 1) Read & strip ns
+qml_path <- "Landcover/landcover_class_cyear_4_style.qml"
+qml  <- xml_ns_strip(read_xml(qml_path))
+
+# 2) Grab the palette entries
+entries <- xml_find_all(qml, ".//paletteEntry")
+stopifnot(length(entries) > 0)  # confirm you actually found some
+
+# 3) Build your style table from those entries
+style_df <- tibble(
+  land_cover_class       = as.integer(xml_attr(entries, "value")),
+  land_cover_label       = xml_attr(entries, "label"),
+  color                  = xml_attr(entries, "color")
+) %>%
+  mutate(
+    form = case_when(
+      str_detect(land_cover_label, "Cultivated Terrestrial Vegetated: Herbaceous")    ~ "Cultivated Herbaceous
+      ",
+      str_detect(land_cover_label, "Cultivated Terrestrial Vegetated: Woody")    ~ "Cultivated woody",
+      str_detect(land_cover_label, "Natural Terrestrial Vegetated: Woody")     ~ "Natural - Woody",
+      str_detect(land_cover_label, "Natural Terrestrial Vegetated: Herbaceous")~ "Natural - Herbaceous",
+      str_detect(land_cover_label, "Aquatic Vegetated")                        ~ "Aquatic",
+      str_detect(land_cover_label, "Natural Surface")                          ~ "Bare Surface",
+      str_detect(land_cover_label, "Artificial Surface")                       ~ "Urban/Artificial",
+      TRUE                                                                      ~ NA_character_
+    ),
+    density = case_when(
+      str_detect(land_cover_label, "Closed \\(greater than 65") ~ 80,
+      str_detect(land_cover_label, "Open \\(40 to 65")         ~ 52.5,
+      str_detect(land_cover_label, "Open \\(15 to 40")         ~ 27.5,
+      str_detect(land_cover_label, "Sparse \\(4 to 15")        ~ 9.5,
+      TRUE                                                     ~ NA_real_
+    )
+  ) %>%
+  select(land_cover_class, form, density, everything())
+
+```
+
+```{r pivot, message=FALSE, warning=FALSE}
+
+# 1. Join in the density & labels
+result_df <- result_df %>%
+  left_join(
+    style_df %>% select(land_cover_class, density, land_cover_label),
+    by = "land_cover_class"
+  )
+
+# 2. Drop rows that can’t be assigned a class or label
+result_df_clean <- result_df %>%
+  filter(!is.na(land_cover_class), !is.na(land_cover_label))
+
+# 3. Compute class‐mean densities and impute missing
+class_means <- result_df_clean %>%
+  group_by(land_cover_label) %>%
+  summarize(mean_veg_density = mean(density, na.rm = TRUE))
+
+result_df_imputed <- result_df_clean %>%
+  left_join(class_means, by = "land_cover_label") %>%
+  mutate(
+    # if density is already there, keep it; otherwise use the class mean
+    density = coalesce(density, mean_veg_density)
+  ) %>%
+  select(-mean_veg_density)  # drop the helper column
+
+# 4. Pivot, fill, and summarize
+landcover_wide <- result_df_imputed %>%
+  pivot_wider(
+    id_cols     = id,
+    names_from  = land_cover_label,
+    values_from = c(percent, density),
+    values_fill = list(percent = 0, density = 0)
+  ) %>%
+  mutate(
+    Cultivated_Total = rowSums(
+      select(., starts_with("percent_Cultivated Terrestrial")),
+      na.rm = TRUE
+    ),
+    Native_Total     = rowSums(
+      select(
+        .,
+        starts_with("percent_Natural Terrestrial"),
+        starts_with("percent_Natural Aquatic Vegetated")
+      ),
+      na.rm = TRUE
+    ),
+    Water            = rowSums(
+      select(., starts_with("percent_Water:")),
+      na.rm = TRUE
+    ),
+    # split your former Artificial_Bare into two pieces:
+    Bare_Surface      = rowSums(
+      select(., starts_with("percent_Natural Surface:")),
+      na.rm = TRUE
+    ),
+    Urban_Artificial  = rowSums(
+      select(., starts_with("percent_Artificial Surface:")),
+      na.rm = TRUE
+    )
+  ) %>%
+  rowwise() %>%
+  mutate(
+    Overall_Density = sum(
+      c_across(starts_with("percent_")) / 100 *
+      c_across(starts_with("density_")),
+      na.rm = TRUE
+    )
+  ) %>%
+  ungroup()
+
+# Export for publication cache (ch07/ch15): bare land-cover class names as columns
+landcover_wide %>%
+  dplyr::select(id, dplyr::starts_with("percent_")) %>%
+  dplyr::rename_with(~ sub("^percent_", "", .x), dplyr::starts_with("percent_")) %>%
+  readr::write_csv("landcover_wide.csv")
+
+```
+
+```{r landcover_multiscale, message=FALSE, warning=FALSE}
+
+extract_landcover_at_radius <- function(buffers_at_r) {
+  ex <- exact_extract(mosaic_vrt, buffers_at_r)
+  summary_list <- lapply(seq_along(ex), function(i) {
+    df  <- ex[[i]]
+    agg <- aggregate(df$coverage_fraction, by = list(class = round(df$value)), FUN = sum)
+    colnames(agg) <- c("land_cover_class", "fraction")
+    agg$percent <- round(100 * agg$fraction / sum(agg$fraction), 2)
+    agg$id      <- sample_points$id[i]
+    agg
+  })
+  bind_rows(summary_list)
+}
+
+lc_ms_long <- purrr::imap_dfr(buffers_list, function(buf, rlab) {
+  out <- extract_landcover_at_radius(buf)
+  out$radius_m <- as.integer(rlab)
+  out
+})
+
+# labels/densities (reusing your style_df)
+lc_ms_long <- lc_ms_long %>%
+  left_join(style_df %>% select(land_cover_class, density, land_cover_label), by = "land_cover_class") %>%
+  filter(!is.na(land_cover_class), !is.na(land_cover_label))
+
+# impute density by class mean
+class_means_ms <- lc_ms_long %>%
+  group_by(land_cover_label) %>%
+  summarize(mean_veg_density = mean(density, na.rm = TRUE), .groups = "drop")
+
+lc_ms_imputed <- lc_ms_long %>%
+  left_join(class_means_ms, by = "land_cover_label") %>%
+  mutate(density = coalesce(density, mean_veg_density)) %>%
+  select(-mean_veg_density)
+
+# wide + Overall_Density per radius
+landcover_wide_ms <- lc_ms_imputed %>%
+  pivot_wider(
+    id_cols    = c(id, radius_m),
+    names_from = land_cover_label,
+    values_from = c(percent, density),
+    values_fill = list(percent = 0, density = 0)
+  ) %>%
+  rowwise() %>%
+  mutate(
+    Overall_Density = sum(
+      c_across(starts_with("percent_")) / 100 *
+      c_across(starts_with("density_")),
+      na.rm = TRUE
+    )
+  ) %>%
+  ungroup()
+
+# grouped (broad) land-cover, like your plot_df
+lc_ms_groups <- lc_ms_imputed %>%
+  transmute(
+    id, radius_m, land_cover_label, percent,
+    group = case_when(
+      str_detect(land_cover_label, "^Cultivated Terrestrial Vegetated: Woody")      ~ "Cultivated Vegetation - Woody",
+      str_detect(land_cover_label, "^Cultivated Terrestrial Vegetated: Herbaceous") ~ "Cultivated Vegetation - Herbaceous",
+      str_detect(land_cover_label, "^Natural Terrestrial Vegetated: Woody")         ~ "Natural Vegetation - Woody",
+      str_detect(land_cover_label, "^Natural Terrestrial Vegetated: Herbaceous")    ~ "Natural Vegetation - Herbaceous",
+      str_detect(land_cover_label, "^Natural Terrestrial Vegetated:")               ~ "Natural Vegetation - General",
+      str_detect(land_cover_label, "Aquatic Vegetated")                             ~ "Aquatic Vegetation",
+      str_detect(land_cover_label, "Scattered|Sparse|Natural Surface:")             ~ "Bare Surface",
+      str_detect(land_cover_label, "^Artificial Surface:")                          ~ "Urban/Artificial",
+      TRUE                                                                          ~ "Other"
+    )
+  ) %>%
+  filter(group != "Water")
+
+plot_df_ms <- lc_ms_groups %>%
+  group_by(id, radius_m, group) %>%
+  summarise(pct = sum(percent, na.rm = TRUE), .groups = "drop_last") %>%
+  mutate(pct = pct / sum(pct) * 100) %>%
+  ungroup()
+
+plot_df_wide_ms <- plot_df_ms %>%
+  tidyr::pivot_wider(names_from = group, values_from = pct)
+```
+
+```{r group_colors_definition, message=FALSE, warning=FALSE}
+# Define color scheme for landcover groups
+group_colors <- c(
+  "Cultivated Vegetation - Woody"      = "#6a51a3",
+  "Cultivated Vegetation - Herbaceous" = "#9e9ac8",
+  "Natural Vegetation - Woody"         = "#006400",
+  "Natural Vegetation - Herbaceous"    = "#1b9e77",
+  "Natural Vegetation - General"       = "#b2df8a",
+  "Aquatic Vegetation"                 = "#41b6c4",
+  "Bare Surface"                       = "#e6ab02",
+  "Urban/Artificial"                   = "#757575",
+  "Other"                              = "#cccccc"
+)
+```
+
+```{r multiscale plot, message=FALSE, warning=FALSE}
+ggplot(plot_df_ms, aes(x = factor(id), y = pct, fill = group)) +
+  geom_col(width = 0.8) +
+  facet_wrap(~ radius_m, ncol = 1, scales = "free_y") +
+  scale_fill_manual(values = group_colors) +
+  labs(title = "Landcover per Sample at 100/200/400 m",
+       x = "Sample ID", y = "Percent Cover", fill = "Category") +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+```
+
+Stacked percentages of land-cover categories within a 200 m buffer around each sample (water removed, re-scaled to 100%)
+
+```{r barplot visualisation data, message=FALSE, warning=FALSE}
+
+
+# 1) Define your exact colors
+group_colors <- c(
+  "Cultivated Vegetation - Woody"      = "#6a51a3",
+  "Cultivated Vegetation - Herbaceous" = "#9e9ac8",
+  "Natural Vegetation - Woody"         = "#006400",
+  "Natural Vegetation - Herbaceous"    = "#1b9e77",
+  "Natural Vegetation - General"       = "#b2df8a",
+  "Aquatic Vegetation"                 = "#41b6c4",
+  "Bare Surface"                       = "#e6ab02",
+  "Urban/Artificial"                   = "#757575",
+  "Other"                              = "#cccccc"
+)
+
+# 2) Start from your long, imputed data
+long_df <- result_df_imputed %>%
+  select(id, land_cover_label, percent)
+
+# 3) Bucket into exactly the groups you want
+long_df <- long_df %>%
+  mutate(
+    group = case_when(
+      str_detect(land_cover_label, "^Cultivated Terrestrial Vegetated: Woody")      ~ "Cultivated Vegetation - Woody",
+      str_detect(land_cover_label, "^Cultivated Terrestrial Vegetated: Herbaceous") ~ "Cultivated Vegetation - Herbaceous",
+      str_detect(land_cover_label, "^Natural Terrestrial Vegetated: Woody")         ~ "Natural Vegetation - Woody",
+      str_detect(land_cover_label, "^Natural Terrestrial Vegetated: Herbaceous")    ~ "Natural Vegetation - Herbaceous",
+      # anything else “Natural Terrestrial Vegetated” → general
+      str_detect(land_cover_label, "^Natural Terrestrial Vegetated:")               ~ "Natural Vegetation - General",
+      str_detect(land_cover_label, "Aquatic Vegetated")                             ~ "Aquatic Vegetation",
+      # Sparse/Scattered or bare surface labels
+      str_detect(land_cover_label, "Scattered|Sparse|Natural Surface:")             ~ "Bare Surface",
+      str_detect(land_cover_label, "^Artificial Surface:")                          ~ "Urban/Artificial",
+      TRUE                                                                          ~ "Other"
+    ),
+    group = factor(group, levels = names(group_colors))
+  )
+
+# 4) Drop NAs & Water, sum by id×group, then re-scale so each id sums to 100%
+plot_df <- long_df %>%
+  filter(!is.na(land_cover_label), group != "Water") %>%
+  group_by(id, group) %>%
+summarise(pct = sum(percent, na.rm = TRUE), .groups = "drop") %>%
+group_by(id) %>%
+mutate(pct = pct / sum(pct) * 100) %>%
+ungroup()
+
+# 5) Plot
+ggplot(plot_df, aes(x = factor(id), y = pct, fill = group)) +
+  geom_col(width = 0.8) +
+  scale_fill_manual(values = group_colors) +
+  labs(
+    title = "Landcover Breakdown per Sample (No Water, Normalized)",
+    x     = "Sample ID",
+    y     = "Percent Cover",
+    fill  = "Category"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x        = element_text(angle = 90, hjust = 1, vjust = 0.5),
+    legend.title       = element_text(face = "bold"),
+    legend.text        = element_text(size = 10),
+    plot.title         = element_text(face = "bold", size = 16, hjust = 0.5),
+    panel.grid.major.x = element_blank()
+  )
+
+plot_df_wide <- plot_df %>%
+  pivot_wider(names_from = group, values_from = pct)
+```
+```{r download devil tif, message=FALSE, warning=FALSE}
+
+article_id <- 13728220
+api_base   <- "https://api.figshare.com/v2"
+ua         <- user_agent("R-thesis-script/1.0 (https://figshare.com)")
+
+pred_path <- "predictionStack_devils_1985to2035.tif"
+sd_path   <- "sdStack_devils_1985to2035.tif"
+
+safe_get <- function(url, ...) {
+  RETRY("GET", url, ua, timeout(120), times = 5, pause_min = 1,
+        terminate_on = c(400,401,403,404), ...)
+}
+
+download_to <- function(url, dest) {
+  resp <- safe_get(url, write_disk(dest, overwrite = TRUE), progress())
+  if (http_error(resp) || !file.exists(dest) || is.na(file.info(dest)$size) || file.info(dest)$size == 0) {
+    message("httr failed; trying curl::curl_download() …")
+    curl::curl_download(url, destfile = dest, mode = "wb", quiet = FALSE)
+  }
+  stopifnot(file.exists(dest), file.info(dest)$size > 0)
+}
+
+# 1) List files in the article
+files_url <- sprintf("%s/articles/%s/files", api_base, article_id)
+res <- safe_get(files_url)
+stop_for_status(res)
+files <- fromJSON(content(res, as = "text", encoding = "UTF-8"))
+
+# helpful log:
+message("Figshare files:\n", paste0("  - ", files$name, collapse = "\n"))
+
+# 2) Pick files by name (be tolerant to naming)
+pick_file <- function(candidates_regex) {
+  hit <- files[grep(candidates_regex, files$name, ignore.case = TRUE), ]
+  if (nrow(hit) == 0) return(NULL)
+  hit[1, ]
+}
+
+pred_file <- pick_file("prediction.*\\.tif$|predict.*\\.tif$")
+sd_file   <- pick_file("sd.*\\.tif$|uncert.*\\.tif$|std.*\\.tif$")
+
+if (!file.exists(pred_path)) {
+  if (!is.null(pred_file$download_url)) {
+    message("Downloading prediction stack …")
+    download_to(pred_file$download_url, pred_path)
+  } else if (!is.null(pred_file$id)) {
+    download_to(sprintf("%s/file/download/%s", api_base, pred_file$id), pred_path)
+  } else stop("Could not find prediction .tif in the Figshare record.")
+} else message("Prediction raster already exists: ", pred_path)
+
+if (!file.exists(sd_path)) {
+  if (!is.null(sd_file$download_url)) {
+    message("Downloading SD/uncertainty stack …")
+    download_to(sd_file$download_url, sd_path)
+  } else if (!is.null(sd_file$id)) {
+    download_to(sprintf("%s/file/download/%s", api_base, sd_file$id), sd_path)
+  } else stop("Could not find SD .tif in the Figshare record.")
+} else message("SD raster already exists: ", sd_path)
+```
+
+```{r devils density - load & slice, message=FALSE, warning=FALSE}
+
+pred_path <- "predictionStack_devils_1985to2035.tif"
+sd_path   <- "sdStack_devils_1985to2035.tif"
+stopifnot(file.exists(pred_path), file.exists(sd_path))
+
+dev_all    <- terra::rast(pred_path)    # predictions stack
+dev_sd_all <- terra::rast(sd_path)      # SD/uncertainty stack
+
+# Slice years 2021–2023 (index = year - 1984)
+all_years <- 1985:2035
+wanted    <- 2021:2023
+idx       <- match(wanted, all_years)
+
+dev_2123 <- dev_all[[idx]]; names(dev_2123) <- paste0("y", wanted)
+sd_2123  <- dev_sd_all[[idx]]; names(sd_2123) <- paste0("y", wanted, "_sd")
+```
+
+```{r devils density - mask & extract, message=FALSE, warning=FALSE}
+# Ensure 'buffers' exists (from your earlier extract-buffer chunk)
+stopifnot(exists("buffers"))
+
+# 1) Mask (outside-domain detection)
+mask_layer    <- dev_2123[[1]]
+mask_bin      <- !is.na(mask_layer)
+buffers_dev   <- sf::st_transform(buffers, terra::crs(mask_bin, proj = TRUE))
+cov_valid     <- exactextractr::exact_extract(mask_bin, buffers_dev, fun = "mean")
+outside_model <- is.na(cov_valid) | cov_valid == 0
+
+# 2) Area-weighted means
+pred_means <- exactextractr::exact_extract(dev_2123, buffers_dev, fun = "mean") |> tibble::as_tibble()
+sd_means   <- exactextractr::exact_extract(sd_2123,  buffers_dev, fun = "mean") |> tibble::as_tibble()
+
+# Fix column names if exact_extract returned V1,V2,...
+if (!identical(names(pred_means), names(dev_2123))) names(pred_means) <- names(dev_2123)
+if (!identical(names(sd_means),   names(sd_2123)))  names(sd_means)   <- names(sd_2123)
+
+pred_means <- dplyr::rename_with(pred_means, ~ paste0("within_buffer_", .x))
+sd_means   <- dplyr::rename_with(sd_means,   ~ paste0("within_buffer_", .x))
+
+n_years   <- length(wanted)
+pred_cols <- paste0("within_buffer_y", wanted)
+sd_cols   <- paste0("within_buffer_y", wanted, "_sd")
+
+dev_baseline <- tibble::tibble(id = sample_points$id) |>
+  dplyr::bind_cols(pred_means, sd_means) |>
+  dplyr::mutate(
+    devil_density_baseline = rowMeans(dplyr::across(dplyr::all_of(pred_cols)), na.rm = TRUE),
+    # variance propagation for the mean of n years
+    devil_var_baseline     = rowSums(dplyr::across(dplyr::all_of(sd_cols), ~ .x^2), na.rm = TRUE) / (n_years^2),
+    devil_sd_baseline      = sqrt(devil_var_baseline),
+    # impute 0 outside model domain
+    outside_model              = outside_model,
+    devil_density_baseline_imp = ifelse(outside_model, 0, devil_density_baseline),
+    devil_sd_baseline_imp      = ifelse(outside_model, 0, devil_sd_baseline)
+  ) |>
+  dplyr::select(-devil_var_baseline)
+
+
+```
+
+```{r devils density_multiscale, message=FALSE, warning=FALSE}
+
+# Reproject each radius' buffers to the raster CRS
+buffers_dev_list <- lapply(
+  buffers_list,
+  sf::st_transform,
+  crs = terra::crs(dev_2123, proj = TRUE)
+)
+
+dev_ms <- purrr::imap_dfr(buffers_dev_list, function(buf, rlab) {
+  # Extract predictions and SDs for this radius
+  m_pred <- exactextractr::exact_extract(dev_2123, buf, fun = "mean") %>%
+    tibble::as_tibble()                 # columns per year (may be V1..V3)
+  m_sd   <- exactextractr::exact_extract(sd_2123, buf, fun = "mean") %>%
+    tibble::as_tibble()
+
+  # Ensure numeric matrix and take row means
+  mean_pred <- rowMeans(as.matrix(m_pred), na.rm = TRUE)
+  mean_sd   <- rowMeans(as.matrix(m_sd),   na.rm = TRUE)
+
+  tibble::tibble(
+    id        = sample_points$id,
+    radius_m  = as.integer(rlab),
+    devil_density_baseline = mean_pred,
+    devil_sd_baseline      = mean_sd
+  )
+})
+
+readr::write_csv(dev_ms, "data/devil_density_baseline_ms.csv")
+
+```
+
+```{r climate variable data compression, message=FALSE, warning=FALSE}
+#download & load bioclim for AUS
+
+wc_aus <- worldclim_country(
+  country = "AUS",       # ISO code
+  var     = "bio",       # bioclim variables
+  res     = 0.5,         # 0.5° (~10 arc-minutes)
+  path    = "data/aus"   # where to store the download
+)
+
+#rename & subset to bio1 & bio12
+orig <- names(wc_aus)
+new  <- sub(".*bio[_~\\.](\\d+)$", "bio\\1", orig)
+names(wc_aus) <- new
+wc_aus <- wc_aus[[c("bio1", "bio12")]]
+
+#  write uncompressed, compress & tile via GDAL
+final_dir <- "data/aus"
+tmp_tif    <- file.path(final_dir, "wc_aus_tmp2bands.tif")
+comp_tif   <- file.path(final_dir, "wc_aus_compressed.tif")
+final_tif  <- file.path(final_dir, "wc_aus.tif")
+
+# write 2-band GeoTIFF
+terra::writeRaster(
+  wc_aus,
+  filename  = tmp_tif,
+  filetype  = "GTiff",
+  overwrite = TRUE
+)
+
+# apply DEFLATE compression + tiling
+sf::gdal_utils(
+  util        = "translate",
+  source      = tmp_tif,
+  destination = comp_tif,
+  options     = c(
+    "-co", "COMPRESS=DEFLATE",
+    "-co", "PREDICTOR=2",
+    "-co", "TILED=YES"
+  )
+)
+
+# cleanup & rename
+file.remove(tmp_tif)
+raws <- setdiff(list.files(final_dir, "\\.tif$", full.names = TRUE), comp_tif)
+if (length(raws)) file.remove(raws)
+file.rename(comp_tif, final_tif)
+
+# reload compressed
+wc_aus <- rast(final_tif)
+
+```
+
+
+```{r climate variables data, message=FALSE, warning=FALSE}
+# a) reproject buffers into raster CRS
+buffers_ll <- st_transform(buffers, st_crs(wc_aus))
+
+# b) codes & names
+bio_codes <- c("bio1", "bio12")
+bio_names <- c(
+  annual_mean_temp     = "bio1",
+  annual_precipitation = "bio12"
+)
+
+# c) extract weighted means
+means_list <- purrr::map(bio_codes, function(code) {
+  exact_extract(
+    wc_aus[[code]],
+    buffers_ll,
+    fun = function(vals, coverage_fraction) {
+      weighted.mean(vals, coverage_fraction, na.rm = TRUE)
+    }
+  )
+})
+
+# d) assemble tibble & rename
+clim_df <- tibble(id = sample_points$id) %>%
+  bind_cols(as_tibble(set_names(means_list, bio_codes))) %>%
+  rename(!!!bio_names)
+
+# e) fill NAs with sensible defaults
+clim_df <- clim_df %>%
+  replace_na(list(
+    annual_mean_temp     = 13.7,  # aus ½(16.7 + 10.6)
+    annual_precipitation = 675.3  # langjähriger Mittelwert Greens Beach
+  ))
+
+# final result
+print(clim_df)
+
+```
+
+#mean temperature and precipation per annual are used for samples with NA climate daat 
+
+```{r climate variable data multiscale, message=FALSE, warning=FALSE}
+buffers_ll_list <- lapply(buffers_list, st_transform, crs = st_crs(wc_aus))
+
+clim_ms <- purrr::imap_dfr(buffers_ll_list, function(buf, rlab) {
+  means_list <- purrr::map(bio_codes, function(code) {
+    exact_extract(
+      wc_aus[[code]],
+      buf,
+      fun = function(vals, coverage_fraction) weighted.mean(vals, coverage_fraction, na.rm = TRUE)
+    )
+  })
+  tibble(
+    id  = sample_points$id,
+    radius_m = as.integer(rlab),
+    annual_mean_temp     = means_list[[which(bio_codes == "bio1")]],
+    annual_precipitation = means_list[[which(bio_codes == "bio12")]]
+  )
+}) %>%
+  tidyr::replace_na(list(
+    annual_mean_temp     = 13.7,
+    annual_precipitation = 675.3
+  ))
+
+readr::write_csv(clim_ms, "data/climate_ms.csv")
+```
+
+```{r population variable data, message=FALSE, warning=FALSE}
+# 1. Download & load the 1 km WorldPop density for Australia -------------
+out1km <- "data/pop1km/aus_pd_2020_1km.tif"
+dir.create(dirname(out1km), recursive = TRUE, showWarnings = FALSE)
+
+download.file(
+  "https://data.worldpop.org/GIS/Population_Density/Global_2000_2020_1km/2020/AUS/aus_pd_2020_1km.tif",
+  out1km, mode = "wb"
+)
+
+# compress the downloaded GeoTIFF losslessly and tile it 
+tmp1km <- "data/pop1km/aus_pd_2020_1km_tmp.tif"
+sf::gdal_utils(
+  util        = "translate",
+  source      = out1km,
+  destination = tmp1km,
+  options     = c(
+    "-co", "COMPRESS=DEFLATE",
+    "-co", "PREDICTOR=2",
+    "-co", "TILED=YES"
+  )
+)
+# replace the original with the compressed version
+file.remove(out1km)
+file.rename(tmp1km, out1km)
+
+pop1km_rast <- rast(out1km)
+
+# 2. Reproject your 150 m buffers into the raster’s CRS (WGS84 lon/lat)
+buffers_ll <- st_transform(buffers, st_crs(pop1km_rast))
+
+# 3. For each buffer, compute the mean density (people / km²)
+pop1km_mean <- exact_extract(pop1km_rast, buffers_ll, fun = "mean")
+
+# 4. Assemble into a data‐frame
+pop1km_df <- tibble(
+  id              = sample_points$id,
+  pop_density_1km = pop1km_mean
+)
+
+print(pop1km_df)
+```
+
+```{r population variable data multiscale, message=FALSE, warning=FALSE}
+buffers_ll_pop <- lapply(buffers_list, st_transform, crs = st_crs(pop1km_rast))
+
+pop_ms <- purrr::imap_dfr(buffers_ll_pop, function(buf, rlab) {
+  vals <- exactextractr::exact_extract(pop1km_rast, buf, fun = "mean")
+  tibble(id = sample_points$id, radius_m = as.integer(rlab), pop_density_1km = vals)
+})
+
+readr::write_csv(pop_ms, "data/pop_density_ms.csv")
+```
+
+**finegrade vs broad enviroment diversity**
+```{r landcover_proportion matrix, message=FALSE, warning=FALSE}
+# 1) Build proportions from landcover_wide
+landcover_prop <- landcover_wide %>%
+  select(id, starts_with("percent_")) %>%
+  mutate(across(-id, ~ . / 100))
+
+prop_matrix <- landcover_prop %>%
+  select(-id) %>%
+  as.matrix()
+
+prop_matrix[is.na(prop_matrix)] <- 0
+
+# 2) Compute Hill numbers
+h0 <- rowSums(prop_matrix > 0)
+H  <- -rowSums(ifelse(prop_matrix > 0, prop_matrix * log(prop_matrix), 0))
+h1 <- exp(H)
+h2 <- 1 / rowSums(prop_matrix^2)
+
+# 3) Bind back to the matching ids
+hill_df_full <- data.frame(
+  id = landcover_prop$id,
+  h0 = h0,
+  h1 = h1,
+  h2 = h2 
+)
+
+
+hill_long <- hill_df_full %>%
+  tidyr::pivot_longer(
+    cols      = h0:h2,
+    names_to  = "q",        # must be "q" for chapter 10
+    values_to = "value"     # must be "value" for chapter 10
+  ) %>%
+  dplyr::arrange(id, q) %>%
+  dplyr::select(id, q, value)  
+
+dir.create("data", showWarnings = FALSE, recursive = TRUE)
+save(hill_long, file = "data/hill.Rdata")
+
+
+broad_prop <- plot_df_wide %>%
+  mutate(across(-id, ~ . / 100))    # convert % → proportions
+
+broad_mat <- broad_prop %>%
+  select(-id) %>%
+  as.matrix()
+broad_mat[is.na(broad_mat)] <- 0    # just in case
+
+# 2) Function to compute Hill numbers
+compute_hills <- function(mat) {
+  h0 <- rowSums(mat > 0)
+  H1 <- -rowSums(ifelse(mat > 0, mat * log(mat), 0), na.rm = TRUE)
+  h1 <- exp(H1)
+  h2 <- 1 / rowSums(mat^2)
+  tibble(h0 = h0, h1 = h1, h2 = h2)
+}
+
+# 3) Compute broad‐scale hills
+hills_broad <- compute_hills(broad_mat)
+
+# 4) Assemble into a data.frame with IDs
+hill_broad_df <- tibble(
+  id      = broad_prop$id,
+  h0_broad = hills_broad$h0,
+  h1_broad = hills_broad$h1,
+  h2_broad = hills_broad$h2
+)
+
+# 5) Combine with your existing fine‐scale hills
+hill_compare <- hill_df_full %>%
+  left_join(hill_broad_df, by = "id")
+
+# 6) Inspect & correlate
+print(hill_compare)
+
+# correlation between fine‐ and broad‐scale diversities
+cor_mat <- hill_compare %>%
+  select(h0, h0_broad, h1, h1_broad, h2, h2_broad) %>%
+  cor()
+print(cor_mat)
+
+# 1) Numerical correlations with significance
+tests <- list(
+  h0  = cor.test(hill_compare$h0,  hill_compare$h0_broad),
+  h1  = cor.test(hill_compare$h1,  hill_compare$h1_broad),
+  h2  = cor.test(hill_compare$h2,  hill_compare$h2_broad)
+)
+
+# extract the r and p‐value neatly
+corr_stats <- tibble(
+  order    = c("h0","h1","h2"),
+  r        = c(tests$h0$estimate,
+               tests$h1$estimate,
+               tests$h2$estimate),
+  p_value  = c(tests$h0$p.value,
+               tests$h1$p.value,
+               tests$h2$p.value)
+)
+print(corr_stats)
+
+
+# Inspect
+print(hill_df_full)
+```
+
+```{r hill_multiscale, message=FALSE, warning=FALSE}
+landcover_prop_ms <- landcover_wide_ms %>%
+  select(id, radius_m, starts_with("percent_")) %>%
+  mutate(across(-c(id, radius_m), ~ . / 100))
+
+hills_ms <- landcover_prop_ms %>%
+  group_by(radius_m) %>%
+  group_modify(~{
+    # .x has only rows for this radius; .y holds the key (radius_m)
+    mat <- .x %>% select(-id) %>% as.matrix()
+    mat[is.na(mat)] <- 0
+    h0 <- rowSums(mat > 0)
+    H  <- -rowSums(ifelse(mat > 0, mat * log(mat), 0))
+    h1 <- exp(H)
+    h2 <- 1 / rowSums(mat^2)
+    tibble(id = .x$id, h0 = h0, h1 = h1, h2 = h2)  # <- do NOT add radius_m here
+  }) %>%
+  ungroup()
+
+```
+
+**hill visualisation**
+```{r hill_visualisation, message=FALSE, warning=FALSE}
+
+# 1) Compute a distance matrix on the 3 Hill numbers
+hill_mat <- hill_df_full %>% select(h0, h1, h2) %>% as.matrix()
+d       <- dist(hill_mat)          # Euclidean by default
+
+# 2) Hierarchical clustering
+hc      <- hclust(d, method = "ward.D2")
+
+# 3) Cut the tree into k clusters (change k to taste)
+k       <- 4
+clusters <- cutree(hc, k = k)
+
+# 4) Attach cluster labels
+hill_df_cl <- hill_df_full %>%
+  mutate(cluster = factor(clusters))
+
+# 5) Plot colored by cluster
+ggplot(hill_df_cl %>% pivot_longer(h0:h2, names_to="q", values_to="value"),
+       aes(x=q, y=value, group=id, color=cluster)) +
+  geom_line(alpha=0.6) +
+  geom_point() +
+  labs(
+    title = paste("Hill Curves, clustered into", k, "groups"),
+    x     = "Hill order (q)",
+    y     = "Effective diversity",
+    color = "Cluster"
+  ) +
+  theme_minimal()
+
+plot(hc, labels = hill_df_full$id, main = "Dendrogram of Samples by Hill Numbers")
+rect.hclust(hc, k = k, border = 2:5)  # draws boxes around your k clusters
+
+
+```
+
+```{r variables fusion, warning=FALSE, message=FALSE}
+# add 'devil_density_baseline' to variables_df and selected_variables_df
+variables_df <- hill_df_full %>%
+  dplyr::left_join(pop1km_df,      by = "id") %>%
+  dplyr::left_join(clim_df,        by = "id") %>%
+  dplyr::left_join(landcover_wide, by = "id") %>%
+  dplyr::left_join(
+    dev_baseline %>% dplyr::select(id, devil_density_baseline),
+    by = "id"
+  )
+
+selected_variables_df <- variables_df %>%
+  dplyr::select(
+    id,
+    h1,
+    pop_density_1km,
+    annual_mean_temp,
+    annual_precipitation,
+    Overall_Density,
+    devil_density_baseline  
+  )
+
+```
+
+```{r variable fusion multiscale, message=FALSE, warning=FALSE}
+variables_ms <- hills_ms %>%
+  left_join(pop_ms,      by = c("id","radius_m")) %>%
+  left_join(clim_ms,     by = c("id","radius_m")) %>%
+  left_join(landcover_wide_ms %>% select(id, radius_m, Overall_Density), by = c("id","radius_m")) %>%
+  left_join(dev_ms,      by = c("id","radius_m"))
+
+selected_variables_ms <- variables_ms %>%
+  select(id, radius_m, h1, pop_density_1km, annual_mean_temp, annual_precipitation,
+         Overall_Density, devil_density_baseline)
+
+dir.create("data", showWarnings = FALSE, recursive = TRUE)
+save(selected_variables_ms, file = "data/enviromental_var_ms.Rdata")
+write.csv(selected_variables_ms, "data/enviromental_var_ms.csv", row.names = FALSE)
+```
+
+```{r selected variables, message=FALSE, warning=FALSE}
+save(selected_variables_df, 
+     file = "data/enviromental_var.Rdata")
+
+# 1) CSV (comma-separated values)
+write.csv(
+  selected_variables_df,
+  file       = "data/enviromental_var.csv",
+  row.names  = FALSE
+)
+
+# 2) TSV (tab-separated values)
+write.table(
+  selected_variables_df,
+  file       = "data/enviromental_var.tsv",
+  sep        = "\t",
+  row.names  = FALSE,
+  quote      = FALSE
+)
+```
+
+**visualisation**
+
+```{r visualisations1 - dominance, message=FALSE, warning=FALSE}
+# 2) Sum percent cover by 'form' per sample
+result_with_form <- result_df_imputed %>%
+  left_join(
+    style_df %>% select(land_cover_class, form),
+    by = "land_cover_class"
+  ) %>%
+  filter(!is.na(form))   # drop anything that didn’t map
+
+form_cover <- result_with_form %>%
+  group_by(id, form) %>%
+  summarize(percent_cover = sum(percent), .groups = "drop")
+
+form_wide <- form_cover %>%
+  pivot_wider(
+    id_cols     = id,
+    names_from  = form,
+    values_from = percent_cover,
+    values_fill = 0
+  )
+
+dominant_form <- form_cover %>%
+  group_by(id) %>%
+  slice_max(percent_cover, n = 1, with_ties = FALSE) %>%
+  ungroup() %>%
+  select(id, dominant_form = form)
+```
+
+```{r visualisations2 - hill long, message=FALSE, warning=FALSE}
+# 2) Pivot Hill numbers to long form and join dominant cover (viz-only schema)
+hill_long_viz <- hill_df_full %>%
+  pivot_longer(
+    cols      = h0:h2,
+    names_to  = "hill_order",
+    values_to = "diversity"
+  ) %>%
+  left_join(dominant_form, by = "id")
+```
+
+```{r visualisations3, message=FALSE, warning=FALSE}
+# --- Visualization 1: Hill curves colored by dominant landcover ---
+ggplot(hill_long_viz, aes(x = diversity, fill = dominant_form)) +
+  geom_histogram(position = "identity", alpha = 0.6, bins = 25) +
+  facet_wrap(~ hill_order, scales = "free_x") +
+  labs(
+    title = "Histograms of Hill Orders by Dominant Landcover Form",
+    x     = "Effective Diversity",
+    y     = "Count",
+    fill  = "Dominant Form"
+  ) +
+  theme_minimal() +
+  theme(
+    strip.text       = element_text(face = "bold"),
+    axis.text.x      = element_text(size = 10),
+    legend.position  = "bottom"
+  )
+
+```
+
+```{r visualisations4, message=FALSE, warning=FALSE}
+# --- Visualization 2: Boxplots of each Hill metric by dominant cover ---
+hill1 <- filter(hill_long_viz, hill_order == "h1")
+
+ggplot(hill1, aes(x = diversity, color = dominant_form)) +
+  geom_density(size = 1) +
+  labs(
+    title = "Density of Hill-1 Diversity by Dominant Landcover Form",
+    x     = "Hill-1 (exp-Shannon)",
+    y     = "Density",
+    color = "Form"
+  ) +
+  theme_minimal()
+
+```
+```{r visualisations5, message=FALSE, warning=FALSE}
+for (ord in c("h0","h1","h2")) {
+  df_ord <- filter(hill_long_viz, hill_order == ord)
+  p <- ggplot(df_ord, aes(x = dominant_form, y = diversity, fill = dominant_form)) +
+    geom_boxplot(alpha = 0.8, outlier.size = 1) +
+    labs(
+      title = paste("Distribution of", ord, "by Landcover Form"),
+      x     = "Dominant Form",
+      y     = paste("Diversity (", ord, ")", sep = "")
+    ) +
+    theme_minimal() +
+    theme(
+      axis.text.x     = element_text(angle = 30, hjust = 1),
+      legend.position = "none"
+    )
+  print(p)
+}
+```
+
+```{r visualisations6, message=FALSE, warning=FALSE}
+ggplot(hill_long_viz, aes(x = diversity)) +
+  geom_histogram(bins = 30, fill = "grey80", color = "white") +
+  facet_wrap(~ hill_order, scales = "free_x") +
+  labs(
+    title = "Overall Distribution of Hill Numbers",
+    x     = "Effective Diversity",
+    y     = "Count"
+  ) +
+  theme_minimal()
+```
+  
+```{r visualisations7, message=FALSE, warning=FALSE}
+ggplot(filter(hill_long_viz, hill_order == "h1"), 
+       aes(x = diversity, fill = dominant_form)) +
+  geom_histogram(position = "dodge", alpha = 0.7, bins = 20) +
+  labs(
+    title = "Histogram of Hill-1 by Dominant Landcover Form",
+    x     = "Hill-1 (exp‐Shannon)",
+    y     = "Count",
+    fill  = "Dominant Form"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+  
+```{r visualisations8, message=FALSE, warning=FALSE}
+ggplot(filter(hill_long_viz, hill_order == "h1"), 
+       aes(x = diversity, fill = dominant_form)) +
+  geom_histogram(position = "dodge", alpha = 0.7, bins = 20) +
+  labs(
+    title = "Histogram of Hill-1 by Dominant Landcover Form",
+    x     = "Hill-1 (exp‐Shannon)",
+    y     = "Count",
+    fill  = "Dominant Form"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+```{r multiscale-compare boxplot, message=FALSE, warning=FALSE}
+
+df_ms <- selected_variables_ms %>%
+  pivot_longer(
+    cols = -c(id, radius_m),
+    names_to = "variable",
+    values_to = "value"
+  )
+
+# Plot distributions across radii
+ggplot(df_ms, aes(x = factor(radius_m), y = value, fill = factor(radius_m))) +
+  geom_boxplot(outlier.size = 0.8, alpha = 0.7) +
+  facet_wrap(~ variable, scales = "free_y") +
+  labs(
+    title = "Comparison of environmental variables across scales",
+    x = "Buffer radius (m)",
+    y = "Value",
+    fill = "Radius"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    strip.text = element_text(face = "bold")
+  )
+```
+
+```{r multiscale-lines, message=FALSE, warning=FALSE}
+ggplot(df_ms, aes(x = radius_m, y = value, group = id, color = id)) +
+  geom_line(alpha = 0.3) +
+  geom_point(size = 1.5) +
+  facet_wrap(~ variable, scales = "free_y") +
+  labs(
+    title = "Within-sample variation across scales",
+    x = "Buffer radius (m)",
+    y = "Value"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "none")
+
+
+```
+
+```{r multiscale-cor, message=FALSE, warning=FALSE}
+scale_cor <- df_ms %>%
+  pivot_wider(names_from = radius_m, values_from = value) %>%
+  group_by(variable) %>%
+  summarise(correlation_100_200 = cor(`100`, `200`, use="pairwise"),
+            correlation_200_400 = cor(`200`, `400`, use="pairwise"),
+            correlation_100_400 = cor(`100`, `400`, use="pairwise"))
+
+print(scale_cor)
+```
+
+```{r hsmc variabels, message=FALSE, warning=FALSE}
+
+env_sites <- readr::read_csv("data/sample_sites.csv", show_col_types = FALSE) %>%
+  dplyr::rename(Site = site)
+
+# 1) Replace NA devil densities with 0 to prevent hsmc crashing.
+selected_variables_ms_fixed <- selected_variables_ms %>%
+  mutate(devil_density_baseline = ifelse(is.na(devil_density_baseline), 0, devil_density_baseline))
+
+# 2) Split into three per-radius datasets
+r100 <- selected_variables_ms_fixed %>%
+  filter(radius_m == 100) %>%
+  select(-radius_m)
+
+r200 <- selected_variables_ms_fixed %>%
+  filter(radius_m == 200) %>%
+  select(-radius_m)
+
+r400 <- selected_variables_ms_fixed %>%
+  filter(radius_m == 400) %>%
+  select(-radius_m)
+
+
+# 3) (optional) Save for HSMC runs
+dir.create("data/hsmc_scales", showWarnings = FALSE, recursive = TRUE)
+write.csv(r100, "data/hsmc_scales/env_vars_r100.csv", row.names = FALSE)
+write.csv(r200, "data/hsmc_scales/env_vars_r200.csv", row.names = FALSE)
+write.csv(r400, "data/hsmc_scales/env_vars_r400.csv", row.names = FALSE)
+
+# Check the dimensions quickly
+message("Rows at 100m: ", nrow(r100))
+message("Rows at 200m: ", nrow(r200))
+message("Rows at 400m: ", nrow(r400))
+```
+
+```{r make-hsmc-ready-h1, message=FALSE, warning=FALSE}
+
+stopifnot(exists("selected_variables_ms"))
+
+# Helper to standardize to the target schema
+to_hsmc_schema <- function(df_ms, hill_metric = "h1") {
+  stopifnot(hill_metric %in% c("h0","h1","h2"))
+  
+  # 1) Ensure a site column exists
+  if (!"site" %in% names(df_ms)) {
+    df_ms <- df_ms %>% mutate(site = id)
+  }
+  
+  # 2) Choose which devil column to use
+  devil_candidates <- c("devil_density_baseline_imp",
+                        "devil_density_baseline",
+                        "devil_density")
+  devil_col <- intersect(devil_candidates, names(df_ms))
+  devil_col <- if (length(devil_col)) devil_col[1] else NA_character_
+  
+  # 3) Build output with required names + order
+  out <- df_ms %>%
+    mutate(
+      devil = if (!is.na(devil_col)) .data[[devil_col]] else NA_real_,
+      devil = ifelse(is.na(devil), 0, devil)   # NA → 0 for HSMC robustness
+    ) %>%
+    transmute(
+      id,
+      diversity     = .data[[hill_metric]],      
+      pop_density   = pop_density_1km,
+      temperature   = annual_mean_temp,
+      precipitation = annual_precipitation,
+      density       = Overall_Density,
+      devil,
+      radius_m
+    )
+  
+  out
+}
+
+# Build standardized multiscale table (still includes radius_m so we can split)
+hsmc_ms <- to_hsmc_schema(selected_variables_ms, hill_metric = "h1")
+
+# Split into three per-radius data frames for 3 HSMC runs
+r100_h1 <- hsmc_ms %>% filter(radius_m == 100) %>% select(-radius_m)
+r200_h1 <- hsmc_ms %>% filter(radius_m == 200) %>% select(-radius_m)
+r400_h1 <- hsmc_ms %>% filter(radius_m == 400) %>% select(-radius_m)
+
+r200_h1 <- r200_h1 |>
+  left_join(env_sites, by = c("id" = "id"))
+
+
+```
+
+```{r load_sample_metadata_hsmc, warning=FALSE, comments="", message=FALSE}
+load("data/data.Rdata")
+
+sample_metadata <- sample_metadata %>%
+  dplyr::filter(sample != "EHI01340")
+
+sample_metadata_tasmania <- sample_metadata %>%
+  dplyr::filter(island == "Tasmania")
+```
+
+```{r tasmania_australia_split_r200, warning=FALSE, comments="", message=FALSE}
+
+r200_h1 <- r200_h1 %>%
+  left_join(
+    sample_metadata %>% select(sample, island),
+    by = c("id" = "sample")
+  )
+
+r200_h1_tas <- r200_h1 %>% filter(island == "Tasmania")
+r200_h1_aus <- r200_h1 %>% filter(island == "Australia")
+
+
+```
+
+```{r tasmania_australia_split_save, warning=FALSE, comments="", message=FALSE}
+# (Optional) save
+dir.create("data/hsmc_scales", showWarnings = FALSE, recursive = TRUE)
+write.csv(r100_h1, "data/hsmc_scales/env_vars_r100_h1.csv", row.names = FALSE)
+write.csv(r200_h1_tas, "data/hsmc_scales/env_vars_r200_h1_tas.csv", row.names = FALSE)
+write.csv(r400_h1, "data/hsmc_scales/env_vars_r400_h1.csv", row.names = FALSE)
+
+# Sanity check
+message("Columns: ", paste(names(r200_h1), collapse = ", "))
+message("Rows (100/200/400): ", nrow(r100_h1), "/", nrow(r200_h1), "/", nrow(r400_h1))
+
+```
+
+```{r tasmania_animal_var, warning=FALSE, comments="", message=FALSE}
+animal_vars_tas <- sample_metadata_tasmania |>
+  select(sample, sex, Development, `Weight (g)`) |>
+  filter(
+    !is.na(sex),
+    sex != "Unknown",
+    !is.na(`Weight (g)`)
+  )
+
+write.csv(animal_vars_tas, "data/hsmc_scales/animal_vars_tas.csv", row.names = FALSE)
+```
+
+```{r tasmania_env_short, warning=FALSE, comments="", message=FALSE}
+
+tasmania_env_short <- r200_h1_tas |>
+  dplyr::filter(id %in% animal_vars_tas$sample)
+
+write.csv(tasmania_env_short, "data/hsmc_scales/tasmania_env_short.csv", row.names = FALSE)
+```
+
+```{r export_hmsc_input_csvs, warning=FALSE, comments="", message=FALSE}
+# Canonical HMSC inputs for chapter 13 (regenerated on each knit of this chapter).
+readr::write_csv(
+  sample_metadata %>%
+    dplyr::select(id = sample, sex, development = Development, weight = `Weight (g)`),
+  "data/animal_var.csv"
+)
+
+readr::write_csv(
+  r200_h1 %>%
+    dplyr::select(id, site = Site, diversity, pop_density, temperature, precipitation, density, devil),
+  "data/environment_var_r200.csv"
+)
+```

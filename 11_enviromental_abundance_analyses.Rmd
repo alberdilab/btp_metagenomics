@@ -9,12 +9,15 @@ This chapter analyzes differential abundance of microbial genomes between sample
 
 ```{r load_data_hill, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 # --- data -----------------------------------------------------------------
+source("R/chapter_deps.R")
 load("data/data.Rdata")   # provides: sample_metadata, genome_counts_filt, genome_metadata, ...
+ensure_hill_rdata()
 load("data/hill.Rdata")   # provides: hill_long (id, q in {h0,h1,h2}, value)
 
 
 sample_metadata <- sample_metadata %>% filter(sample != "EHI01340")
 hill_long       <- hill_long       %>% filter(id     != "EHI01340")
+genome_counts_filt <- genome_counts_filt %>% dplyr::select(-dplyr::any_of("EHI01340"))
 
 ```
 
@@ -208,7 +211,7 @@ groupcolors <- c(
 if (nrow(df) > 0 && sum(df$Low | df$High) > 0) {
   # Ensure UpSetR is loaded
   if (!requireNamespace("UpSetR", quietly = TRUE)) {
-    install.packages("UpSetR")
+    stop("Package 'UpSetR' is required. Install it before knitting this chapter.", call. = FALSE)
   }
   
   # Convert to format expected by UpSetR (ensure integer columns)

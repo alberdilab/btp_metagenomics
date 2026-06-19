@@ -8,18 +8,14 @@ rmd_files:
   - 02_data_statistics.Rmd
   - 03_mag_catalogue.Rmd
   - 04_community_composition.Rmd
-  - 05_alpha_diversity.Rmd
-  - 06_Functional_diffrences.Rmd
-  - 07_microbiota_abundance_analysis_sex.Rmd
-  - 08_microbiota_functional_analysis.Rmd
-  - 09_Enviroment_types.Rmd
+  - 05_Enviroment_types.Rmd
+  - 06_alpha_diversity.Rmd
+  - 07_Functional_diffrences.Rmd
+  - 08_microbiota_abundance_analysis_sex.Rmd
+  - 09_microbiota_functional_analysis.Rmd
   - 10_enviromental_permanova.Rmd
   - 11_enviromental_abundance_analyses.Rmd
   - 12_diversity_abundance_analysis.Rmd
-  - 13_hmsc_setup2.Rmd
-  - 14_hmsc_analysis_2.Rmd
-  - 15_hmsc_analysis_tasmania_env+ani.Rmd
-  - 16_hmsc_analysis_tasmania_env_only.Rmd
-  - 17_hmsc_setup_final.Rmd
-  - 18_hmsc_analysis_final.Rmd
-
+  - 13_hmsc_setup_final.Rmd
+  - 14_hmsc_analysis_final.Rmd
+  - 15_publication_figures.Rmd

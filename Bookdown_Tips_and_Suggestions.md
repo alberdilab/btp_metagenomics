@@ -1,103 +1,35 @@
-# Bookdown Project Optimization Tips
+# Bookdown Project — chapter order
 
-## 📚 Structure Overview
+Active chapters are numbered **01–15** in `_bookdown.yml` (filenames match knit order):
 
-This Bookdown project includes the following chapters:
+| # | File | Topic |
+|---|------|--------|
+| 01 | `01_prepare_data.Rmd` | Data loading and cleaning |
+| 02 | `02_data_statistics.Rmd` | Summary statistics |
+| 03 | `03_mag_catalogue.Rmd` | MAG catalogue |
+| 04 | `04_community_composition.Rmd` | Community composition |
+| 05 | `05_Enviroment_types.Rmd` | Landcover, climate, env Hill numbers |
+| 06 | `06_alpha_diversity.Rmd` | Microbiome alpha diversity |
+| 07 | `07_Functional_diffrences.Rmd` | Beta diversity / NMDS |
+| 08 | `08_microbiota_abundance_analysis_sex.Rmd` | Differential abundance (sex) |
+| 09 | `09_microbiota_functional_analysis.Rmd` | Functional microbiome |
+| 10 | `10_enviromental_permanova.Rmd` | Env Hill ↔ microbiome β |
+| 11 | `11_enviromental_abundance_analyses.Rmd` | Env Hill ↔ abundance |
+| 12 | `12_diversity_abundance_analysis.Rmd` | Diversity–abundance links |
+| 13 | `13_hmsc_setup_final.Rmd` | HMSC model setup (`model_final`) |
+| 14 | `14_hmsc_analysis_final.Rmd` | HMSC analysis + `publication_hmsc.Rdata` cache |
+| 15 | `15_publication_figures.Rmd` | Manuscript figure exports |
 
-1. **index.Rmd** — Introduction and project description.
-2. **01_prepare_data.Rmd** — Data loading and cleaning.
-3. **02_data_statistics.Rmd** — Summary statistics and diversity.
-4. **03_MAGs_Catalouge.Rmd** — MAGs overview and genome metadata.
-5. **04_Community.Rmd** — Community composition and ordination.
-6. **05_Differential_abundance.Rmd** — Differential abundance testing.
-7. **06_Functional_diffrences.Rmd** — Functional pathway and KEGG analysis.
+**Dependency check:** `Rscript .cursor/scripts/check_chapter_order.R`
 
----
-
-## 🔁 General Code Optimization Tips
-
-### 1. Modularization
-- Move repeated code into helper functions in a separate R script (e.g., `R/utils.R`):
-```r
-normalize_tss <- function(df, exclude = "genome") {
-  df %>% mutate(across(-all_of(exclude), ~ . / sum(.)))
-}
-```
-
-### 2. Consistent Visual Styling
-- Define a reusable ggplot theme:
-```r
-theme_custom <- theme_minimal() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
-```
-
-### 3. Chunk Best Practices
-- Name chunks clearly (e.g., `plot-alpha-diversity`).
-- Use `echo = FALSE`, `message = FALSE`, `warning = FALSE` to clean up output.
-- Cache heavy computations with `cache = TRUE`.
+**Full rebuild:** `Rscript .cursor/scripts/rebuild_from_scratch.R`
 
 ---
 
-## 📈 Chapter-Specific Suggestions
+## General tips
 
-### `01_prepare_data.Rmd`
-- Normalize `genome_counts` using `mutate(across())`.
-- Merge metadata with `left_join()` early on for convenience.
+- Move repeated code into `R/plot_helpers.R` or `R/chapter_deps.R`.
+- Name chunks clearly; use `echo = FALSE`, `message = FALSE`, `warning = FALSE` for clean output.
+- Cache heavy computations with `cache = TRUE` where appropriate.
 
-### `02_data_statistics.Rmd`
-- Use `plot_richness()` or `alpha_div` plots.
-- Consider `summarytools` or `skimr` for overview stats.
-
-### `03_MAGs_Catalouge.Rmd`
-- Highlight genome quality (completeness vs. contamination).
-- Use `circular_tree` for genome phylogeny and gift data.
-
-### `04_Community.Rmd`
-- Apply TSS or CLR normalization.
-- Use ordination (`metaMDS`, `PCA`) with `phyloseq` or `vegan`.
-- Add `facet_wrap(~ Treatment)` for comparisons.
-
-### `05_Differential_abundance.Rmd`
-- Pre-filter low-count taxa.
-- Use volcano/MA plots to visualize DE results.
-
-### `06_Functional_diffrences.Rmd`
-- Plot KEGG or functional heatmaps using `pheatmap` or `ComplexHeatmap`.
-- Use `tSNE_function`, `function_ordination` for clustering.
-
----
-
-## 🧩 Bookdown Integration
-
-### `_bookdown.yml`
-```yaml
-book_filename: "Microbiome_Study"
-rmd_files:
-  - index.Rmd
-  - 01_prepare_data.Rmd
-  - 02_data_statistics.Rmd
-  - 03_MAGs_Catalouge.Rmd
-  - 04_Community.Rmd
-  - 05_Differential_abundance.Rmd
-  - 06_Functional_diffrences.Rmd
-```
-
-### `_output.yml`
-```yaml
-bookdown::gitbook:
-  css: style.css
-  config:
-    toc:
-      collapse: section
-    download: ["pdf", "epub"]
-    sharing: no
-```
-
-### `style.css`
-- Use custom fonts, colors, and padding for better readability.
-
----
-
-## ✅ Final Tip
-Use `here::here()` or `fs::path()` for reliable file paths in shared environments.
-
-Let me know if you’d like help with PDF export, hosting on GitHub Pages, or adding interactivity with `plotly` or `leaflet`.
+See `_bookdown.yml` for the canonical chapter list.

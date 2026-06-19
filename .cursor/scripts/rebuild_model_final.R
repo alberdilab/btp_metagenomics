@@ -23,12 +23,14 @@ StudyDesign <- predictors %>%
   mutate(animal = factor(animal), site = factor(site)) %>%
   column_to_rownames("sample")
 
-normalisation_factor <- genome_metadata %>%
-  mutate(factor = median(length) / length) %>%
-  pull(factor)
+normalisation_factors <- genome_metadata %>%
+  mutate(norm_factor = median(length) / length) %>%
+  select(genome, norm_factor)
 
 YData <- read_counts %>%
-  mutate(across(where(is.numeric), ~ round(. * normalisation_factor, 0))) %>%
+  left_join(normalisation_factors, by = "genome") %>%
+  mutate(across(-c(genome, norm_factor), ~ round(. * norm_factor, 0))) %>%
+  select(-norm_factor) %>%
   mutate(across(where(is.numeric), ~ . + 1)) %>%
   mutate(across(where(is.numeric), ~ log(.))) %>%
   filter(genome %in% genomes_to_model) %>%

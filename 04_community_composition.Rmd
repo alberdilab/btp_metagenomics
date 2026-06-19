@@ -177,7 +177,7 @@ genome_counts_filt %>%
 **Note:** Count and display the total number of Metagenome-Assembled Genomes (MAGs) in the dataset.
 
 ```{r mag, comment="", echo=FALSE, message=FALSE, warning=FALSE}
-nmags <- nrow(genome_counts)
+nmags <- nrow(genome_metadata)
 cat(nmags)
 ```
 
@@ -230,7 +230,7 @@ phylum relative abundance - total
 ```{r taxonomy_jitterplot_phylum, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
 phylum_arrange <- phylum_summary %>%
     group_by(phylum) %>%
-    summarise(mean=sum(relabun)) %>%
+    summarise(mean=mean(relabun), .groups = "drop") %>%
     arrange(-mean) %>%
     select(phylum) %>%
     pull()
@@ -240,7 +240,7 @@ phylum_summary %>%
     mutate(phylum=factor(phylum,levels=rev(phylum_arrange[1:20]))) %>%
     filter(relabun > 0) %>%
     ggplot(aes(x=relabun, y=phylum, group=phylum, color=phylum)) +
-        scale_color_manual(values=phylum_colors[-8]) +
+        scale_color_manual(values=phylum_colors) +
         geom_jitter(alpha=0.5) +
         theme_minimal() + 
         labs(y="Phylum", x="Relative abundance", color="Phylum")
@@ -331,19 +331,26 @@ calc_summary_stats(family_summary, "family", "sex", c("Female", "Male"))
 ```{r taxonomy_jitterplot_family_sex, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
 family_arrange <- family_summary %>%
     group_by(family) %>%
-    summarise(mean=sum(relabun)) %>%
+    summarise(mean=mean(relabun), .groups = "drop") %>%
     arrange(-mean) %>%
     select(family) %>%
     pull()
 
+family_phylum_map <- genome_metadata %>%
+  dplyr::count(family, phylum, name = "n") %>%
+  dplyr::group_by(family) %>%
+  dplyr::slice_max(n, n = 1, with_ties = FALSE) %>%
+  dplyr::ungroup() %>%
+  dplyr::select(family, phylum)
+
 # Per sex
 family_summary %>%
-    left_join(genome_metadata %>% select(family,phylum) %>% unique(),by=join_by(family==family)) %>%
+    left_join(family_phylum_map, by = "family") %>%
     filter(family %in% family_arrange[1:20]) %>%
     mutate(family=factor(family,levels=rev(family_arrange[1:20]))) %>%
     filter(relabun > 0) %>%
     ggplot(aes(x=relabun, y=family, group=family, color=phylum)) +
-        scale_color_manual(values=phylum_colors[-8]) +
+        scale_color_manual(values=phylum_colors) +
         geom_jitter(alpha=0.5) + 
         facet_grid(.~sex)+
         theme_minimal() + 
@@ -370,19 +377,19 @@ calc_summary_stats(
 ```{r taxonomy_jitterplot_family, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
 family_arrange <- family_summary %>%
     group_by(family) %>%
-    summarise(mean=sum(relabun)) %>%
+    summarise(mean=mean(relabun), .groups = "drop") %>%
     arrange(-mean) %>%
     select(family) %>%
     pull()
 
 # Per environment
 family_summary %>%
-    left_join(genome_metadata %>% select(family,phylum) %>% unique(),by=join_by(family==family)) %>%
+    left_join(family_phylum_map, by = "family") %>%
     filter(family %in% family_arrange[1:20]) %>%
     mutate(family=factor(family,levels=rev(family_arrange[1:20]))) %>%
     filter(relabun > 0) %>%
     ggplot(aes(x=relabun, y=family, group=family, color=phylum)) +
-        scale_color_manual(values=phylum_colors[-8]) +
+        scale_color_manual(values=phylum_colors) +
         geom_jitter(alpha=0.5) + 
         facet_grid(.~broad_environment)+
         theme_minimal() + 

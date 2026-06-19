@@ -1896,8 +1896,9 @@ a.anchor-section::before {content: '#';font-size: 80%;}
 
 
 <style type="text/css">
+html { -webkit-text-size-adjust: 100%; }
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -1907,7 +1908,7 @@ div.sourceCode { overflow: auto; }
 }
 @media print {
 pre > code.sourceCode { white-space: pre-wrap; }
-pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
 }
 pre.numberSource code
 { counter-reset: source-line 0; }
@@ -1964,7 +1965,74 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; }
 div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
 </style>
 
-<style type="text/css">p.caption {color: #777;margin-top: 10px;}p code {white-space: inherit;}pre {word-break: normal;word-wrap: normal;}pre code {white-space: inherit;}.header-section-number{color: #a52929;}.book .book-body .page-wrapper .page-inner section.normal a {color: #a52929;}.book .book-body .page-wrapper .page-inner section.normal a:hover {color: #d65454; text-decoration: none;}.book .book-summary ul.summary li a:link {color: #444444;}.book .book-summary ul.summary li a:visited {color: #444444;}.book .book-summary ul.summary li a:hover {color: #a52929; text-decoration: none;}.book .book-summary ul.summary li.active>a { color: #d65454 !important;font-weight: bold;}.toc-logo {width: 230px !important;object-fit: contain;margin: 0 auto;display: block;}.toc-logo img {max-width: 100%;margin-top: 10px;}.summary > li:first-child {height: auto !important;}.script-source {font-weight: bold !important;border-left: 3px solid #d65454 !important;}.script-output {background-color: #ffffff !important;}.title {color: #a52929;}</style>
+<style type="text/css">p.caption {
+color: #777;
+margin-top: 10px;
+}
+p code {
+white-space: inherit;
+}
+pre {
+word-break: normal;
+word-wrap: normal;
+}
+pre code {
+white-space: inherit;
+}
+.header-section-number{
+color: #a52929;
+}
+
+
+.book .book-body .page-wrapper .page-inner section.normal a {
+color: #a52929;
+}
+.book .book-body .page-wrapper .page-inner section.normal a:hover {
+color: #d65454; 
+text-decoration: none;
+}
+
+.book .book-summary ul.summary li a:link {
+color: #444444;
+}
+.book .book-summary ul.summary li a:visited {
+color: #444444;
+}
+.book .book-summary ul.summary li a:hover {
+color: #a52929; 
+text-decoration: none;
+}
+.book .book-summary ul.summary li.active>a { 
+color: #d65454 !important;
+font-weight: bold;
+}
+
+.toc-logo {
+width: 230px !important;
+object-fit: contain;
+margin: 0 auto;
+display: block;
+}
+.toc-logo img {
+max-width: 100%;
+margin-top: 10px;
+}
+.summary > li:first-child {
+height: auto !important;
+}
+
+.script-source {
+font-weight: bold !important;
+border-left: 3px solid #d65454 !important;
+}
+.script-output {
+background-color: #ffffff !important;
+}
+
+.title {
+color: #a52929;
+}
+</style>
 </head>
 
 <body>
@@ -2041,102 +2109,191 @@ div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
 <li class="chapter" data-level="6.1.3" data-path="taxonomic-composition.html"><a href="taxonomic-composition.html#genus-level"><i class="fa fa-check"></i><b>6.1.3</b> Genus level</a></li>
 </ul></li>
 </ul></li>
-<li class="chapter" data-level="7" data-path="alpha-diversity.html"><a href="alpha-diversity.html"><i class="fa fa-check"></i><b>7</b> Alpha diversity</a>
+<li class="chapter" data-level="7" data-path="environment-types.html"><a href="environment-types.html"><i class="fa fa-check"></i><b>7</b> Environment types</a>
 <ul>
-<li class="chapter" data-level="7.1" data-path="alpha-diversity.html"><a href="alpha-diversity.html#microbiota"><i class="fa fa-check"></i><b>7.1</b> microbiota</a>
+<li class="chapter" data-level="7.1" data-path="environment-types.html"><a href="environment-types.html#landcover-percentage"><i class="fa fa-check"></i><b>7.1</b> Landcover percentage</a></li>
+</ul></li>
+<li class="chapter" data-level="8" data-path="alpha-diversity.html"><a href="alpha-diversity.html"><i class="fa fa-check"></i><b>8</b> Alpha diversity</a>
 <ul>
-<li class="chapter" data-level="7.1.1" data-path="alpha-diversity.html"><a href="alpha-diversity.html#hill-numbers"><i class="fa fa-check"></i><b>7.1.1</b> Hill numbers</a></li>
-<li class="chapter" data-level="7.1.2" data-path="alpha-diversity.html"><a href="alpha-diversity.html#mixed-models"><i class="fa fa-check"></i><b>7.1.2</b> Mixed models</a></li>
+<li class="chapter" data-level="8.1" data-path="alpha-diversity.html"><a href="alpha-diversity.html#microbiota"><i class="fa fa-check"></i><b>8.1</b> microbiota</a>
+<ul>
+<li class="chapter" data-level="8.1.1" data-path="alpha-diversity.html"><a href="alpha-diversity.html#hill-numbers"><i class="fa fa-check"></i><b>8.1.1</b> Hill numbers</a></li>
+<li class="chapter" data-level="8.1.2" data-path="alpha-diversity.html"><a href="alpha-diversity.html#mixed-models"><i class="fa fa-check"></i><b>8.1.2</b> Mixed models</a></li>
 </ul></li>
 </ul></li>
-<li class="chapter" data-level="8" data-path="beta-diversity.html"><a href="beta-diversity.html"><i class="fa fa-check"></i><b>8</b> Beta diversity</a>
+<li class="chapter" data-level="9" data-path="beta-diversity.html"><a href="beta-diversity.html"><i class="fa fa-check"></i><b>9</b> Beta diversity</a>
 <ul>
-<li class="chapter" data-level="8.1" data-path="beta-diversity.html"><a href="beta-diversity.html#permanova"><i class="fa fa-check"></i><b>8.1</b> Permanova</a>
+<li class="chapter" data-level="9.1" data-path="beta-diversity.html"><a href="beta-diversity.html#permanova"><i class="fa fa-check"></i><b>9.1</b> Permanova</a>
 <ul>
-<li class="chapter" data-level="8.1.1" data-path="beta-diversity.html"><a href="beta-diversity.html#richness"><i class="fa fa-check"></i><b>8.1.1</b> Richness</a></li>
-<li class="chapter" data-level="8.1.2" data-path="beta-diversity.html"><a href="beta-diversity.html#neutral-diversity"><i class="fa fa-check"></i><b>8.1.2</b> Neutral diversity</a></li>
-<li class="chapter" data-level="8.1.3" data-path="beta-diversity.html"><a href="beta-diversity.html#phylogenetic-diversity-beta_q1p"><i class="fa fa-check"></i><b>8.1.3</b> Phylogenetic diversity (beta_q1p)</a></li>
-<li class="chapter" data-level="8.1.4" data-path="beta-diversity.html"><a href="beta-diversity.html#functional-diversity-beta_q1f"><i class="fa fa-check"></i><b>8.1.4</b> Functional diversity (beta_q1f)</a></li>
+<li class="chapter" data-level="9.1.1" data-path="beta-diversity.html"><a href="beta-diversity.html#richness"><i class="fa fa-check"></i><b>9.1.1</b> Richness</a></li>
+<li class="chapter" data-level="9.1.2" data-path="beta-diversity.html"><a href="beta-diversity.html#neutral-diversity"><i class="fa fa-check"></i><b>9.1.2</b> Neutral diversity</a></li>
+<li class="chapter" data-level="9.1.3" data-path="beta-diversity.html"><a href="beta-diversity.html#phylogenetic-diversity-beta_q1p"><i class="fa fa-check"></i><b>9.1.3</b> Phylogenetic diversity (beta_q1p)</a></li>
+<li class="chapter" data-level="9.1.4" data-path="beta-diversity.html"><a href="beta-diversity.html#functional-diversity-beta_q1f"><i class="fa fa-check"></i><b>9.1.4</b> Functional diversity (beta_q1f)</a></li>
 </ul></li>
-<li class="chapter" data-level="8.2" data-path="beta-diversity.html"><a href="beta-diversity.html#nmds"><i class="fa fa-check"></i><b>8.2</b> NMDS</a>
+<li class="chapter" data-level="9.2" data-path="beta-diversity.html"><a href="beta-diversity.html#nmds"><i class="fa fa-check"></i><b>9.2</b> NMDS</a>
 <ul>
-<li class="chapter" data-level="8.2.1" data-path="beta-diversity.html"><a href="beta-diversity.html#neutral-diversity-1"><i class="fa fa-check"></i><b>8.2.1</b> Neutral diversity</a></li>
-<li class="chapter" data-level="8.2.2" data-path="beta-diversity.html"><a href="beta-diversity.html#phylogenetic-diversity"><i class="fa fa-check"></i><b>8.2.2</b> Phylogenetic diversity</a></li>
-<li class="chapter" data-level="8.2.3" data-path="beta-diversity.html"><a href="beta-diversity.html#functional-diversity"><i class="fa fa-check"></i><b>8.2.3</b> Functional diversity</a></li>
-</ul></li>
-</ul></li>
-<li class="chapter" data-level="9" data-path="functional-analysis.html"><a href="functional-analysis.html"><i class="fa fa-check"></i><b>9</b> functional analysis</a>
-<ul>
-<li class="chapter" data-level="9.1" data-path="functional-analysis.html"><a href="functional-analysis.html#mci"><i class="fa fa-check"></i><b>9.1</b> MCI</a></li>
-<li class="chapter" data-level="9.2" data-path="functional-analysis.html"><a href="functional-analysis.html#wilcoxon"><i class="fa fa-check"></i><b>9.2</b> Wilcoxon</a>
-<ul>
-<li class="chapter" data-level="9.2.1" data-path="functional-analysis.html"><a href="functional-analysis.html#community-elements-differences"><i class="fa fa-check"></i><b>9.2.1</b> Community elements differences:</a></li>
-<li class="chapter" data-level="9.2.2" data-path="functional-analysis.html"><a href="functional-analysis.html#community-functions-differences"><i class="fa fa-check"></i><b>9.2.2</b> Community functions differences</a></li>
-<li class="chapter" data-level="9.2.3" data-path="functional-analysis.html"><a href="functional-analysis.html#community-domains-differences"><i class="fa fa-check"></i><b>9.2.3</b> Community domains differences</a></li>
+<li class="chapter" data-level="9.2.1" data-path="beta-diversity.html"><a href="beta-diversity.html#neutral-diversity-1"><i class="fa fa-check"></i><b>9.2.1</b> Neutral diversity</a></li>
+<li class="chapter" data-level="9.2.2" data-path="beta-diversity.html"><a href="beta-diversity.html#phylogenetic-diversity"><i class="fa fa-check"></i><b>9.2.2</b> Phylogenetic diversity</a></li>
+<li class="chapter" data-level="9.2.3" data-path="beta-diversity.html"><a href="beta-diversity.html#functional-diversity"><i class="fa fa-check"></i><b>9.2.3</b> Functional diversity</a></li>
 </ul></li>
 </ul></li>
-<li class="chapter" data-level="10" data-path="environment-types.html"><a href="environment-types.html"><i class="fa fa-check"></i><b>10</b> Environment types</a>
+<li class="chapter" data-level="10" data-path="differential-abundance-analysis.html"><a href="differential-abundance-analysis.html"><i class="fa fa-check"></i><b>10</b> Differential abundance analysis</a>
 <ul>
-<li class="chapter" data-level="10.1" data-path="environment-types.html"><a href="environment-types.html#landcover-percentage"><i class="fa fa-check"></i><b>10.1</b> Landcover percentage</a></li>
-</ul></li>
-<li class="chapter" data-level="11" data-path="environmental-permanova.html"><a href="environmental-permanova.html"><i class="fa fa-check"></i><b>11</b> environmental permanova</a>
+<li class="chapter" data-level="10.1" data-path="differential-abundance-analysis.html"><a href="differential-abundance-analysis.html#structural-zeros"><i class="fa fa-check"></i><b>10.1</b> Structural zeros</a></li>
+<li class="chapter" data-level="10.2" data-path="differential-abundance-analysis.html"><a href="differential-abundance-analysis.html#mags-in-different-locations-and-shared-among-locations"><i class="fa fa-check"></i><b>10.2</b> MAGs in different locations and shared among locations</a>
 <ul>
-<li class="chapter" data-level="11.1" data-path="environmental-permanova.html"><a href="environmental-permanova.html#load-data-1"><i class="fa fa-check"></i><b>11.1</b> Load data</a></li>
-<li class="chapter" data-level="11.2" data-path="environmental-permanova.html"><a href="environmental-permanova.html#data-preparation"><i class="fa fa-check"></i><b>11.2</b> Data preparation</a></li>
-<li class="chapter" data-level="11.3" data-path="environmental-permanova.html"><a href="environmental-permanova.html#helper-functions-1"><i class="fa fa-check"></i><b>11.3</b> Helper functions</a></li>
-<li class="chapter" data-level="11.4" data-path="environmental-permanova.html"><a href="environmental-permanova.html#ordination-analysis"><i class="fa fa-check"></i><b>11.4</b> Ordination analysis</a></li>
-<li class="chapter" data-level="11.5" data-path="environmental-permanova.html"><a href="environmental-permanova.html#grouping-variables"><i class="fa fa-check"></i><b>11.5</b> Grouping variables</a></li>
-<li class="chapter" data-level="11.6" data-path="environmental-permanova.html"><a href="environmental-permanova.html#permanova-analysis"><i class="fa fa-check"></i><b>11.6</b> PERMANOVA analysis</a></li>
-<li class="chapter" data-level="11.7" data-path="environmental-permanova.html"><a href="environmental-permanova.html#mantel-tests"><i class="fa fa-check"></i><b>11.7</b> Mantel tests</a></li>
-<li class="chapter" data-level="11.8" data-path="environmental-permanova.html"><a href="environmental-permanova.html#betadisper-tests"><i class="fa fa-check"></i><b>11.8</b> Betadisper tests</a></li>
-<li class="chapter" data-level="11.9" data-path="environmental-permanova.html"><a href="environmental-permanova.html#correlation-tests"><i class="fa fa-check"></i><b>11.9</b> Correlation tests</a></li>
-<li class="chapter" data-level="11.10" data-path="environmental-permanova.html"><a href="environmental-permanova.html#visualization"><i class="fa fa-check"></i><b>11.10</b> Visualization</a></li>
-<li class="chapter" data-level="11.11" data-path="environmental-permanova.html"><a href="environmental-permanova.html#load-data-2"><i class="fa fa-check"></i><b>11.11</b> Load data</a></li>
-<li class="chapter" data-level="11.12" data-path="environmental-permanova.html"><a href="environmental-permanova.html#data-preparation-1"><i class="fa fa-check"></i><b>11.12</b> Data preparation</a></li>
-<li class="chapter" data-level="11.13" data-path="environmental-permanova.html"><a href="environmental-permanova.html#structural-zeros-analysis"><i class="fa fa-check"></i><b>11.13</b> Structural zeros analysis</a></li>
-<li class="chapter" data-level="11.14" data-path="environmental-permanova.html"><a href="environmental-permanova.html#differential-abundance-analysis"><i class="fa fa-check"></i><b>11.14</b> Differential abundance analysis</a>
-<ul>
-<li class="chapter" data-level="11.14.1" data-path="environmental-permanova.html"><a href="environmental-permanova.html#build-phyloseq-objects"><i class="fa fa-check"></i><b>11.14.1</b> Build phyloseq objects</a></li>
-<li class="chapter" data-level="11.14.2" data-path="environmental-permanova.html"><a href="environmental-permanova.html#run-ancom-bc2-analysis"><i class="fa fa-check"></i><b>11.14.2</b> Run ANCOM-BC2 analysis</a></li>
-<li class="chapter" data-level="11.14.3" data-path="environmental-permanova.html"><a href="environmental-permanova.html#visualize-differential-abundance-results"><i class="fa fa-check"></i><b>11.14.3</b> Visualize differential abundance results</a></li>
-</ul></li>
-<li class="chapter" data-level="11.15" data-path="environmental-permanova.html"><a href="environmental-permanova.html#alternative-ancom-bc2-analysis-with-structural-zeros"><i class="fa fa-check"></i><b>11.15</b> Alternative ANCOM-BC2 analysis with structural zeros</a></li>
-<li class="chapter" data-level="11.16" data-path="environmental-permanova.html"><a href="environmental-permanova.html#load-data-3"><i class="fa fa-check"></i><b>11.16</b> Load data</a></li>
-<li class="chapter" data-level="11.17" data-path="environmental-permanova.html"><a href="environmental-permanova.html#data-preparation-2"><i class="fa fa-check"></i><b>11.17</b> Data preparation</a></li>
-<li class="chapter" data-level="11.18" data-path="environmental-permanova.html"><a href="environmental-permanova.html#structural-zeros-analysis-1"><i class="fa fa-check"></i><b>11.18</b> Structural zeros analysis</a></li>
-<li class="chapter" data-level="11.19" data-path="environmental-permanova.html"><a href="environmental-permanova.html#taxonomic-aggregation-of-structural-zeros"><i class="fa fa-check"></i><b>11.19</b> Taxonomic aggregation of structural zeros</a></li>
-<li class="chapter" data-level="11.20" data-path="environmental-permanova.html"><a href="environmental-permanova.html#microbiome-diversity-comparison"><i class="fa fa-check"></i><b>11.20</b> Microbiome diversity comparison</a></li>
-<li class="chapter" data-level="11.21" data-path="environmental-permanova.html"><a href="environmental-permanova.html#correlation-analysis"><i class="fa fa-check"></i><b>11.21</b> Correlation analysis</a></li>
-</ul></li>
-<li class="chapter" data-level="12" data-path="btp-hmsc.html"><a href="btp-hmsc.html"><i class="fa fa-check"></i><b>12</b> BTP Hmsc</a>
-<ul>
-<li class="chapter" data-level="12.1" data-path="btp-hmsc.html"><a href="btp-hmsc.html#m-buffer"><i class="fa fa-check"></i><b>12.1</b> 100m buffer</a></li>
-<li class="chapter" data-level="12.2" data-path="btp-hmsc.html"><a href="btp-hmsc.html#in-the-hpc"><i class="fa fa-check"></i><b>12.2</b> In the HPC</a></li>
-<li class="chapter" data-level="12.3" data-path="btp-hmsc.html"><a href="btp-hmsc.html#m-buffer-1"><i class="fa fa-check"></i><b>12.3</b> 200m buffer</a></li>
-<li class="chapter" data-level="12.4" data-path="btp-hmsc.html"><a href="btp-hmsc.html#in-the-hpc-1"><i class="fa fa-check"></i><b>12.4</b> In the HPC</a></li>
-<li class="chapter" data-level="12.5" data-path="btp-hmsc.html"><a href="btp-hmsc.html#m-buffer-2"><i class="fa fa-check"></i><b>12.5</b> 400m buffer</a></li>
-<li class="chapter" data-level="12.6" data-path="btp-hmsc.html"><a href="btp-hmsc.html#in-the-hpc-2"><i class="fa fa-check"></i><b>12.6</b> In the HPC</a></li>
-<li class="chapter" data-level="12.7" data-path="btp-hmsc.html"><a href="btp-hmsc.html#tasmania-only-buffer"><i class="fa fa-check"></i><b>12.7</b> tasmania only buffer</a></li>
-<li class="chapter" data-level="12.8" data-path="btp-hmsc.html"><a href="btp-hmsc.html#in-the-hpc-3"><i class="fa fa-check"></i><b>12.8</b> In the HPC</a></li>
-</ul></li>
-<li class="chapter" data-level="13" data-path="hmsc-analysis.html"><a href="hmsc-analysis.html"><i class="fa fa-check"></i><b>13</b> Hmsc analysis</a>
-<ul>
-<li class="chapter" data-level="13.1" data-path="hmsc-analysis.html"><a href="hmsc-analysis.html#phylogenetic-signal"><i class="fa fa-check"></i><b>13.1</b> Phylogenetic signal</a></li>
-<li class="chapter" data-level="13.2" data-path="hmsc-analysis.html"><a href="hmsc-analysis.html#association-with-devil"><i class="fa fa-check"></i><b>13.2</b> Association with devil</a></li>
-<li class="chapter" data-level="13.3" data-path="hmsc-analysis.html"><a href="hmsc-analysis.html#association-with-temperature"><i class="fa fa-check"></i><b>13.3</b> Association with temperature</a>
-<ul>
-<li class="chapter" data-level="13.3.1" data-path="hmsc-analysis.html"><a href="hmsc-analysis.html#temperature-phylum-level-summary-of-β"><i class="fa fa-check"></i><b>13.3.1</b> 2) Temperature – phylum-level summary of β</a></li>
+<li class="chapter" data-level="10.2.1" data-path="differential-abundance-analysis.html"><a href="differential-abundance-analysis.html#with-random-effect"><i class="fa fa-check"></i><b>10.2.1</b> With random effect</a></li>
+<li class="chapter" data-level="10.2.2" data-path="differential-abundance-analysis.html"><a href="differential-abundance-analysis.html#without-random-effect"><i class="fa fa-check"></i><b>10.2.2</b> Without random effect</a></li>
 </ul></li>
 </ul></li>
-<li class="chapter" data-level="14" data-path="hmsc-analysis-1.html"><a href="hmsc-analysis-1.html"><i class="fa fa-check"></i><b>14</b> Hmsc analysis</a>
+<li class="chapter" data-level="11" data-path="functional-analysis.html"><a href="functional-analysis.html"><i class="fa fa-check"></i><b>11</b> functional analysis</a>
 <ul>
-<li class="chapter" data-level="14.1" data-path="hmsc-analysis-1.html"><a href="hmsc-analysis-1.html#phylogenetic-signal-1"><i class="fa fa-check"></i><b>14.1</b> Phylogenetic signal</a></li>
-<li class="chapter" data-level="14.2" data-path="hmsc-analysis-1.html"><a href="hmsc-analysis-1.html#create-posterior-estimates-table"><i class="fa fa-check"></i><b>14.2</b> Create posterior estimates table</a></li>
-<li class="chapter" data-level="14.3" data-path="hmsc-analysis-1.html"><a href="hmsc-analysis-1.html#posterior-estimates-visualization"><i class="fa fa-check"></i><b>14.3</b> Posterior estimates visualization</a></li>
-<li class="chapter" data-level="14.4" data-path="hmsc-analysis-1.html"><a href="hmsc-analysis-1.html#association-with-devil-1"><i class="fa fa-check"></i><b>14.4</b> Association with devil</a></li>
-<li class="chapter" data-level="14.5" data-path="hmsc-analysis-1.html"><a href="hmsc-analysis-1.html#association-with-temperature-1"><i class="fa fa-check"></i><b>14.5</b> Association with temperature</a>
+<li class="chapter" data-level="11.1" data-path="functional-analysis.html"><a href="functional-analysis.html#mci"><i class="fa fa-check"></i><b>11.1</b> MCI</a></li>
+<li class="chapter" data-level="11.2" data-path="functional-analysis.html"><a href="functional-analysis.html#wilcoxon"><i class="fa fa-check"></i><b>11.2</b> Wilcoxon</a>
 <ul>
-<li class="chapter" data-level="14.5.1" data-path="hmsc-analysis-1.html"><a href="hmsc-analysis-1.html#temperature-phylum-level-summary-of-β-1"><i class="fa fa-check"></i><b>14.5.1</b> 2) Temperature – phylum-level summary of β</a></li>
+<li class="chapter" data-level="11.2.1" data-path="functional-analysis.html"><a href="functional-analysis.html#community-elements-differences"><i class="fa fa-check"></i><b>11.2.1</b> Community elements differences:</a></li>
+<li class="chapter" data-level="11.2.2" data-path="functional-analysis.html"><a href="functional-analysis.html#community-functions-differences"><i class="fa fa-check"></i><b>11.2.2</b> Community functions differences</a></li>
+<li class="chapter" data-level="11.2.3" data-path="functional-analysis.html"><a href="functional-analysis.html#community-domains-differences"><i class="fa fa-check"></i><b>11.2.3</b> Community domains differences</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="12" data-path="environmental-permanova.html"><a href="environmental-permanova.html"><i class="fa fa-check"></i><b>12</b> environmental permanova</a>
+<ul>
+<li class="chapter" data-level="12.1" data-path="environmental-permanova.html"><a href="environmental-permanova.html#load-data-1"><i class="fa fa-check"></i><b>12.1</b> Load data</a></li>
+<li class="chapter" data-level="12.2" data-path="environmental-permanova.html"><a href="environmental-permanova.html#data-preparation"><i class="fa fa-check"></i><b>12.2</b> Data preparation</a></li>
+<li class="chapter" data-level="12.3" data-path="environmental-permanova.html"><a href="environmental-permanova.html#helper-functions-1"><i class="fa fa-check"></i><b>12.3</b> Helper functions</a></li>
+<li class="chapter" data-level="12.4" data-path="environmental-permanova.html"><a href="environmental-permanova.html#ordination-analysis"><i class="fa fa-check"></i><b>12.4</b> Ordination analysis</a></li>
+<li class="chapter" data-level="12.5" data-path="environmental-permanova.html"><a href="environmental-permanova.html#grouping-variables"><i class="fa fa-check"></i><b>12.5</b> Grouping variables</a></li>
+<li class="chapter" data-level="12.6" data-path="environmental-permanova.html"><a href="environmental-permanova.html#permanova-analysis"><i class="fa fa-check"></i><b>12.6</b> PERMANOVA analysis</a></li>
+<li class="chapter" data-level="12.7" data-path="environmental-permanova.html"><a href="environmental-permanova.html#mantel-tests"><i class="fa fa-check"></i><b>12.7</b> Mantel tests</a></li>
+<li class="chapter" data-level="12.8" data-path="environmental-permanova.html"><a href="environmental-permanova.html#betadisper-tests"><i class="fa fa-check"></i><b>12.8</b> Betadisper tests</a></li>
+<li class="chapter" data-level="12.9" data-path="environmental-permanova.html"><a href="environmental-permanova.html#correlation-tests"><i class="fa fa-check"></i><b>12.9</b> Correlation tests</a></li>
+<li class="chapter" data-level="12.10" data-path="environmental-permanova.html"><a href="environmental-permanova.html#visualization"><i class="fa fa-check"></i><b>12.10</b> Visualization</a></li>
+<li class="chapter" data-level="12.11" data-path="environmental-permanova.html"><a href="environmental-permanova.html#load-data-2"><i class="fa fa-check"></i><b>12.11</b> Load data</a></li>
+<li class="chapter" data-level="12.12" data-path="environmental-permanova.html"><a href="environmental-permanova.html#data-preparation-1"><i class="fa fa-check"></i><b>12.12</b> Data preparation</a></li>
+<li class="chapter" data-level="12.13" data-path="environmental-permanova.html"><a href="environmental-permanova.html#structural-zeros-analysis"><i class="fa fa-check"></i><b>12.13</b> Structural zeros analysis</a></li>
+<li class="chapter" data-level="12.14" data-path="environmental-permanova.html"><a href="environmental-permanova.html#differential-abundance-analysis-1"><i class="fa fa-check"></i><b>12.14</b> Differential abundance analysis</a>
+<ul>
+<li class="chapter" data-level="12.14.1" data-path="environmental-permanova.html"><a href="environmental-permanova.html#build-phyloseq-objects"><i class="fa fa-check"></i><b>12.14.1</b> Build phyloseq objects</a></li>
+<li class="chapter" data-level="12.14.2" data-path="environmental-permanova.html"><a href="environmental-permanova.html#run-ancom-bc2-analysis"><i class="fa fa-check"></i><b>12.14.2</b> Run ANCOM-BC2 analysis</a></li>
+<li class="chapter" data-level="12.14.3" data-path="environmental-permanova.html"><a href="environmental-permanova.html#visualize-differential-abundance-results"><i class="fa fa-check"></i><b>12.14.3</b> Visualize differential abundance results</a></li>
+</ul></li>
+<li class="chapter" data-level="12.15" data-path="environmental-permanova.html"><a href="environmental-permanova.html#alternative-ancom-bc2-analysis-with-structural-zeros"><i class="fa fa-check"></i><b>12.15</b> Alternative ANCOM-BC2 analysis with structural zeros</a></li>
+<li class="chapter" data-level="12.16" data-path="environmental-permanova.html"><a href="environmental-permanova.html#load-data-3"><i class="fa fa-check"></i><b>12.16</b> Load data</a></li>
+<li class="chapter" data-level="12.17" data-path="environmental-permanova.html"><a href="environmental-permanova.html#data-preparation-2"><i class="fa fa-check"></i><b>12.17</b> Data preparation</a></li>
+<li class="chapter" data-level="12.18" data-path="environmental-permanova.html"><a href="environmental-permanova.html#structural-zeros-analysis-1"><i class="fa fa-check"></i><b>12.18</b> Structural zeros analysis</a></li>
+<li class="chapter" data-level="12.19" data-path="environmental-permanova.html"><a href="environmental-permanova.html#taxonomic-aggregation-of-structural-zeros"><i class="fa fa-check"></i><b>12.19</b> Taxonomic aggregation of structural zeros</a></li>
+<li class="chapter" data-level="12.20" data-path="environmental-permanova.html"><a href="environmental-permanova.html#microbiome-diversity-comparison"><i class="fa fa-check"></i><b>12.20</b> Microbiome diversity comparison</a></li>
+<li class="chapter" data-level="12.21" data-path="environmental-permanova.html"><a href="environmental-permanova.html#correlation-analysis"><i class="fa fa-check"></i><b>12.21</b> Correlation analysis</a></li>
+</ul></li>
+<li class="chapter" data-level="13" data-path="hmsc-final-model-setup.html"><a href="hmsc-final-model-setup.html"><i class="fa fa-check"></i><b>13</b> HMSC final model setup</a>
+<ul>
+<li class="chapter" data-level="13.1" data-path="hmsc-final-model-setup.html"><a href="hmsc-final-model-setup.html#load-data-4"><i class="fa fa-check"></i><b>13.1</b> Load data</a></li>
+<li class="chapter" data-level="13.2" data-path="hmsc-final-model-setup.html"><a href="hmsc-final-model-setup.html#filter-genomes"><i class="fa fa-check"></i><b>13.2</b> Filter genomes</a></li>
+<li class="chapter" data-level="13.3" data-path="hmsc-final-model-setup.html"><a href="hmsc-final-model-setup.html#build-model-inputs"><i class="fa fa-check"></i><b>13.3</b> Build model inputs</a></li>
+<li class="chapter" data-level="13.4" data-path="hmsc-final-model-setup.html"><a href="hmsc-final-model-setup.html#model-formula"><i class="fa fa-check"></i><b>13.4</b> Model formula</a></li>
+<li class="chapter" data-level="13.5" data-path="hmsc-final-model-setup.html"><a href="hmsc-final-model-setup.html#define-and-save-unfitted-model"><i class="fa fa-check"></i><b>13.5</b> Define and save unfitted model</a></li>
+<li class="chapter" data-level="13.6" data-path="hmsc-final-model-setup.html"><a href="hmsc-final-model-setup.html#in-the-hpc"><i class="fa fa-check"></i><b>13.6</b> In the HPC</a>
+<ul>
+<li class="chapter" data-level="13.6.1" data-path="hmsc-final-model-setup.html"><a href="hmsc-final-model-setup.html#prepare-the-initiation-object"><i class="fa fa-check"></i><b>13.6.1</b> Prepare the initiation object</a></li>
+<li class="chapter" data-level="13.6.2" data-path="hmsc-final-model-setup.html"><a href="hmsc-final-model-setup.html#launch-script"><i class="fa fa-check"></i><b>13.6.2</b> Launch script</a></li>
+<li class="chapter" data-level="13.6.3" data-path="hmsc-final-model-setup.html"><a href="hmsc-final-model-setup.html#submit-job"><i class="fa fa-check"></i><b>13.6.3</b> Submit job</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="14" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html"><i class="fa fa-check"></i><b>14</b> HMSC final model analysis</a>
+<ul>
+<li class="chapter" data-level="14.1" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#load-data-5"><i class="fa fa-check"></i><b>14.1</b> Load data</a></li>
+<li class="chapter" data-level="14.2" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#set-parameters"><i class="fa fa-check"></i><b>14.2</b> Set parameters</a></li>
+<li class="chapter" data-level="14.3" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#helper-functions-2"><i class="fa fa-check"></i><b>14.3</b> Helper functions</a></li>
+<li class="chapter" data-level="14.4" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#load-hmsc-model"><i class="fa fa-check"></i><b>14.4</b> Load HMSC model</a></li>
+<li class="chapter" data-level="14.5" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#variance-partitioning"><i class="fa fa-check"></i><b>14.5</b> Variance partitioning</a></li>
+<li class="chapter" data-level="14.6" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#variance-partitioning-tree-plot"><i class="fa fa-check"></i><b>14.6</b> Variance partitioning tree plot</a></li>
+<li class="chapter" data-level="14.7" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#phylogenetic-signal"><i class="fa fa-check"></i><b>14.7</b> Phylogenetic signal</a></li>
+<li class="chapter" data-level="14.8" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#posterior-estimates-visualization"><i class="fa fa-check"></i><b>14.8</b> Posterior estimates visualization</a></li>
+<li class="chapter" data-level="14.9" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#functional-response-data"><i class="fa fa-check"></i><b>14.9</b> Functional response data</a></li>
+<li class="chapter" data-level="14.10" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#export-publication-figure-cache"><i class="fa fa-check"></i><b>14.10</b> Export publication figure cache</a></li>
+<li class="chapter" data-level="14.11" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#congruence-of-devil-and-temperature-associations-taxonomic"><i class="fa fa-check"></i><b>14.11</b> Congruence of devil and temperature associations (taxonomic)</a></li>
+<li class="chapter" data-level="14.12" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#congruence-of-devil-and-temperature-associations-functional"><i class="fa fa-check"></i><b>14.12</b> Congruence of devil and temperature associations (functional)</a></li>
+<li class="chapter" data-level="14.13" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#association-with-devil"><i class="fa fa-check"></i><b>14.13</b> Association with devil</a></li>
+<li class="chapter" data-level="14.14" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#devil-beta-coefficients"><i class="fa fa-check"></i><b>14.14</b> Devil beta coefficients</a></li>
+<li class="chapter" data-level="14.15" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#devil-functional-differences"><i class="fa fa-check"></i><b>14.15</b> Devil functional differences</a></li>
+<li class="chapter" data-level="14.16" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#devil-functional-differences-volcano-plot"><i class="fa fa-check"></i><b>14.16</b> Devil functional differences volcano plot</a></li>
+<li class="chapter" data-level="14.17" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#build-devil-credible-intervals-all-genomes"><i class="fa fa-check"></i><b>14.17</b> Build devil credible intervals (all genomes)</a></li>
+<li class="chapter" data-level="14.18" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#devil-functional-group-forest-plot"><i class="fa fa-check"></i><b>14.18</b> Devil functional group forest plot</a></li>
+<li class="chapter" data-level="14.19" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#association-with-temperature"><i class="fa fa-check"></i><b>14.19</b> Association with temperature</a></li>
+<li class="chapter" data-level="14.20" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#temperature-beta-coefficients"><i class="fa fa-check"></i><b>14.20</b> Temperature beta coefficients</a></li>
+<li class="chapter" data-level="14.21" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#temperature-top-genomes"><i class="fa fa-check"></i><b>14.21</b> Temperature top genomes</a>
+<ul>
+<li class="chapter" data-level="14.21.1" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#temperature-phylum-level-summary-of-%CE%B2"><i class="fa fa-check"></i><b>14.21.1</b> 2) Temperature – phylum-level summary of β</a></li>
+</ul></li>
+<li class="chapter" data-level="14.22" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#temperature-phylum-level-summary"><i class="fa fa-check"></i><b>14.22</b> Temperature phylum-level summary</a></li>
+<li class="chapter" data-level="14.23" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#temperature-functional-differences"><i class="fa fa-check"></i><b>14.23</b> Temperature functional differences</a></li>
+<li class="chapter" data-level="14.24" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#temperature-functional-differences-volcano-plot"><i class="fa fa-check"></i><b>14.24</b> Temperature functional differences volcano plot</a></li>
+<li class="chapter" data-level="14.25" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#temperature-functional-group-forest-plot"><i class="fa fa-check"></i><b>14.25</b> Temperature functional group forest plot</a></li>
+<li class="chapter" data-level="14.26" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#association-with-devil-temperature-interaction"><i class="fa fa-check"></i><b>14.26</b> Association with devil × temperature interaction</a></li>
+<li class="chapter" data-level="14.27" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#devil-temperature-interaction-beta-coefficients"><i class="fa fa-check"></i><b>14.27</b> Devil × temperature interaction beta coefficients</a></li>
+<li class="chapter" data-level="14.28" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#devil-temperature-interaction-credible-intervals"><i class="fa fa-check"></i><b>14.28</b> Devil × temperature interaction credible intervals</a></li>
+<li class="chapter" data-level="14.29" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#devil-temperature-interaction-top-genomes"><i class="fa fa-check"></i><b>14.29</b> Devil × temperature interaction top genomes</a></li>
+<li class="chapter" data-level="14.30" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#devil-temperature-interaction-phylum-level-summary"><i class="fa fa-check"></i><b>14.30</b> Devil × temperature interaction phylum-level summary</a></li>
+<li class="chapter" data-level="14.31" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#devil-temperature-interaction-functional-differences"><i class="fa fa-check"></i><b>14.31</b> Devil × temperature interaction functional differences</a></li>
+<li class="chapter" data-level="14.32" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#devil-temperature-interaction-functional-differences-volcano-plot"><i class="fa fa-check"></i><b>14.32</b> Devil × temperature interaction functional differences volcano plot</a></li>
+<li class="chapter" data-level="14.33" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#devil-temperature-interaction-functional-group-forest-plot"><i class="fa fa-check"></i><b>14.33</b> Devil × temperature interaction functional group forest plot</a></li>
+<li class="chapter" data-level="14.34" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#association-with-diversity"><i class="fa fa-check"></i><b>14.34</b> Association with diversity</a></li>
+<li class="chapter" data-level="14.35" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#diversity-beta-coefficients"><i class="fa fa-check"></i><b>14.35</b> Diversity beta coefficients</a></li>
+<li class="chapter" data-level="14.36" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#diversity-credible-intervals"><i class="fa fa-check"></i><b>14.36</b> Diversity credible intervals</a></li>
+<li class="chapter" data-level="14.37" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#diversity-top-genomes"><i class="fa fa-check"></i><b>14.37</b> Diversity top genomes</a></li>
+<li class="chapter" data-level="14.38" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#diversity-phylum-level-summary"><i class="fa fa-check"></i><b>14.38</b> Diversity phylum-level summary</a></li>
+<li class="chapter" data-level="14.39" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#diversity-functional-differences"><i class="fa fa-check"></i><b>14.39</b> Diversity functional differences</a></li>
+<li class="chapter" data-level="14.40" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#diversity-functional-differences-volcano-plot"><i class="fa fa-check"></i><b>14.40</b> Diversity functional differences volcano plot</a></li>
+<li class="chapter" data-level="14.41" data-path="hmsc-final-model-analysis.html"><a href="hmsc-final-model-analysis.html#diversity-functional-group-forest-plot"><i class="fa fa-check"></i><b>14.41</b> Diversity functional group forest plot</a></li>
+</ul></li>
+<li class="chapter" data-level="15" data-path="publication-figures.html"><a href="publication-figures.html"><i class="fa fa-check"></i><b>15</b> Publication figures</a>
+<ul>
+<li class="chapter" data-level="15.1" data-path="publication-figures.html"><a href="publication-figures.html#knit-prerequisites"><i class="fa fa-check"></i><b>15.1</b> Knit prerequisites</a></li>
+<li class="chapter" data-level="15.2" data-path="publication-figures.html"><a href="publication-figures.html#setup"><i class="fa fa-check"></i><b>15.2</b> Setup</a>
+<ul>
+<li class="chapter" data-level="15.2.1" data-path="publication-figures.html"><a href="publication-figures.html#load-project-data"><i class="fa fa-check"></i><b>15.2.1</b> Load project data</a></li>
+<li class="chapter" data-level="15.2.2" data-path="publication-figures.html"><a href="publication-figures.html#plot-helpers-theme-and-palettes"><i class="fa fa-check"></i><b>15.2.2</b> Plot helpers, theme, and palettes</a></li>
+<li class="chapter" data-level="15.2.3" data-path="publication-figures.html"><a href="publication-figures.html#load-publication-caches-chapters-7-14"><i class="fa fa-check"></i><b>15.2.3</b> Load publication caches (chapters 7 + 14)</a></li>
+<li class="chapter" data-level="15.2.4" data-path="publication-figures.html"><a href="publication-figures.html#export-standards"><i class="fa fa-check"></i><b>15.2.4</b> Export standards</a></li>
+</ul></li>
+<li class="chapter" data-level="15.3" data-path="publication-figures.html"><a href="publication-figures.html#figure-catalogue-manuscript-set"><i class="fa fa-check"></i><b>15.3</b> Figure catalogue (manuscript set)</a></li>
+<li class="chapter" data-level="15.4" data-path="publication-figures.html"><a href="publication-figures.html#a.-study-context-landscape"><i class="fa fa-check"></i><b>15.4</b> A. Study context &amp; landscape</a>
+<ul>
+<li class="chapter" data-level="15.4.1" data-path="publication-figures.html"><a href="publication-figures.html#fig-a1-tasmania-sample-map"><i class="fa fa-check"></i><b>15.4.1</b> Fig A1 — Tasmania sample map</a></li>
+<li class="chapter" data-level="15.4.2" data-path="publication-figures.html"><a href="publication-figures.html#fig-a2-devil-density-map"><i class="fa fa-check"></i><b>15.4.2</b> Fig A2 — Devil density map</a></li>
+<li class="chapter" data-level="15.4.3" data-path="publication-figures.html"><a href="publication-figures.html#fig-a3-landcover-composition"><i class="fa fa-check"></i><b>15.4.3</b> Fig A3 — Landcover composition</a></li>
+</ul></li>
+<li class="chapter" data-level="15.5" data-path="publication-figures.html"><a href="publication-figures.html#b.-alpha-diversity-microbiome"><i class="fa fa-check"></i><b>15.5</b> B. Alpha diversity (microbiome)</a>
+<ul>
+<li class="chapter" data-level="15.5.1" data-path="publication-figures.html"><a href="publication-figures.html#fig-b1-alpha-diversity-hill-numbers"><i class="fa fa-check"></i><b>15.5.1</b> Fig B1 — Alpha diversity (Hill numbers)</a></li>
+</ul></li>
+<li class="chapter" data-level="15.6" data-path="publication-figures.html"><a href="publication-figures.html#c.-beta-diversity-microbiome"><i class="fa fa-check"></i><b>15.6</b> C. Beta diversity (microbiome)</a>
+<ul>
+<li class="chapter" data-level="15.6.1" data-path="publication-figures.html"><a href="publication-figures.html#fig-c1-beta-diversity-nmds"><i class="fa fa-check"></i><b>15.6.1</b> Fig C1 — Beta diversity (NMDS)</a></li>
+</ul></li>
+<li class="chapter" data-level="15.7" data-path="publication-figures.html"><a href="publication-figures.html#g.-community-phylogeny"><i class="fa fa-check"></i><b>15.7</b> G. Community phylogeny</a>
+<ul>
+<li class="chapter" data-level="15.7.1" data-path="publication-figures.html"><a href="publication-figures.html#fig-g1-circular-community-phylogeny"><i class="fa fa-check"></i><b>15.7.1</b> Fig G1 — Circular community phylogeny</a></li>
+<li class="chapter" data-level="15.7.2" data-path="publication-figures.html"><a href="publication-figures.html#fig-g1b-circular-phylogeny-environment-presence-rings"><i class="fa fa-check"></i><b>15.7.2</b> Fig G1b — Circular phylogeny (environment presence rings)</a></li>
+<li class="chapter" data-level="15.7.3" data-path="publication-figures.html"><a href="publication-figures.html#fig-g1b-hmsc-circular-phylogeny-environment-association-rings"><i class="fa fa-check"></i><b>15.7.3</b> Fig G1b (HMSC) — Circular phylogeny (environment + association rings)</a></li>
+<li class="chapter" data-level="15.7.4" data-path="publication-figures.html"><a href="publication-figures.html#fig-g2-circular-community-phylogeny-mag-catalogue-rings"><i class="fa fa-check"></i><b>15.7.4</b> Fig G2 — Circular community phylogeny (MAG catalogue rings)</a></li>
+</ul></li>
+<li class="chapter" data-level="15.8" data-path="publication-figures.html"><a href="publication-figures.html#e.-community-composition"><i class="fa fa-check"></i><b>15.8</b> E. Community composition</a>
+<ul>
+<li class="chapter" data-level="15.8.1" data-path="publication-figures.html"><a href="publication-figures.html#fig-e1-phylum-composition-stacked-bars"><i class="fa fa-check"></i><b>15.8.1</b> Fig E1 — Phylum composition (stacked bars)</a></li>
+<li class="chapter" data-level="15.8.2" data-path="publication-figures.html"><a href="publication-figures.html#fig-e2-family-composition-sankey"><i class="fa fa-check"></i><b>15.8.2</b> Fig E2 — Family composition (Sankey)</a></li>
+<li class="chapter" data-level="15.8.3" data-path="publication-figures.html"><a href="publication-figures.html#fig-e3-dominant-mag-tile-plot"><i class="fa fa-check"></i><b>15.8.3</b> Fig E3 — Dominant MAG tile plot</a></li>
+</ul></li>
+<li class="chapter" data-level="15.9" data-path="publication-figures.html"><a href="publication-figures.html#f.-hmsc-spotlight-devil-density-devil-temperature"><i class="fa fa-check"></i><b>15.9</b> F. HMSC spotlight — devil density &amp; devil × temperature</a>
+<ul>
+<li class="chapter" data-level="15.9.1" data-path="publication-figures.html"><a href="publication-figures.html#fig-f1-hmsc-overview-hero-figure"><i class="fa fa-check"></i><b>15.9.1</b> Fig F1 — HMSC overview (hero figure)</a></li>
+<li class="chapter" data-level="15.9.2" data-path="publication-figures.html"><a href="publication-figures.html#fig-f2-devil-density-associations"><i class="fa fa-check"></i><b>15.9.2</b> Fig F2 — Devil density associations</a></li>
+<li class="chapter" data-level="15.9.3" data-path="publication-figures.html"><a href="publication-figures.html#fig-f3-temperature-associations"><i class="fa fa-check"></i><b>15.9.3</b> Fig F3 — Temperature associations</a></li>
+<li class="chapter" data-level="15.9.4" data-path="publication-figures.html"><a href="publication-figures.html#fig-f4-devil-temperature-interaction-key-finding"><i class="fa fa-check"></i><b>15.9.4</b> Fig F4 — Devil × temperature interaction (key finding)</a></li>
+<li class="chapter" data-level="15.9.5" data-path="publication-figures.html"><a href="publication-figures.html#fig-f5-devil-temperature-congruence"><i class="fa fa-check"></i><b>15.9.5</b> Fig F5 — Devil × temperature congruence</a></li>
+<li class="chapter" data-level="15.9.6" data-path="publication-figures.html"><a href="publication-figures.html#fig-f6-phylogeny-gift-heatmap"><i class="fa fa-check"></i><b>15.9.6</b> Fig F6 — Phylogeny + GIFT heatmap</a></li>
+<li class="chapter" data-level="15.9.7" data-path="publication-figures.html"><a href="publication-figures.html#fig-f6b-stacked-phylogeny-gift-heatmap"><i class="fa fa-check"></i><b>15.9.7</b> Fig F6b — Stacked phylogeny + GIFT heatmap</a></li>
+<li class="chapter" data-level="15.9.8" data-path="publication-figures.html"><a href="publication-figures.html#fig-f7-three-way-congruence"><i class="fa fa-check"></i><b>15.9.8</b> Fig F7 — Three-way congruence</a></li>
 </ul></li>
 </ul></li>
 <li class="divider"></li>
@@ -2170,8 +2327,17 @@ div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
 <div id="sample-metadata" class="section level3 hasAnchor" number="3.1.1">
 <h3><span class="header-section-number">3.1.1</span> Sample metadata<a href="prepare-data.html#sample-metadata" class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <p><strong>Note:</strong> Load sample metadata from the merged metadata file. The first column is renamed to “sample” to ensure consistent naming across the analysis.</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="prepare-data.html#cb3-1" tabindex="-1"></a>sample_metadata <span class="ot">&lt;-</span> <span class="fu">read_tsv</span>(<span class="st">&quot;data/merged_metadata.tsv&quot;</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb3-2"><a href="prepare-data.html#cb3-2" tabindex="-1"></a>    <span class="fu">rename</span>(<span class="at">sample=</span><span class="dv">1</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="prepare-data.html#cb3-1" tabindex="-1"></a>outlier_sample <span class="ot">&lt;-</span> <span class="st">&quot;EHI01340&quot;</span></span>
+<span id="cb3-2"><a href="prepare-data.html#cb3-2" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="prepare-data.html#cb3-3" tabindex="-1"></a>sample_metadata <span class="ot">&lt;-</span> <span class="fu">read_tsv</span>(<span class="st">&quot;data/merged_metadata.tsv&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb3-4"><a href="prepare-data.html#cb3-4" tabindex="-1"></a>    <span class="fu">rename</span>(<span class="at">sample=</span><span class="dv">1</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb3-5"><a href="prepare-data.html#cb3-5" tabindex="-1"></a>    <span class="fu">filter</span>(sample <span class="sc">!=</span> outlier_sample)</span>
+<span id="cb3-6"><a href="prepare-data.html#cb3-6" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="prepare-data.html#cb3-7" tabindex="-1"></a>sample_sites <span class="ot">&lt;-</span> readr<span class="sc">::</span><span class="fu">read_csv</span>(<span class="st">&quot;data/sample_sites.csv&quot;</span>, <span class="at">show_col_types =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb3-8"><a href="prepare-data.html#cb3-8" tabindex="-1"></a>sample_metadata <span class="ot">&lt;-</span> sample_metadata <span class="sc">%&gt;%</span></span>
+<span id="cb3-9"><a href="prepare-data.html#cb3-9" tabindex="-1"></a>  <span class="fu">left_join</span>(sample_sites, <span class="at">by =</span> <span class="fu">c</span>(<span class="st">&quot;sample&quot;</span> <span class="ot">=</span> <span class="st">&quot;id&quot;</span>))</span>
+<span id="cb3-10"><a href="prepare-data.html#cb3-10" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="prepare-data.html#cb3-11" tabindex="-1"></a>valid_samples <span class="ot">&lt;-</span> sample_metadata<span class="sc">$</span>sample</span></code></pre></div>
 </div>
 </div>
 <div id="load_read_counts" class="section level2 hasAnchor" number="3.2">
@@ -2179,7 +2345,7 @@ div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
 <p><strong>Note:</strong> Load read count data from the compressed TSV file. Rename the first column to “genome” and select only columns corresponding to samples present in the metadata. This ensures data consistency between counts and metadata.</p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="prepare-data.html#cb4-1" tabindex="-1"></a>read_counts <span class="ot">&lt;-</span> <span class="fu">read_tsv</span>(<span class="st">&quot;data/DMB0167_counts.tsv.gz&quot;</span>) <span class="sc">%&gt;%</span></span>
 <span id="cb4-2"><a href="prepare-data.html#cb4-2" tabindex="-1"></a>    <span class="fu">rename</span>(<span class="at">genome=</span><span class="dv">1</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb4-3"><a href="prepare-data.html#cb4-3" tabindex="-1"></a>    <span class="fu">select</span>(<span class="fu">one_of</span>(<span class="fu">c</span>(<span class="st">&quot;genome&quot;</span>,sample_metadata<span class="sc">$</span>sample)))  <span class="co"># Select specific columns from the data</span></span></code></pre></div>
+<span id="cb4-3"><a href="prepare-data.html#cb4-3" tabindex="-1"></a>    <span class="fu">select</span>(<span class="fu">any_of</span>(<span class="fu">c</span>(<span class="st">&quot;genome&quot;</span>, valid_samples)))</span></code></pre></div>
 </div>
 <div id="load_genome_metadata" class="section level2 hasAnchor" number="3.3">
 <h2><span class="header-section-number">3.3</span> load_genome_metadata<a href="prepare-data.html#load_genome_metadata" class="anchor-section" aria-label="Anchor link to header"></a></h2>
@@ -2194,8 +2360,8 @@ div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
 <p><strong>Note:</strong> Load genome coverage data (base hits) from the compressed TSV file. Rename the first column to “genome”, select only columns for samples in metadata, filter to genomes present in genome_metadata, and arrange in the same order as read_counts. This coverage data is used to filter low-coverage genomes.</p>
 <div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="prepare-data.html#cb6-1" tabindex="-1"></a>genome_coverage <span class="ot">&lt;-</span> <span class="fu">read_tsv</span>(<span class="st">&quot;data/DMB0167_coverage.tsv.gz&quot;</span>) <span class="sc">%&gt;%</span></span>
 <span id="cb6-2"><a href="prepare-data.html#cb6-2" tabindex="-1"></a>    <span class="fu">rename</span>(<span class="at">genome=</span><span class="dv">1</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb6-3"><a href="prepare-data.html#cb6-3" tabindex="-1"></a>    <span class="fu">select</span>(<span class="fu">one_of</span>(<span class="fu">c</span>(<span class="st">&quot;genome&quot;</span>,sample_metadata<span class="sc">$</span>sample)))<span class="sc">%&gt;%</span>   <span class="co"># Select specific columns from the data</span></span>
-<span id="cb6-4"><a href="prepare-data.html#cb6-4" tabindex="-1"></a>  <span class="fu">semi_join</span>(., genome_metadata, <span class="at">by =</span> <span class="st">&quot;genome&quot;</span>)<span class="sc">%&gt;%</span></span>
+<span id="cb6-3"><a href="prepare-data.html#cb6-3" tabindex="-1"></a>    <span class="fu">select</span>(<span class="fu">any_of</span>(<span class="fu">c</span>(<span class="st">&quot;genome&quot;</span>, valid_samples))) <span class="sc">%&gt;%</span></span>
+<span id="cb6-4"><a href="prepare-data.html#cb6-4" tabindex="-1"></a>  <span class="fu">semi_join</span>(., genome_metadata, <span class="at">by =</span> <span class="st">&quot;genome&quot;</span>) <span class="sc">%&gt;%</span></span>
 <span id="cb6-5"><a href="prepare-data.html#cb6-5" tabindex="-1"></a>  <span class="fu">arrange</span>(<span class="fu">match</span>(genome, read_counts<span class="sc">$</span>genome))</span></code></pre></div>
 </div>
 <div id="genome-tree" class="section level2 hasAnchor" number="3.5">
@@ -2208,15 +2374,20 @@ div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
 <div id="genome-annotations" class="section level2 hasAnchor" number="3.6">
 <h2><span class="header-section-number">3.6</span> Genome annotations<a href="prepare-data.html#genome-annotations" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p><strong>Note:</strong> Download genome annotation files from ERDA using Airtable metadata. This chunk connects to Airtable, retrieves annotation URLs for MAGs with genes, downloads all annotation tables, and combines them into a single compressed file. This only needs to be run once to generate the genome_annotations table. Note that the Airtable connection requires a personal access token.</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="prepare-data.html#cb8-1" tabindex="-1"></a><span class="fu">airtable</span>(<span class="st">&quot;MAGs&quot;</span>, <span class="st">&quot;appWbHBNLE6iAsMRV&quot;</span>) <span class="sc">%&gt;%</span> <span class="co">#get base ID from Airtable browser URL</span></span>
-<span id="cb8-2"><a href="prepare-data.html#cb8-2" tabindex="-1"></a>  <span class="fu">read_airtable</span>(., <span class="at">fields =</span> <span class="fu">c</span>(<span class="st">&quot;ID&quot;</span>,<span class="st">&quot;mag_name&quot;</span>,<span class="st">&quot;number_genes&quot;</span>,<span class="st">&quot;anno_url&quot;</span>), <span class="at">id_to_col =</span> <span class="cn">TRUE</span>) <span class="sc">%&gt;%</span> <span class="co">#get 3 columns from MAGs table</span></span>
-<span id="cb8-3"><a href="prepare-data.html#cb8-3" tabindex="-1"></a>  <span class="fu">filter</span>(mag_name <span class="sc">%in%</span> <span class="fu">paste0</span>(genome_metadata<span class="sc">$</span>genome,<span class="st">&quot;.fa&quot;</span>)) <span class="sc">%&gt;%</span> <span class="co">#filter by MAG name</span></span>
-<span id="cb8-4"><a href="prepare-data.html#cb8-4" tabindex="-1"></a>  <span class="fu">filter</span>(number_genes <span class="sc">&gt;</span> <span class="dv">0</span>) <span class="sc">%&gt;%</span> <span class="co">#genes need to exist</span></span>
-<span id="cb8-5"><a href="prepare-data.html#cb8-5" tabindex="-1"></a>  <span class="fu">select</span>(anno_url) <span class="sc">%&gt;%</span> <span class="co">#list MAG annotation urls</span></span>
-<span id="cb8-6"><a href="prepare-data.html#cb8-6" tabindex="-1"></a>  <span class="fu">pull</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb8-7"><a href="prepare-data.html#cb8-7" tabindex="-1"></a>  <span class="fu">read_tsv</span>() <span class="sc">%&gt;%</span> <span class="co">#load all tables</span></span>
-<span id="cb8-8"><a href="prepare-data.html#cb8-8" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="at">gene=</span><span class="dv">1</span>, <span class="at">genome=</span><span class="dv">2</span>, <span class="at">contig=</span><span class="dv">3</span>) <span class="sc">%&gt;%</span> <span class="co">#rename first 3 columns</span></span>
-<span id="cb8-9"><a href="prepare-data.html#cb8-9" tabindex="-1"></a>  <span class="fu">write_tsv</span>(<span class="at">file=</span><span class="st">&quot;data/genome_annotations.tsv.xz&quot;</span>) <span class="co">#write to overall compressed file</span></span></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="prepare-data.html#cb8-1" tabindex="-1"></a>anno_file <span class="ot">&lt;-</span> <span class="st">&quot;data/genome_annotations.tsv.xz&quot;</span></span>
+<span id="cb8-2"><a href="prepare-data.html#cb8-2" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">file.exists</span>(anno_file)) {</span>
+<span id="cb8-3"><a href="prepare-data.html#cb8-3" tabindex="-1"></a>  <span class="fu">message</span>(<span class="st">&quot;Using existing genome annotations: &quot;</span>, anno_file)</span>
+<span id="cb8-4"><a href="prepare-data.html#cb8-4" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb8-5"><a href="prepare-data.html#cb8-5" tabindex="-1"></a>  <span class="fu">airtable</span>(<span class="st">&quot;MAGs&quot;</span>, <span class="st">&quot;appWbHBNLE6iAsMRV&quot;</span>) <span class="sc">%&gt;%</span> <span class="co">#get base ID from Airtable browser URL</span></span>
+<span id="cb8-6"><a href="prepare-data.html#cb8-6" tabindex="-1"></a>    <span class="fu">read_airtable</span>(., <span class="at">fields =</span> <span class="fu">c</span>(<span class="st">&quot;ID&quot;</span>,<span class="st">&quot;mag_name&quot;</span>,<span class="st">&quot;number_genes&quot;</span>,<span class="st">&quot;anno_url&quot;</span>), <span class="at">id_to_col =</span> <span class="cn">TRUE</span>) <span class="sc">%&gt;%</span> <span class="co">#get 3 columns from MAGs table</span></span>
+<span id="cb8-7"><a href="prepare-data.html#cb8-7" tabindex="-1"></a>    <span class="fu">filter</span>(mag_name <span class="sc">%in%</span> <span class="fu">paste0</span>(genome_metadata<span class="sc">$</span>genome,<span class="st">&quot;.fa&quot;</span>)) <span class="sc">%&gt;%</span> <span class="co">#filter by MAG name</span></span>
+<span id="cb8-8"><a href="prepare-data.html#cb8-8" tabindex="-1"></a>    <span class="fu">filter</span>(number_genes <span class="sc">&gt;</span> <span class="dv">0</span>) <span class="sc">%&gt;%</span> <span class="co">#genes need to exist</span></span>
+<span id="cb8-9"><a href="prepare-data.html#cb8-9" tabindex="-1"></a>    <span class="fu">select</span>(anno_url) <span class="sc">%&gt;%</span> <span class="co">#list MAG annotation urls</span></span>
+<span id="cb8-10"><a href="prepare-data.html#cb8-10" tabindex="-1"></a>    <span class="fu">pull</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb8-11"><a href="prepare-data.html#cb8-11" tabindex="-1"></a>    <span class="fu">read_tsv</span>() <span class="sc">%&gt;%</span> <span class="co">#load all tables</span></span>
+<span id="cb8-12"><a href="prepare-data.html#cb8-12" tabindex="-1"></a>    <span class="fu">rename</span>(<span class="at">gene=</span><span class="dv">1</span>, <span class="at">genome=</span><span class="dv">2</span>, <span class="at">contig=</span><span class="dv">3</span>) <span class="sc">%&gt;%</span> <span class="co">#rename first 3 columns</span></span>
+<span id="cb8-13"><a href="prepare-data.html#cb8-13" tabindex="-1"></a>    <span class="fu">write_tsv</span>(<span class="at">file =</span> anno_file) <span class="co">#write to overall compressed file</span></span>
+<span id="cb8-14"><a href="prepare-data.html#cb8-14" tabindex="-1"></a>}</span></code></pre></div>
 <p><strong>Note:</strong> Load the pre-generated genome annotations table from the compressed file. Rename the first three columns to “gene”, “genome”, and “contig” for consistency. This annotation data is used for functional analysis using the GIFT framework.</p>
 <div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="prepare-data.html#cb9-1" tabindex="-1"></a>genome_annotations <span class="ot">&lt;-</span> <span class="fu">read_tsv</span>(<span class="st">&quot;data/genome_annotations.tsv.xz&quot;</span>) <span class="sc">%&gt;%</span></span>
 <span id="cb9-2"><a href="prepare-data.html#cb9-2" tabindex="-1"></a>    <span class="fu">rename</span>(<span class="at">gene=</span><span class="dv">1</span>, <span class="at">genome=</span><span class="dv">2</span>, <span class="at">contig=</span><span class="dv">3</span>)</span></code></pre></div>
@@ -2225,20 +2396,40 @@ div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
 <h2><span class="header-section-number">3.7</span> Filter reads by coverage<a href="prepare-data.html#filter-reads-by-coverage" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p><strong>Note:</strong> Filter read counts based on genome coverage. Set minimum coverage threshold (0.3) and create a binary mask where genomes with coverage above the threshold are kept (1) and below are excluded (0). Multiply read counts by this mask to zero out reads from low-coverage genomes, ensuring only high-quality genome assignments are retained.</p>
 <div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="prepare-data.html#cb10-1" tabindex="-1"></a>min_coverage<span class="ot">=</span><span class="fl">0.3</span></span>
-<span id="cb10-2"><a href="prepare-data.html#cb10-2" tabindex="-1"></a>read_counts_filt <span class="ot">&lt;-</span> genome_coverage <span class="sc">%&gt;%</span></span>
-<span id="cb10-3"><a href="prepare-data.html#cb10-3" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="fu">where</span>(is.numeric), <span class="sc">~</span> <span class="fu">ifelse</span>(. <span class="sc">&gt;</span> min_coverage, <span class="dv">1</span>, <span class="dv">0</span>))) <span class="sc">%&gt;%</span>  <span class="co"># Add or modify columns in the dataset</span></span>
-<span id="cb10-4"><a href="prepare-data.html#cb10-4" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="sc">~</span> . <span class="sc">*</span> read_counts[[<span class="fu">cur_column</span>()]]))  <span class="co"># Add or modify columns in the dataset</span></span></code></pre></div>
+<span id="cb10-2"><a href="prepare-data.html#cb10-2" tabindex="-1"></a>sample_cols <span class="ot">&lt;-</span> <span class="fu">setdiff</span>(<span class="fu">names</span>(read_counts), <span class="st">&quot;genome&quot;</span>)</span>
+<span id="cb10-3"><a href="prepare-data.html#cb10-3" tabindex="-1"></a></span>
+<span id="cb10-4"><a href="prepare-data.html#cb10-4" tabindex="-1"></a>coverage_mask <span class="ot">&lt;-</span> genome_coverage <span class="sc">%&gt;%</span></span>
+<span id="cb10-5"><a href="prepare-data.html#cb10-5" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="fu">where</span>(is.numeric), <span class="sc">~</span> <span class="fu">ifelse</span>(. <span class="sc">&gt;</span> min_coverage, <span class="dv">1</span>, <span class="dv">0</span>)))</span>
+<span id="cb10-6"><a href="prepare-data.html#cb10-6" tabindex="-1"></a></span>
+<span id="cb10-7"><a href="prepare-data.html#cb10-7" tabindex="-1"></a>read_counts_filt <span class="ot">&lt;-</span> read_counts <span class="sc">%&gt;%</span></span>
+<span id="cb10-8"><a href="prepare-data.html#cb10-8" tabindex="-1"></a>  <span class="fu">left_join</span>(</span>
+<span id="cb10-9"><a href="prepare-data.html#cb10-9" tabindex="-1"></a>    coverage_mask <span class="sc">%&gt;%</span> <span class="fu">rename_with</span>(<span class="sc">~</span> <span class="fu">paste0</span>(.x, <span class="st">&quot;_mask&quot;</span>), <span class="sc">-</span>genome),</span>
+<span id="cb10-10"><a href="prepare-data.html#cb10-10" tabindex="-1"></a>    <span class="at">by =</span> <span class="st">&quot;genome&quot;</span></span>
+<span id="cb10-11"><a href="prepare-data.html#cb10-11" tabindex="-1"></a>  )</span>
+<span id="cb10-12"><a href="prepare-data.html#cb10-12" tabindex="-1"></a></span>
+<span id="cb10-13"><a href="prepare-data.html#cb10-13" tabindex="-1"></a>read_counts_filt[sample_cols] <span class="ot">&lt;-</span></span>
+<span id="cb10-14"><a href="prepare-data.html#cb10-14" tabindex="-1"></a>  read_counts_filt[sample_cols] <span class="sc">*</span> read_counts_filt[<span class="fu">paste0</span>(sample_cols, <span class="st">&quot;_mask&quot;</span>)]</span>
+<span id="cb10-15"><a href="prepare-data.html#cb10-15" tabindex="-1"></a></span>
+<span id="cb10-16"><a href="prepare-data.html#cb10-16" tabindex="-1"></a>read_counts_filt <span class="ot">&lt;-</span> read_counts_filt <span class="sc">%&gt;%</span></span>
+<span id="cb10-17"><a href="prepare-data.html#cb10-17" tabindex="-1"></a>  <span class="fu">select</span>(genome, <span class="fu">all_of</span>(sample_cols))</span></code></pre></div>
 </div>
 <div id="transform-reads-into-genome-counts" class="section level2 hasAnchor" number="3.8">
 <h2><span class="header-section-number">3.8</span> Transform reads into genome counts<a href="prepare-data.html#transform-reads-into-genome-counts" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p><strong>Note:</strong> Transform raw read counts into normalized genome counts by dividing by genome length (scaled by read length). This accounts for the fact that longer genomes will naturally have more reads mapped to them, normalizing counts to represent relative abundance rather than absolute read numbers.</p>
-<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="prepare-data.html#cb11-1" tabindex="-1"></a>readlength<span class="ot">=</span><span class="dv">150</span></span>
-<span id="cb11-2"><a href="prepare-data.html#cb11-2" tabindex="-1"></a>genome_counts <span class="ot">&lt;-</span> read_counts <span class="sc">%&gt;%</span></span>
-<span id="cb11-3"><a href="prepare-data.html#cb11-3" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="fu">where</span>(is.numeric), <span class="sc">~</span> . <span class="sc">/</span> (genome_metadata<span class="sc">$</span>length <span class="sc">/</span> readlength) ))  <span class="co"># Add or modify columns in the dataset</span></span></code></pre></div>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="prepare-data.html#cb11-1" tabindex="-1"></a>readlength <span class="ot">&lt;-</span> <span class="dv">150</span></span>
+<span id="cb11-2"><a href="prepare-data.html#cb11-2" tabindex="-1"></a>genome_length_lookup <span class="ot">&lt;-</span> genome_metadata <span class="sc">%&gt;%</span> <span class="fu">select</span>(genome, <span class="at">mag_length =</span> length)</span>
+<span id="cb11-3"><a href="prepare-data.html#cb11-3" tabindex="-1"></a></span>
+<span id="cb11-4"><a href="prepare-data.html#cb11-4" tabindex="-1"></a>genome_counts <span class="ot">&lt;-</span> read_counts <span class="sc">%&gt;%</span></span>
+<span id="cb11-5"><a href="prepare-data.html#cb11-5" tabindex="-1"></a>  <span class="fu">left_join</span>(genome_length_lookup, <span class="at">by =</span> <span class="st">&quot;genome&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb11-6"><a href="prepare-data.html#cb11-6" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="sc">-</span><span class="fu">c</span>(genome, mag_length), <span class="sc">~</span> . <span class="sc">/</span> (mag_length <span class="sc">/</span> readlength))) <span class="sc">%&gt;%</span></span>
+<span id="cb11-7"><a href="prepare-data.html#cb11-7" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span>mag_length)</span></code></pre></div>
 <p><strong>Note:</strong> Transform filtered read counts (after coverage filtering) into normalized genome counts using the same length normalization approach. This creates the filtered genome count matrix used in downstream analyses, excluding low-coverage genomes.</p>
-<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="prepare-data.html#cb12-1" tabindex="-1"></a>readlength<span class="ot">=</span><span class="dv">150</span></span>
-<span id="cb12-2"><a href="prepare-data.html#cb12-2" tabindex="-1"></a>genome_counts_filt <span class="ot">&lt;-</span> read_counts_filt <span class="sc">%&gt;%</span></span>
-<span id="cb12-3"><a href="prepare-data.html#cb12-3" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="fu">where</span>(is.numeric), <span class="sc">~</span> . <span class="sc">/</span> (genome_metadata<span class="sc">$</span>length <span class="sc">/</span> readlength) ))  <span class="co"># Add or modify columns in the dataset</span></span></code></pre></div>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="prepare-data.html#cb12-1" tabindex="-1"></a>readlength <span class="ot">&lt;-</span> <span class="dv">150</span></span>
+<span id="cb12-2"><a href="prepare-data.html#cb12-2" tabindex="-1"></a></span>
+<span id="cb12-3"><a href="prepare-data.html#cb12-3" tabindex="-1"></a>genome_counts_filt <span class="ot">&lt;-</span> read_counts_filt <span class="sc">%&gt;%</span></span>
+<span id="cb12-4"><a href="prepare-data.html#cb12-4" tabindex="-1"></a>  <span class="fu">left_join</span>(genome_length_lookup, <span class="at">by =</span> <span class="st">&quot;genome&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb12-5"><a href="prepare-data.html#cb12-5" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="sc">-</span><span class="fu">c</span>(genome, mag_length), <span class="sc">~</span> . <span class="sc">/</span> (mag_length <span class="sc">/</span> readlength))) <span class="sc">%&gt;%</span></span>
+<span id="cb12-6"><a href="prepare-data.html#cb12-6" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span>mag_length)</span></code></pre></div>
 <div id="distill-annotations-into-gifts" class="section level3 hasAnchor" number="3.8.1">
 <h3><span class="header-section-number">3.8.1</span> Distill annotations into GIFTs<a href="prepare-data.html#distill-annotations-into-gifts" class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <p><strong>Note:</strong> Convert genome annotations into GIFT (Genome-Inferred Functional Traits) format using the distillR package. This aggregates gene-level annotations into functional trait profiles for each genome, which are used for community-level functional analysis. The function processes annotations from columns 9, 10, and 19 of the annotation table.</p>
@@ -3271,42 +3462,42 @@ jQuery.fn.highlight = function (words, options) {
 <script>
 gitbook.require(["gitbook"], function(gitbook) {
 gitbook.start({
-"sharing": {
-"github": false,
-"facebook": true,
-"twitter": true,
-"linkedin": false,
-"weibo": false,
-"instapaper": false,
-"vk": false,
-"whatsapp": false,
-"all": ["facebook", "twitter", "linkedin", "weibo", "instapaper"]
-},
-"fontsettings": {
-"theme": "white",
-"family": "sans",
-"size": 2
-},
-"edit": {
-"link": null,
-"text": null
-},
-"history": {
-"link": null,
-"text": null
-},
-"view": {
-"link": null,
-"text": null
-},
-"download": ["_main.pdf", "_main.epub"],
-"search": {
-"engine": "fuse",
-"options": null
-},
-"toc": {
-"collapse": "subsection"
-}
+  "sharing": {
+    "github": false,
+    "facebook": true,
+    "twitter": true,
+    "linkedin": false,
+    "weibo": false,
+    "instapaper": false,
+    "vk": false,
+    "whatsapp": false,
+    "all": ["facebook", "twitter", "linkedin", "weibo", "instapaper"]
+  },
+  "fontsettings": {
+    "theme": "white",
+    "family": "sans",
+    "size": 2
+  },
+  "edit": {
+    "link": null,
+    "text": null
+  },
+  "history": {
+    "link": null,
+    "text": null
+  },
+  "view": {
+    "link": null,
+    "text": null
+  },
+  "download": ["_main.pdf", "_main.epub"],
+  "search": {
+    "engine": "fuse",
+    "options": null
+  },
+  "toc": {
+    "collapse": "subsection"
+  }
 });
 });
 </script>

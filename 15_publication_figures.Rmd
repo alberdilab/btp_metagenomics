@@ -1,0 +1,852 @@
+# Publication figures
+
+This chapter exports **manuscript figures only** — not a full replay of every webbook visualisation. The selection follows Aizpurua et al. 2025 (*Molecular Ecology*, feral cat metagenomics): one study-context block, core diversity and composition panels, then HMSC association results as the spotlight.
+
+See [`VISUALIZATION_GUIDE.md`](VISUALIZATION_GUIDE.md) for the locked figure list, design system, and what stays **out of scope** (PERMANOVA/Mantel grids, env-Hill/ANCOM deep dives, optional jitter plots, etc.).
+
+**Spotlight findings:** devil density and the devil × temperature interaction (`model_final`; see chapter 14).
+
+**Manuscript order:** A (maps + landcover) → B (alpha) → C (beta) → G (circular phylogeny) → E (composition) → F (HMSC spotlight).
+
+## Knit prerequisites
+
+Chapter 15 is **visualization only**. Knit upstream chapters first (or render the full book through chapter 14):
+
+| Prerequisite | Built by | Cache / file used here |
+|--------------|----------|-------------------------|
+| Core objects | Ch 1 `01_prepare_data.Rmd` | `data/data.Rdata` |
+| Landcover + env CSVs | Ch 5 `05_Enviroment_types.Rmd` | `landcover_wide.csv`, `data/environment_var_r200.csv` |
+| Beta matrices + base figure cache | Ch 7 `07_Functional_diffrences.Rmd` | `data/publication_base.Rdata` |
+| Unfitted HMSC model | Ch 13 `13_hmsc_setup_final.Rmd` | `hmsc/model_final` |
+| HMSC analysis + figure cache | Ch 14 `14_hmsc_analysis_final.Rmd` | `data/publication_hmsc.Rdata` |
+
+Fallback (without knitting ch 14): `Rscript .cursor/scripts/cache_publication_data.R` rebuilds both `publication_*.Rdata` caches from disk + ERDA posterior.
+
+```{r load_libraries_figures, comment="", message=FALSE, warning=FALSE}
+library(tidyverse)
+library(patchwork)
+library(distillR)
+library(ggalluvial)
+```
+
+## Setup
+
+### Load project data
+
+```{r load_figures_data, message=FALSE, warning=FALSE}
+source("R/chapter_deps.R")
+load("data/data.Rdata")
+ensure_gift_db()
+
+gift_colors <- read_tsv("data/gift_colors.tsv") %>%
+  mutate(legend = str_c(Code_function, " - ", Function))
+
+sample_points_map <- read_csv("sample_points.csv", show_col_types = FALSE) %>%
+  rename(sample = id) %>%
+  filter(sample != "EHI01340")
+
+env_var_r200_fig <- read_csv("data/environment_var_r200.csv", show_col_types = FALSE)
+```
+
+### Plot helpers, theme, and palettes
+
+```{r source_plot_helpers, message=FALSE}
+source("R/plot_helpers.R")
+
+phylum_colors <- load_phylum_colors_fallback()
+spotlight_cols <- spotlight_palettes()
+fig_defaults <- publication_figure_defaults()
+env_settings <- environment_plot_settings()
+```
+
+### Load publication caches (chapters 7 + 14)
+
+```{r load_publication_caches, message=FALSE, warning=FALSE}
+load_publication_figure_caches()
+```
+
+### Export standards
+
+See [`VISUALIZATION_GUIDE.md`](VISUALIZATION_GUIDE.md) § Design system. Defaults: **180 mm** wide, **300 dpi**, PDF via `save_publication_figure()` → `figures/`. Pass `theme_fn = theme_publication` (function reference, not a pre-built theme object).
+
+---
+
+## Figure catalogue (manuscript set)
+
+Aligned with the Aizpurua cat-paper logic: **context → diversity → community phylogeny → composition → HMSC spotlight**. Supplementary webbook analyses (block D, extended beta/alpha grids) are intentionally excluded.
+
+| Block | Figures | Status |
+|-------|---------|--------|
+| **A. Study context & landcover** | A1–A3 | Done |
+| **B. Alpha diversity** | B1 | Done |
+| **C. Beta diversity** | C1 | Done |
+| **G. Community phylogeny** | G1 circular tree, G1b env rings, G1b+HMSC rings, G2 catalogue rings | Done |
+| **E. Community composition** | E1, E2, E3 | Done |
+| **F. HMSC spotlight** | F1–F8 | Done |
+
+**Out of scope for this chapter:** B2–B4, C2–C5, D1–D5, A4–A5 (remain in source chapters only).
+
+---
+
+## A. Study context & landscape
+
+*Supporting context. Source: chapters 2, 5.*
+
+- [x] **Fig A1** — Tasmania sample map (points coloured by `broad_environment`)
+- [x] **Fig A2** — Sample map with devil density gradient (200 m buffer)
+- [x] **Fig A3** — Stacked landcover composition per sample (cultivated / native / water / bare / urban)
+
+**Data ready:** `sample_points_map`, `sample_metadata_fig`, `data/environment_var_r200.csv`
+
+```{r map_fig_prep, message=FALSE, warning=FALSE}
+australia_map_fig <- load_australia_map_sf()
+
+tasmania_map_points_fig <- prepare_tasmania_map_points(
+  sample_metadata = sample_metadata_fig,
+  sample_points = sample_points_map
+)
+
+tasmania_devil_map_fig <- prepare_tasmania_map_points(
+  sample_metadata = sample_metadata_fig,
+  sample_points = sample_points_map,
+  env_variables = env_var_r200_fig %>% dplyr::select(id, devil)
+)
+```
+
+### Fig A1 — Tasmania sample map
+
+Geographic distribution of faecal sampling locations across Tasmania. Points are coloured by **broad environment type** (mixed forest, temperate woodland, xeric shrubland, temperate shrubland, cropland), showing where the study was conducted and how samples are spread across landscape contexts.
+
+```{r fig_A1_tasmania_map, message=FALSE, warning=FALSE, fig.height=6, fig.width=10}
+fig_A1 <- create_tasmania_environment_map(
+  tasmania_map_points_fig,
+  env_settings = env_settings,
+  map_sf = australia_map_fig,
+  theme_fn = theme_publication
+)
+
+fig_A1
+
+save_publication_figure(
+  plot = fig_A1,
+  filename = "fig_A1_tasmania_environment_map.pdf",
+  height_mm = 110
+)
+```
+
+### Fig A2 — Devil density map
+
+Same sampling locations, but point colour reflects **Tasmanian devil density** within a 200 m buffer around each site. This map introduces the main ecological predictor used in the HMSC spotlight analysis (`model_final`).
+
+```{r fig_A2_devil_density_map, message=FALSE, warning=FALSE, fig.height=6, fig.width=10}
+fig_A2 <- create_tasmania_devil_density_map(
+  tasmania_devil_map_fig,
+  devil_var = "devil",
+  map_sf = australia_map_fig,
+  theme_fn = theme_publication
+)
+
+fig_A2
+
+save_publication_figure(
+  plot = fig_A2,
+  filename = "fig_A2_tasmania_devil_density_map.pdf",
+  height_mm = 110
+)
+```
+
+### Fig A3 — Landcover composition
+
+Stacked bars show the **landcover mix** around each sample (200 m buffer), grouped into cultivated, native terrestrial, bare, and urban classes. Water is excluded and remaining classes are rescaled to 100% per sample so bars are directly comparable. Samples are ordered by environment type.
+
+```{r fig_A3_landcover, message=FALSE, warning=FALSE, fig.height=8, fig.width=12}
+landcover_group_cols <- landcover_group_colors()
+landcover_wide <- read_csv("landcover_wide.csv", show_col_types = FALSE) %>%
+  rename(sample = id)
+landcover_plot_df <- prepare_landcover_plot_df(
+  landcover_wide,
+  sample_ids = sample_metadata_fig$sample
+)
+
+fig_A3 <- create_landcover_stacked_bar(
+  landcover_plot_df,
+  group_colors = landcover_group_cols,
+  sample_order = sample_order_fig,
+  theme_fn = theme_publication
+)
+
+fig_A3
+
+save_publication_figure(
+  plot = fig_A3,
+  filename = "fig_A3_landcover_stacked.pdf",
+  height_mm = 120
+)
+```
+
+---
+
+## B. Alpha diversity (microbiome)
+
+*Supporting context. Source: chapter 6 (alpha diversity); precomputed in `publication_base.Rdata` from chapter 7.*
+
+- [x] **Fig B1** — 4-panel composite: richness, neutral, phylogenetic, functional Hill numbers by `broad_environment` (Aizpurua Fig 1d style)
+
+**Data ready:** `sample_metadata_fig`, `alpha_div_fig` (from `publication_base.Rdata`)
+
+### Fig B1 — Alpha diversity (Hill numbers)
+
+Four-panel summary of **within-sample microbiome diversity** using Hill numbers: richness (q = 0), neutral diversity (q = 1), phylogenetic diversity (q = 1), and functional diversity (q = 1). Boxplots compare broad environment types; jittered points show individual samples. Wilcoxon test results are shown on each panel.
+
+```{r fig_B1_alpha, message=FALSE, warning=FALSE, fig.height=9, fig.width=12}
+fig_B1_panels <- purrr::imap(
+  alpha_metric_labels,
+  ~ create_alpha_environment_plot(
+    alpha_div = alpha_div_fig,
+    sample_metadata = sample_metadata_fig,
+    target_metric = .y,
+    ylab = .x,
+    env_settings = env_settings,
+    show_legend = .y == names(alpha_metric_labels)[1],
+    theme_fn = theme_publication
+  )
+)
+
+fig_B1 <- (fig_B1_panels[[1]] | fig_B1_panels[[2]]) /
+  (fig_B1_panels[[3]] | fig_B1_panels[[4]]) +
+  patchwork::plot_layout(guides = "collect") +
+  patchwork::plot_annotation(tag_levels = "A")
+
+fig_B1
+
+save_publication_figure(
+  plot = fig_B1,
+  filename = "fig_B1_alpha_diversity.pdf",
+  height_mm = 140
+)
+```
+
+---
+
+## C. Beta diversity (microbiome)
+
+*Supporting context. Source: chapter 7 (beta / NMDS); precomputed in `publication_base.Rdata`.*
+
+- [x] **Fig C1** — NMDS ordination panels for q0 / q1 neutral / q1 phylogenetic / q1 functional (Aizpurua Fig 1e style)
+
+**Data ready:** `beta_mats_fig`, `nmds_limits_fig`, `sample_metadata_fig` (from `publication_base.Rdata`)
+
+### Fig C1 — Beta diversity (NMDS)
+
+Four **NMDS ordinations** of microbiome turnover between samples, one per Hill-based beta metric (richness, neutral, phylogenetic, functional). Points are samples coloured by broad environment; centroids mark group means. Shared axis limits allow direct comparison across panels.
+
+```{r fig_C1_nmds, message=FALSE, warning=FALSE, fig.height=9, fig.width=12}
+fig_C1_panels <- purrr::imap(
+  beta_metric_labels,
+  ~ create_nmds_plot(
+    beta_matrix = beta_mats_fig[[.y]],
+    sample_metadata = sample_metadata_fig,
+    env_settings = env_settings,
+    xlim = nmds_limits_fig$xlim,
+    ylim = nmds_limits_fig$ylim,
+    nmds_obj = nmds_fits_fig[[.y]],
+    panel_tag = .x,
+    show_centroids = TRUE,
+    theme_fn = theme_publication
+  ) +
+    theme(
+      legend.position = if (.y == names(beta_metric_labels)[1]) "bottom" else "none",
+      plot.title = element_text(size = 9, face = "bold", inherit.blank = TRUE)
+    )
+)
+
+fig_C1 <- (fig_C1_panels[[1]] | fig_C1_panels[[2]]) /
+  (fig_C1_panels[[3]] | fig_C1_panels[[4]]) +
+  patchwork::plot_layout(guides = "collect") +
+  patchwork::plot_annotation(tag_levels = "A")
+
+fig_C1
+
+save_publication_figure(
+  plot = fig_C1,
+  filename = "fig_C1_beta_nmds.pdf",
+  height_mm = 140
+)
+```
+
+---
+
+## G. Community phylogeny
+
+*Study-relevant MAGs on a circular tree with phylum ring (chapter 3 style, publication-simplified). HMSC ring panel uses `post_table` from chapter 14.*
+
+- [x] **Fig G1** — Circular community phylogeny + phylum annotation ring
+- [x] **Fig G1b** — Circular phylogeny + phylum + five `broad_environment` presence rings
+- [x] **Fig G1b (HMSC)** — Same as G1b plus devil / temperature / diversity association ring
+- [x] **Fig G2** — Circular community phylogeny + MAG catalogue rings (chapter 3 style)
+
+### Fig G1 — Circular community phylogeny
+
+Fan-layout **phylogenetic tree** of all MAGs detected in study samples (chapter 3 style, publication layout). Coloured phylum ring uses EHI colours with a compact legend on the left; outer bars show relative abundance.
+
+```{r fig_G1_circular_phylogeny, message=FALSE, warning=FALSE, fig.height=8, fig.width=8}
+study_genomes_fig <- study_genome_ids(genome_counts_fig)
+
+fig_G1 <- create_circular_community_phylogeny_plot(
+  genome_tree = genome_tree,
+  genome_metadata = genome_metadata,
+  genome_ids = study_genomes_fig,
+  genome_counts = genome_counts_fig,
+  phylum_colors = phylum_colors
+)
+
+if (is.null(fig_G1)) {
+  warning("No study genomes overlap tree tips for G1.", call. = FALSE)
+} else {
+  fig_G1
+
+  g1_dims <- circular_phylogeny_figure_dims(n_tips = length(study_genomes_fig))
+  save_publication_figure(
+    plot = fig_G1,
+    filename = "fig_G1_circular_phylogeny.pdf",
+    width_mm = g1_dims$width_mm,
+    height_mm = g1_dims$height_mm,
+    tight_layout = TRUE
+  )
+}
+```
+
+### Fig G1b — Circular phylogeny (environment presence rings)
+
+G2-style layout: **phylum** ring (EHI colours), one **environment presence** ring with five columns (MF / TW / XS / TS / C), and **genome size** bars attached directly outside the environment ring. Genome size is keyed in the left legend stack. Each environment column is coloured when the MAG was detected in that environment, white when absent.
+
+```{r fig_G1b_circular_phylogeny_env_rings, message=FALSE, warning=FALSE, fig.height=9, fig.width=10}
+fig_G1b_env <- create_circular_community_phylogeny_environment_plot(
+  genome_tree = genome_tree,
+  genome_metadata = genome_metadata,
+  genome_counts = genome_counts_fig,
+  sample_metadata = sample_metadata_fig,
+  genome_ids = study_genomes_fig,
+  phylum_colors = phylum_colors
+)
+
+if (is.null(fig_G1b_env)) {
+  warning("No study genomes overlap tree tips for G1b.", call. = FALSE)
+} else {
+  fig_G1b_env
+
+  g1b_dims <- circular_phylogeny_detailed_figure_dims(n_tips = length(study_genomes_fig))
+  save_publication_figure(
+    plot = fig_G1b_env,
+    filename = "fig_G1b_circular_phylogeny_env_rings.pdf",
+    width_mm = g1b_dims$width_mm,
+    height_mm = g1b_dims$height_mm,
+    tight_layout = TRUE
+  )
+  save_publication_figure(
+    plot = fig_G1b_env,
+    filename = "fig_G1b_circular_phylogeny_env_rings.png",
+    width_mm = g1b_dims$width_mm,
+    height_mm = g1b_dims$height_mm,
+    tight_layout = TRUE
+  )
+}
+```
+
+### Fig G1b (HMSC) — Circular phylogeny (environment + association rings)
+
+Same layout as G1b with an additional **HMSC association** ring (devil / temperature / diversity) outside the genome-size ring. Red = positive, blue = negative, grey = neutral; colour intensity reflects scaled posterior beta.
+
+```{r fig_G1b_circular_phylogeny_env_hmsc_rings, message=FALSE, warning=FALSE, fig.height=9, fig.width=11}
+beta_ci_list <- prepare_hmsc_context_beta_ci_list(
+  devil_ci = devil_ci_fig,
+  temperature_ci = temp_ci_fig,
+  post_table = post_table
+)
+
+fig_G1b_hmsc <- create_circular_community_phylogeny_environment_plot(
+  genome_tree = genome_tree,
+  genome_metadata = genome_metadata,
+  genome_counts = genome_counts_fig,
+  sample_metadata = sample_metadata_fig,
+  post_table = post_table,
+  beta_ci_list = beta_ci_list,
+  genome_ids = study_genomes_fig,
+  phylum_colors = phylum_colors
+)
+
+if (is.null(fig_G1b_hmsc)) {
+  warning("No study genomes overlap tree tips for G1b (HMSC).", call. = FALSE)
+} else {
+  fig_G1b_hmsc
+
+  g1b_hmsc_dims <- circular_phylogeny_figure_dims(
+    n_tips = length(study_genomes_fig),
+    legend_mm = 52
+  )
+  save_publication_figure(
+    plot = fig_G1b_hmsc,
+    filename = "fig_G1b_circular_phylogeny_env_hmsc_rings.pdf",
+    width_mm = g1b_hmsc_dims$width_mm,
+    height_mm = g1b_hmsc_dims$height_mm,
+    tight_layout = TRUE
+  )
+  save_publication_figure(
+    plot = fig_G1b_hmsc,
+    filename = "fig_G1b_circular_phylogeny_env_hmsc_rings.png",
+    width_mm = g1b_hmsc_dims$width_mm,
+    height_mm = g1b_hmsc_dims$height_mm,
+    tight_layout = TRUE
+  )
+}
+```
+
+### Fig G2 — Circular community phylogeny (MAG catalogue rings)
+
+Extended chapter 3 layout for study MAGs: **phylum** ring, **genome quality** (completeness bar coloured by contamination), **new species** flag, and **genome size** ring. Legends are stacked on the left; supplementary to the simplified G1 panel.
+
+```{r fig_G2_circular_phylogeny_rings, message=FALSE, warning=FALSE, fig.height=9, fig.width=10}
+fig_G2 <- create_circular_community_phylogeny_detailed_plot(
+  genome_tree = genome_tree,
+  genome_metadata = genome_metadata,
+  genome_ids = study_genomes_fig,
+  phylum_colors = phylum_colors
+)
+
+if (is.null(fig_G2)) {
+  warning("No study genomes overlap tree tips for G2.", call. = FALSE)
+} else {
+  fig_G2
+
+  g2_dims <- circular_phylogeny_detailed_figure_dims(n_tips = length(study_genomes_fig))
+  save_publication_figure(
+    plot = fig_G2,
+    filename = "fig_G2_circular_phylogeny_rings.pdf",
+    width_mm = g2_dims$width_mm,
+    height_mm = g2_dims$height_mm,
+    tight_layout = TRUE
+  )
+}
+```
+
+---
+
+## E. Community composition
+
+*Supporting context — microbiome structure. Source: chapter 4. Paper inspiration: Aizpurua Fig 1c (stacked composition + dominant MAG tile).*
+
+- [x] **Fig E1** — Phylum stacked barplot (publication restyle)
+- [x] **Fig E2** — Family Sankey (phylum → family % contribution)
+- [x] **Fig E3** — Dominant MAG tile plot (Aizpurua Fig 1c style)
+
+**Data ready:** `genome_counts_fig`, `genome_metadata`, `phylum_colors`, `sample_order_fig`
+
+### Fig E1 — Phylum composition (stacked bars)
+
+**Relative abundance** of the 12 most common phyla per sample, shown as stacked bars faceted by broad environment. Rare phyla are grouped as “Other”. Gives a sample-level view of who dominates the community taxonomically.
+
+```{r fig_E1_phylum_stacked, message=FALSE, warning=FALSE, fig.height=7, fig.width=12}
+phylum_stack_fig <- prepare_phylum_stacked_data(
+  genome_counts_fig,
+  genome_metadata,
+  sample_metadata_fig,
+  sample_order = sample_order_fig,
+  n_top = 12
+)
+
+fig_E1 <- create_phylum_stacked_bar(
+  phylum_stack_fig,
+  phylum_colors = phylum_colors,
+  facet_env = TRUE,
+  theme_fn = theme_publication
+)
+
+fig_E1
+
+save_publication_figure(
+  plot = fig_E1,
+  filename = "fig_E1_phylum_stacked.pdf",
+  height_mm = 110
+)
+```
+
+### Fig E2 — Family composition (Sankey)
+
+**Sankey diagram** of mean relative abundance flowing from **phylum** (left) to **family** (right). Stream width shows each family's contribution to the overall microbial community (averaged across study samples). The top 18 families are shown individually; remaining families are grouped as "Other families". Ribbons are coloured by phylum (EHI palette).
+
+```{r fig_E2_family_sankey, message=FALSE, warning=FALSE, fig.height=8, fig.width=12}
+family_sankey_fig <- prepare_family_sankey_data(
+  genome_counts_fig,
+  genome_metadata,
+  n_top = 18
+)
+
+fig_E2 <- create_family_sankey_plot(
+  family_sankey_fig,
+  phylum_colors = phylum_colors,
+  theme_fn = theme_publication
+)
+
+fig_E2
+
+save_publication_figure(
+  plot = fig_E2,
+  filename = "fig_E2_family_sankey.pdf",
+  height_mm = 130
+)
+```
+
+### Fig E3 — Dominant MAG tile plot
+
+Heatmap-style **tile plot** of the 35 most abundant MAGs across samples. Tile colour indicates phylum; intensity reflects relative abundance. Complements E1 by highlighting which individual genomes drive compositional patterns (Aizpurua Fig 1c style).
+
+```{r fig_E3_dominant_mag, message=FALSE, warning=FALSE, fig.height=9, fig.width=12}
+dominant_mag_fig <- prepare_dominant_mag_tile_data(
+  genome_counts_fig,
+  genome_metadata,
+  sample_metadata_fig,
+  n_mags = 35,
+  sample_order = sample_order_fig
+)
+
+fig_E3 <- create_dominant_mag_tile_plot(
+  dominant_mag_fig,
+  phylum_colors = phylum_colors,
+  theme_fn = theme_publication
+)
+
+fig_E3
+
+save_publication_figure(
+  plot = fig_E3,
+  filename = "fig_E3_dominant_mag_tile.pdf",
+  height_mm = 140
+)
+```
+
+---
+
+## F. HMSC spotlight — devil density & devil × temperature
+
+*Main manuscript message. Source: chapter 14 (`model_final` → `publication_hmsc.Rdata`). Highest priority — devil density and devil × temperature interaction.*
+
+- [x] **Fig F1 (hero)** — Multi-panel overview: variance partitioning + association counts + devil/temperature congruence + top genomes
+- [x] **Fig F2** — Devil: genome support threshold + functional significance
+- [x] **Fig F3** — Temperature: genome support threshold + functional significance
+- [x] **Fig F4** — **Interaction spotlight:** genome support threshold + functional significance
+- [x] **Fig F5** — Devil × temperature congruence tiles (taxonomic + functional, green/red congruence coding)
+- [x] **Fig F6** — Phylogeny + GIFT heatmap for significant MAGs (`ggtree` + `gheatmap`)
+- [x] **Fig F6b** — Stacked layout: phylogeny on top, fine-grained GIFT elements on y-axis
+- [x] **Fig F7** — Three-way congruence (devil + temperature + interaction agreement)
+- [x] **Fig F8** — Functional climate-stripe comparison (devil / temperature / interaction side by side)
+
+**Data ready:** `publication_hmsc.Rdata` (from chapter 14)
+
+```{r hmsc_fig_prep, message=FALSE, warning=FALSE}
+devil_beta_fig <- enrich_beta_support_data(devil_beta_fig, support_threshold = support_threshold)
+temp_beta_fig <- enrich_beta_support_data(temp_beta_fig, support_threshold = support_threshold)
+
+spotlight_fig_dims <- spotlight_panel_set_dims_mm(list(
+  devil = functional_diff_devil_fig,
+  temperature = functional_diff_temp_fig,
+  interaction = functional_diff_interaction_fig
+), fc_threshold = c(0.2, 0.2, 0.05))
+```
+
+### Fig F1 — HMSC overview (hero figure)
+
+Four-panel **summary of the HMSC model**: (A) variance partitioning across covariates, (B) number of genomes with positive/negative support per predictor, (C) congruence between devil and temperature effects, (D) forest plot of the top devil-associated genomes. Use this as the entry point to the spotlight results.
+
+```{r fig_F1_hero, message=FALSE, warning=FALSE, fig.height=10, fig.width=12}
+fig_F1_a <- create_varpart_summary_plot(
+  varpart_fig,
+  spotlight_cols = spotlight_cols,
+  theme_fn = theme_publication
+)
+fig_F1_b <- create_association_count_plot(
+  association_counts_fig,
+  spotlight_cols = spotlight_cols,
+  theme_fn = theme_publication
+)
+fig_F1_c <- create_congruence_summary_plot(
+  congruence_summary_fig,
+  congruence_colors = spotlight_cols,
+  theme_fn = theme_publication
+)
+fig_F1_d <- devil_ci_top_fig %>%
+  create_forest_plot(
+    color_var = "phylum",
+    color_values = phylum_colors,
+    x_lab = "Devil β coefficient",
+    y_lab = NULL,
+    base_size = 8,
+    errorbar_width = 0,
+    show_legend = FALSE,
+    theme_fn = theme_publication
+  ) +
+  labs(title = "Top devil-associated genomes")
+
+fig_F1 <- (fig_F1_a | fig_F1_b) / (fig_F1_c | fig_F1_d) +
+  patchwork::plot_annotation(tag_levels = "A")
+
+fig_F1
+
+save_publication_figure(
+  plot = fig_F1,
+  filename = "fig_F1_hmsc_hero.pdf",
+  height_mm = 160
+)
+```
+
+### Fig F2 — Devil density associations
+
+Functional **trait forest** for devil density: significant GIFT elements (|difference| ≥ 0.2, FDR < 0.05) with mean abundance difference and 95% CI between HMSC-positive and HMSC-negative genomes.
+
+```{r fig_F2_devil, message=FALSE, warning=FALSE, fig.height=8, fig.width=10}
+fig_F2 <- create_functional_trait_forest_plot(
+  functional_diff_devil_fig,
+  gift_colors = gift_colors,
+  variable_label = "Devil density",
+  spotlight_cols = spotlight_cols,
+  theme_fn = theme_publication
+)
+
+fig_F2
+
+save_publication_figure(
+  plot = fig_F2,
+  filename = "fig_F2_devil_spotlight.pdf",
+  width_mm = spotlight_fig_dims$width_mm,
+  height_mm = spotlight_fig_dims$height_mm
+)
+```
+
+### Fig F3 — Temperature associations
+
+Same functional trait forest layout as F2 for **temperature**.
+
+```{r fig_F3_temperature, message=FALSE, warning=FALSE, fig.height=8, fig.width=10}
+fig_F3 <- create_functional_trait_forest_plot(
+  functional_diff_temp_fig,
+  gift_colors = gift_colors,
+  variable_label = "Temperature",
+  spotlight_cols = spotlight_cols,
+  theme_fn = theme_publication
+)
+
+fig_F3
+
+save_publication_figure(
+  plot = fig_F3,
+  filename = "fig_F3_temperature_spotlight.pdf",
+  width_mm = spotlight_fig_dims$width_mm,
+  height_mm = spotlight_fig_dims$height_mm
+)
+```
+
+### Fig F4 — Devil × temperature interaction (key finding)
+
+**Interaction spotlight** — mean HMSC interaction beta per GIFT element across genomes carrying that trait. Unlike F2/F3 (abundance contrast between positively vs negatively associated genomes), interaction uses genome-level interaction betas because interaction-positive genomes largely overlap devil-negative genomes; an abundance contrast would mirror the devil panel (see `audit_hmsc_spotlight_contrasts()`).
+
+```{r fig_F4_interaction, message=FALSE, warning=FALSE, fig.height=8, fig.width=10}
+fig_F4 <- create_functional_trait_forest_plot(
+  functional_diff_interaction_fig,
+  gift_colors = gift_colors,
+  variable_label = "Devil x temperature",
+  fc_threshold = 0.05,
+  fdr_threshold = 0.05,
+  negative_label = "Negative interaction",
+  positive_label = "Positive interaction",
+  x_lab = "Mean interaction beta (95% CI)",
+  spotlight_cols = spotlight_cols,
+  theme_fn = theme_publication
+)
+
+fig_F4
+
+save_publication_figure(
+  plot = fig_F4,
+  filename = "fig_F4_interaction_spotlight.pdf",
+  width_mm = spotlight_fig_dims$width_mm,
+  height_mm = spotlight_fig_dims$height_mm
+)
+```
+
+### Fig F5 — Devil × temperature congruence
+
+**Congruence tiles** comparing whether devil and temperature push genomes in the same direction. Top panel: counts by phylum; bottom panel: mean functional response by GIFT element. Green = congruent (both positive or both negative); red = discordant.
+
+```{r fig_F5_congruence, message=FALSE, warning=FALSE, fig.height=8, fig.width=12}
+phyla_top <- congruence_taxa_fig %>%
+  group_by(phylum) %>%
+  summarise(total = sum(n), .groups = "drop") %>%
+  slice_max(total, n = 8) %>%
+  pull(phylum)
+
+fig_F5_a <- congruence_taxa_fig %>%
+  filter(phylum %in% phyla_top) %>%
+  create_congruence_tile_plot(
+    facet_var = "phylum",
+    value_var = "prop",
+    congruence_colors = spotlight_cols,
+    theme_fn = theme_publication
+  ) +
+  labs(title = "Taxonomic congruence")
+
+fig_F5_b <- congruence_func_fig %>%
+  create_congruence_tile_plot(
+    facet_var = "Code_function",
+    value_var = "mean_val",
+    congruence_colors = spotlight_cols,
+    theme_fn = theme_publication
+  ) +
+  labs(title = "Functional congruence")
+
+fig_F5 <- fig_F5_a / fig_F5_b +
+  patchwork::plot_layout(heights = c(1, 1.2)) +
+  patchwork::plot_annotation(tag_levels = "A")
+
+fig_F5
+
+save_publication_figure(
+  plot = fig_F5,
+  filename = "fig_F5_devil_temp_congruence.pdf",
+  height_mm = 150
+)
+```
+
+### Fig F6 — Phylogeny + GIFT heatmap
+
+Linear phylogeny of **HMSC-significant MAGs** (stratified across association patterns) with annotation strips: phylum, posterior **β** per predictor (white = not significant), and **GIFT function families** (aggregated with `to.functions()`, same as HMSC chapters).
+
+```{r fig_F6_phylo_gift, message=FALSE, warning=FALSE, fig.height=14, fig.width=12}
+phylo_gift_fig_data <- build_phylo_gift_fig_data(
+  genome_tree = hmsc_tree,
+  genome_metadata = genome_metadata,
+  genome_gifts = genome_gifts,
+  GIFT_db = GIFT_db,
+  post_table = post_table,
+  max_genomes = 120,
+  beta_ci_list = spotlight_beta_ci_list(
+    devil_ci_fig, temp_ci_fig, interaction_ci_fig
+  )
+)
+
+if (is.null(phylo_gift_fig_data)) {
+  warning("No spotlight-significant genomes for F6.", call. = FALSE)
+} else {
+  fig_F6 <- create_phylo_gift_heatmap_plot(
+    phylo_tree = phylo_gift_fig_data$tree,
+    phylum_matrix = phylo_gift_fig_data$phylum,
+    gift_matrix = phylo_gift_fig_data$gift,
+    beta_matrix = phylo_gift_fig_data$beta,
+    phylum_colors = phylum_colors,
+    tree_size = 0.22
+  )
+
+  fig_F6_dims <- phylo_gift_figure_dims(
+    n_genomes = phylo_gift_fig_data$n_genomes,
+    n_gift_elements = ncol(phylo_gift_fig_data$gift)
+  )
+
+  fig_F6
+
+  save_publication_figure(
+    plot = fig_F6,
+    filename = "fig_F6_phylo_gift_heatmap.pdf",
+    width_mm = fig_F6_dims$width_mm,
+    height_mm = fig_F6_dims$height_mm
+  )
+}
+```
+
+### Fig F6b — Stacked phylogeny + GIFT heatmap
+
+Same HMSC-significant MAG set as **Fig F6**, but with the phylogeny on top (genomes along the x-axis) and **element-level GIFT** as labelled rows below. Use this layout to compare fine-grained functional profiles against the function-family strip in F6.
+
+```{r fig_F6b_phylo_gift_stacked, message=FALSE, warning=FALSE, fig.height=16, fig.width=14}
+phylo_gift_fig_data_stacked <- build_phylo_gift_fig_data(
+  genome_tree = hmsc_tree,
+  genome_metadata = genome_metadata,
+  genome_gifts = genome_gifts,
+  GIFT_db = GIFT_db,
+  post_table = post_table,
+  max_genomes = 120,
+  beta_ci_list = spotlight_beta_ci_list(
+    devil_ci_fig, temp_ci_fig, interaction_ci_fig
+  ),
+  gift_level = "element"
+)
+
+if (is.null(phylo_gift_fig_data_stacked)) {
+  warning("No spotlight-significant genomes for F6b.", call. = FALSE)
+} else {
+  fig_F6b <- create_phylo_gift_heatmap_plot_stacked(
+    phylo_tree = phylo_gift_fig_data_stacked$tree,
+    phylum_matrix = phylo_gift_fig_data_stacked$phylum,
+    gift_matrix = phylo_gift_fig_data_stacked$gift,
+    GIFT_db = GIFT_db,
+    beta_matrix = phylo_gift_fig_data_stacked$beta,
+    phylum_colors = phylum_colors,
+    tree_size = 0.22
+  )
+
+  fig_F6b_dims <- phylo_gift_stacked_figure_dims(
+    n_genomes = phylo_gift_fig_data_stacked$n_genomes,
+    n_gift_rows = ncol(phylo_gift_fig_data_stacked$gift)
+  )
+
+  fig_F6b
+
+  save_publication_figure(
+    plot = fig_F6b,
+    filename = "fig_F6b_phylo_gift_heatmap_stacked.pdf",
+    width_mm = fig_F6b_dims$width_mm,
+    height_mm = fig_F6b_dims$height_mm
+  )
+}
+```
+
+### Fig F7 — Three-way congruence
+
+Synthesis of **agreement across all three predictors** (devil, temperature, interaction): (A) summary counts of genome support patterns, (B) tile plot for genomes with significant interaction support, (C) phylum-level breakdown. Shows how many genomes respond consistently across the full model.
+
+```{r fig_F7_threeway, message=FALSE, warning=FALSE, fig.height=9, fig.width=12}
+fig_F7_a <- create_threeway_congruence_summary_plot(
+  threeway_summary_fig,
+  spotlight_cols = spotlight_cols,
+  theme_fn = theme_publication
+)
+
+fig_F7_b <- create_threeway_interaction_tile_plot(
+  threeway_genomes_fig,
+  congruence_colors = spotlight_cols,
+  theme_fn = theme_publication
+)
+
+fig_F7_c <- create_threeway_phylum_congruence_plot(
+  threeway_genomes_fig,
+  phylum_colors = phylum_colors,
+  n_top = 8,
+  theme_fn = theme_publication
+)
+
+if (is.null(fig_F7_b)) {
+  warning("No triple-supported genomes for F7 interaction tiles.", call. = FALSE)
+  fig_F7 <- fig_F7_a / fig_F7_c +
+    patchwork::plot_layout(heights = c(1, 1.2)) +
+    patchwork::plot_annotation(tag_levels = "A")
+} else {
+  fig_F7 <- (fig_F7_a | fig_F7_b) / fig_F7_c +
+    patchwork::plot_layout(heights = c(1, 1.1)) +
+    patchwork::plot_annotation(tag_levels = "A")
+}
+
+fig_F7
+
+save_publication_figure(
+  plot = fig_F7,
+  filename = "fig_F7_threeway_congruence.pdf",
+  height_mm = 150
+)
+```

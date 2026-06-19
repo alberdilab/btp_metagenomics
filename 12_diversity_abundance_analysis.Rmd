@@ -6,7 +6,9 @@
 
 ```{r load_data_mag_filtdamr_diffe_diversity, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 
+source("R/chapter_deps.R")
 load("data/data.Rdata")   # sample_metadata, genome_counts_filt, genome_metadata, genome_tree, ...
+ensure_hill_rdata()
 load("data/hill.Rdata")   # hill_long (id, q in {h0,h1,h2}, value)
 
 ```
@@ -441,12 +443,22 @@ if (exists("alpha_div_meta") && nrow(alpha_div_meta) > 0) {
     low_vals <- plot_data %>% filter(.data[[group_col]] == "Low") %>% pull(.data[[metric_name]])
     high_vals <- plot_data %>% filter(.data[[group_col]] == "High") %>% pull(.data[[metric_name]])
     
-    if (length(low_vals) > 0 && length(high_vals) > 0) {
-      test_result <- wilcox.test(low_vals, high_vals)
-      p_val <- test_result$p.value
-      p_label <- ifelse(p_val < 0.001, "p < 0.001",
-                       ifelse(p_val < 0.01, paste0("p = ", round(p_val, 3)),
-                             paste0("p = ", round(p_val, 2))))
+    if (length(low_vals) > 0 && length(high_vals) > 0 &&
+        length(unique(low_vals)) > 1 && length(unique(high_vals)) > 1) {
+      test_result <- tryCatch(
+        wilcox.test(low_vals, high_vals),
+        error = function(e) NULL
+      )
+      p_val <- if (is.null(test_result)) NA_real_ else test_result$p.value
+      p_label <- if (is.na(p_val)) {
+        "N/A"
+      } else if (p_val < 0.001) {
+        "p < 0.001"
+      } else if (p_val < 0.01) {
+        paste0("p = ", round(p_val, 3))
+      } else {
+        paste0("p = ", round(p_val, 2))
+      }
     } else {
       p_label <- "N/A"
     }

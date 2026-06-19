@@ -117,7 +117,7 @@ combined_plot
 
 # ---- SAVE TO PDF ----
 ggsave(
-  filename = "Sample _maps.pdf",
+  filename = "Sample_maps.pdf",
   plot     = combined_plot,
   width    = 8,   # adjust for your needs
   height   = 4,   # adjust for your needs
@@ -234,7 +234,7 @@ sample_metadata %>%
 
 ## DNA fractions
 
-**Note:** Calculate the distribution of sequencing data across different categories: low quality bases (removed during quality filtering), bases mapped to host genome, unmapped bases (microbial but not in MAGs), and bases mapped to MAGs. Compute these fractions for each sample and convert to gigabases. Display per-sample breakdown and overall mean values in formatted tables.
+**Note:** Calculate the distribution of sequencing data across different categories: low quality bases (removed during quality filtering), bases mapped to host genome, unmapped bases (microbial but not in MAGs), and bases mapped to MAGs. Compute these fractions for each sample and convert to gigabases. Display per-sample breakdown and overall mean ± SD values (in GB and as % of total sequencing data) in formatted tables.
 
 ```{r dna_fractions_stats2}
 sequence_fractions <- read_counts %>%
@@ -244,7 +244,7 @@ sequence_fractions <- read_counts %>%
 	left_join(sample_metadata, by = join_by(sample)) %>%
 	select(sample, mags, metagenomic_bases, host_bases, bases_lost_fastp_percent) %>%
 	mutate(
-	  mags_bases = mags * 146,
+	  mags_bases = mags * 150,
 	  lowqual_bases = ((metagenomic_bases + host_bases) / (1 - bases_lost_fastp_percent)) - (metagenomic_bases + host_bases),
 	  unmapped_bases = pmax(metagenomic_bases - mags_bases, 0)
 	) %>%
@@ -257,12 +257,40 @@ sequence_fractions %>%
          "Unmapped" = unmapped_bases, "Mapped to MAGs" = mags_bases) %>%
   tt()
 
-# Display mean values
+# Display mean ± SD in gigabases
 sequence_fractions %>%
   mutate(across(-sample, ~ . / 1000000000)) %>%
-  summarise(across(where(is.numeric), mean, na.rm = TRUE)) %>%
-  rename("Low quality" = lowqual_bases, "Mapped to host" = host_bases, 
-         "Unmapped" = unmapped_bases, "Mapped to MAGs" = mags_bases) %>%
+  summarise(across(where(is.numeric),
+                   list(mean = \(x) round(mean(x, na.rm = TRUE), 2),
+                        sd = \(x) round(sd(x, na.rm = TRUE), 2)),
+                   .names = "{.col}_{.fn}")) %>%
+  pivot_longer(everything(), names_to = c("fraction", ".value"), names_pattern = "(.+)_(mean|sd)") %>%
+  unite("GB", mean, sd, sep = " ± ") %>%
+  mutate(fraction = factor(fraction,
+                           levels = c("lowqual_bases", "host_bases", "unmapped_bases", "mags_bases"),
+                           labels = c("Low quality", "Mapped to host", "Unmapped", "Mapped to MAGs"))) %>%
+  arrange(fraction) %>%
+  rename("Category" = fraction) %>%
+  tt()
+
+# Display mean ± SD as % of total sequencing data per sample
+sequence_fractions %>%
+  mutate(
+    total = lowqual_bases + host_bases + unmapped_bases + mags_bases,
+    across(c(lowqual_bases, host_bases, unmapped_bases, mags_bases),
+           \(x) x / total * 100, .names = "pct_{.col}")
+  ) %>%
+  summarise(across(starts_with("pct_"),
+                   list(mean = \(x) round(mean(x, na.rm = TRUE), 1),
+                        sd = \(x) round(sd(x, na.rm = TRUE), 1)),
+                   .names = "{.col}_{.fn}")) %>%
+  pivot_longer(everything(), names_to = c("fraction", ".value"), names_pattern = "pct_(.+)_(mean|sd)") %>%
+  unite("%", mean, sd, sep = " ± ") %>%
+  mutate(fraction = factor(fraction,
+                           levels = c("lowqual_bases", "host_bases", "unmapped_bases", "mags_bases"),
+                           labels = c("Low quality", "Mapped to host", "Unmapped", "Mapped to MAGs"))) %>%
+  arrange(fraction) %>%
+  rename("Category" = fraction) %>%
   tt()
 
 ```

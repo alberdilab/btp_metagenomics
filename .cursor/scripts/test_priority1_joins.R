@@ -6,11 +6,36 @@ library(dplyr)
 library(tibble)
 
 # Load data
+suppressPackageStartupMessages(library(distillR))
+
 load("data/data.Rdata")
 
 # Filter sample as done in the chapter
 sample_metadata <- sample_metadata %>% dplyr::filter(sample != "EHI01340")
 valid_samples <- sample_metadata$sample
+
+if (file.exists("data/gift_community.Rdata")) {
+  load("data/gift_community.Rdata")
+} else {
+  cat("Building GIFT community matrices (knit chapter 08 or save data/gift_community.Rdata)...\n")
+  genome_counts_filt <- genome_counts_filt[
+    genome_counts_filt$genome %in% rownames(genome_gifts),
+  ]
+  GIFTs_elements <- distillR::to.elements(genome_gifts, GIFT_db)
+  GIFTs_elements_filtered <- GIFTs_elements[
+    rownames(GIFTs_elements) %in% genome_counts_filt$genome,
+  ]
+  GIFTs_elements_filtered <- as.data.frame(GIFTs_elements_filtered) %>%
+    dplyr::select(where(~ !is.numeric(.) || sum(.) != 0))
+  GIFTs_functions <- distillR::to.functions(GIFTs_elements_filtered, GIFT_db)
+  GIFTs_domains <- distillR::to.domains(GIFTs_functions, GIFT_db)
+  genome_counts_row <- genome_counts_filt %>%
+    dplyr::mutate(dplyr::across(-genome, ~ .x / sum(.x))) %>%
+    tibble::column_to_rownames("genome")
+  GIFTs_elements_community <- distillR::to.community(GIFTs_elements_filtered, genome_counts_row, GIFT_db)
+  GIFTs_functions_community <- distillR::to.community(GIFTs_functions, genome_counts_row, GIFT_db)
+  GIFTs_domains_community <- distillR::to.community(GIFTs_domains, genome_counts_row, GIFT_db)
+}
 
 # Filter GIFT community data
 GIFTs_elements_community <- GIFTs_elements_community[rownames(GIFTs_elements_community) %in% valid_samples, , drop = FALSE]

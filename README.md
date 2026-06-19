@@ -5,7 +5,7 @@ The raw code used for data analysis is in the **Rmd** files stored in the root d
 
 [https://alberdilab.github.io/btp_metagenomics/](https://alberdilab.github.io/btp_metagenomics/)
 
-While the webbook provides a user-friendly overview of the procedures, analyses can be directly reproduced using the Rmd documents. Note that the code chunks that require heavy computation have been tuned off using 'eval=FALSE'. To re-render the webbook, you can use the following code:
+While the webbook provides a user-friendly overview of the procedures, analyses can be directly reproduced using the Rmd documents. Chapters are numbered **01–15** in `_bookdown.yml` (environment = ch05, alpha = ch06, beta = ch07, HMSC analysis = ch14, publication figures = ch15). Note that the code chunks that require heavy computation have been tuned off using 'eval=FALSE'. To re-render the webbook, you can use the following code:
 
 ```r
 library(bookdown)

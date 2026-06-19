@@ -1,0 +1,495 @@
+
+# Alpha diversity
+
+We quantify within-sample diversity using Hill numbers: richness (q0), neutral/abundance-weighted (q1), phylogenetic (q1 + tree), and functional (q1 + traits), and compare these across environments and sex.
+
+## microbiota
+
+**Note:** Load all required data objects including genome counts, metadata, and color schemes. Set factor levels for broad_environment variable to ensure consistent ordering.
+
+```{r load_data_alpha, message=FALSE, warning=FALSE}
+load("data/data.Rdata")
+treatment_colors <- c("#f56042","#429ef5", "#42f58d", "#b142f5", "#FFA500")
+sample_metadata$broad_environment <- factor(sample_metadata$broad_environment, levels=c("1000198 - Mixed forest", "1000221 - Temperate woodland", "1000218 - Xeric shrubland", "1000215 - Temperate shrubland", "1000245 - Cropland"))
+```
+
+**Note:** Filter out sample EHI01340 and filter genome counts to only include valid samples.
+
+```{r exclude_sample3, message=FALSE, warning=FALSE}
+
+sample_metadata <- sample_metadata %>% dplyr::filter(sample != "EHI01340")
+valid_samples <- sample_metadata$sample
+
+genome_counts_filt <- genome_counts_filt %>%
+  dplyr::select(genome, tidyselect::any_of(valid_samples))
+
+```
+
+**Note:** Prune the phylogenetic tree to match genomes present in the filtered count data. Identifies genomes that exist in both the count data and the tree, then removes tree tips that don't have corresponding count data.
+
+```{r pruning_tree, message=FALSE, warning=FALSE}
+# 1) Figure out the common labels
+otus  <- genome_counts_filt$genome
+tips  <- genome_tree$tip.label
+common <- intersect(tips, otus)
+
+# 2) Prune the tree to only those tips
+genome_tree_pruned <- drop.tip(genome_tree, setdiff(tips, common))
+```
+
+### Hill numbers
+Richness of microbiotic species in samples
+
+**Note:** Calculate four types of Hill number diversity metrics for each sample: richness (q=0, species count unweighted by abundance), neutral (q=1, Shannon diversity abundance-weighted), phylogenetic (q=1 + tree, incorporates phylogenetic relationships), and functional (q=1 + traits, incorporates functional trait distances). Then merge all metrics into a single alpha_div dataframe.
+
+```{r alpha_div, comment="", message=FALSE, warning=FALSE}
+# Calculate Hill numbers
+richness <- genome_counts_filt %>%
+  column_to_rownames(var = "genome") %>%
+  dplyr::select(where(~ !all(. == 0))) %>%
+  hilldiv(., q = 0) %>%
+  t() %>%
+  as.data.frame() %>%
+  dplyr::rename(richness = 1) %>%
+  rownames_to_column(var = "sample")
+
+neutral <- genome_counts_filt %>%
+  column_to_rownames(var = "genome") %>%
+  dplyr::select(where(~ !all(. == 0))) %>%
+  hilldiv(., q = 1) %>%
+  t() %>%
+  as.data.frame() %>%
+  dplyr::rename(neutral = 1) %>%
+  rownames_to_column(var = "sample")
+
+phylogenetic <- genome_counts_filt %>%
+  column_to_rownames(var = "genome") %>%
+  dplyr::select(where(~ !all(. == 0))) %>%
+  hilldiv(., q = 1, tree = genome_tree_pruned) %>%
+  t() %>%
+  as.data.frame() %>%
+  dplyr::rename(phylogenetic = 1) %>%
+  rownames_to_column(var = "sample")
+
+# Aggregate basal GIFT into elements
+dist <- genome_gifts %>%
+  to.elements(., GIFT_db) %>%
+  traits2dist(., method = "gower")
+
+functional <- genome_counts_filt %>%
+  filter(genome %in% rownames(dist)) %>%
+  arrange(match(genome, rownames(dist))) %>%
+  column_to_rownames(var = "genome") %>%
+  dplyr::select(where(~ !all(. == 0))) %>%
+  hilldiv(., q = 1, dist = dist) %>%
+  t() %>%
+  as.data.frame() %>%
+  dplyr::rename(functional = 1) %>%
+  rownames_to_column(var = "sample") %>%
+  filter(!is.nan(functional), !is.na(functional))
+
+# Merge all metrics
+alpha_div <- richness %>%
+  full_join(neutral, by = join_by(sample == sample)) %>%
+  full_join(phylogenetic, by = join_by(sample == sample)) %>%
+  full_join(functional, by = join_by(sample == sample))
+```
+
+**Note:** Create a summary statistics table showing mean ± SD for each alpha diversity metric. Calculates overall statistics and statistics by environment type, formats results as "mean±sd" strings, and displays results in a formatted table.
+
+```{r alpha_div_diets_summary_all, comment="",echo=FALSE, message=FALSE, warning=FALSE}
+alpha_div %>%
+  pivot_longer(-sample, names_to = "alpha", values_to = "value") %>%
+  inner_join(sample_metadata, by = join_by(sample == sample)) %>%
+    group_by(alpha)%>%
+    summarise(total_mean=mean(value, na.rm=T),
+              total_sd=sd(value, na.rm=T),
+              Xeric_shrubland_mean=mean(value[broad_environment=="1000218 - Xeric shrubland"], na.rm=T),
+             Xeric_shrubland_sd=sd(value[broad_environment=="1000218 - Xeric shrubland"], na.rm=T),
+             Cropland_mean=mean(value[broad_environment=="1000245 - Cropland"], na.rm=T),
+             Cropland_sd=sd(value[broad_environment=="1000245 - Cropland"], na.rm=T),
+              Mixed_forest_mean=mean(value[broad_environment=="1000198 - Mixed forest"], na.rm=T),
+             Mixed_forest_sd=sd(value[broad_environment=="1000198 - Mixed forest"], na.rm=T),
+              Temperate_woodland_mean=mean(value[broad_environment=="1000221 - Temperate woodland"], na.rm=T),
+              Temperate_woodland_sd=sd(value[broad_environment=="1000221 - Temperate woodland"], na.rm=T),
+              Temperate_shrubland_mean=mean(value[broad_environment=="1000215 - Temperate shrubland"], na.rm=T),
+              Temperate_shrubland_sd=sd(value[broad_environment=="1000215 - Temperate shrubland"], na.rm=T)) %>%
+    mutate(Total=str_c(round(total_mean,2),"±",round(total_sd,2)),
+           Xeric_shrubland=str_c(round(Xeric_shrubland_mean,2),"±",round(Xeric_shrubland_sd,2)),
+           Cropland=str_c(round(Cropland_mean,2),"±",round(Cropland_sd,2)),
+           Mixed_forest=str_c(round(Mixed_forest_mean,2),"±",round(Mixed_forest_sd,2)),
+           Temperate_woodland=str_c(round(Temperate_woodland_mean,2),"±",round(Temperate_woodland_sd,2)),
+           Temperate_shrubland=str_c(round(Temperate_shrubland_mean,2),"±",round(Temperate_shrubland_sd,2))) %>% 
+    arrange(-total_mean) %>% 
+    dplyr::select(alpha,Total,Xeric_shrubland,Temperate_woodland,Temperate_shrubland,Cropland,Mixed_forest) %>% 
+  tt()
+```
+
+Alpha-diversity across environments: richness (q0), neutral (q1), phylogenetic (q1 + tree), and functional (q1 + traits); jittered points show samples, boxes show group distributions; Wilcoxon p-values annotated.
+
+Richness of microbiotic species - environment clusters
+
+**Note:** Create boxplots comparing alpha diversity metrics across environments. Defines environment labels (short and long forms) and color mappings, creates a reusable plotting function for each metric, generates four plots (richness, neutral, phylogenetic, functional), combines plots into a 2x2 grid with shared legend, and includes Wilcoxon test p-values on each plot.
+
+```{r alpha_div_boxplot, comment="", message=FALSE, warning=FALSE, fig.height=7, fig.width=16, fig.fullwidth=TRUE}
+#Richness
+
+env_limits <- c(
+  "1000198 - Mixed forest",
+  "1000221 - Temperate woodland",
+  "1000218 - Xeric shrubland",
+  "1000215 - Temperate shrubland",
+  "1000245 - Cropland"
+)
+
+env_labels_short <- c("MF","TW","XS","TS","C")
+env_labels_long <- c(
+  "1000198 - Mixed forest"        = "Mixed forest (MF)",
+  "1000221 - Temperate woodland"  = "Temperate woodland (TW)",
+  "1000218 - Xeric shrubland"     = "Xeric shrubland (XS)",
+  "1000215 - Temperate shrubland" = "Temperate shrubland (TS)",
+  "1000245 - Cropland"            = "Cropland (C)"
+)
+
+make_plot <- function(target_metric, ylab){
+  alpha_div %>%
+    pivot_longer(-sample, names_to = "metric", values_to = "value") %>%
+    inner_join(sample_metadata, by = dplyr::join_by(sample == sample)) %>%
+    filter(metric == target_metric) %>%
+    ggplot(aes(x = broad_environment, y = value)) +
+    geom_boxplot(aes(fill = broad_environment),
+                 width = 0.65, alpha = 0.75, outlier.shape = NA,
+                 show.legend = TRUE, linewidth = 0.6) +
+    geom_jitter(aes(color = broad_environment),
+                width = 0.3, size = 1.8, alpha = 0.65,
+                show.legend = FALSE) +
+    scale_fill_manual(values = treatment_colors, labels = env_labels_long,
+                      breaks = env_limits, drop = FALSE) +
+    scale_color_manual(values = treatment_colors, guide = "none") +
+    scale_x_discrete(limits = env_limits, labels = env_labels_short, drop = FALSE) +
+    # p-value: white label at the very top of the panel
+    stat_compare_means(method = "kruskal.test", label = "p.format",
+                       geom = "label", fill = "white", label.size = 0.4,
+                       label.padding = unit(0.2, "lines"),
+                       label.r = unit(0.15, "lines"),
+                       color = "black",
+                       label.y.npc = 0.98, label.x = 3, size = 4, fontface = "bold") +
+    scale_y_continuous(expand = expansion(mult = c(0.08, 0.12))) +
+    coord_cartesian(clip = "off") +
+    theme_classic() +
+    theme(
+      legend.title = element_blank(),
+      legend.text = element_text(size = 11),
+      legend.position = "top",
+      legend.margin = margin(b = 6, t = 0),
+      legend.key.size = unit(0.8, "lines"),
+      legend.spacing.x = unit(0.3, "cm"),
+      legend.box.margin = margin(b = 5),
+      axis.title.x = element_blank(),
+      axis.text.x = element_text(size = 12, angle = 0, hjust = 0.5, 
+                                 margin = margin(t = 8)),
+      axis.text.y = element_text(size = 12),
+      axis.title.y = element_text(size = 13, margin = margin(r = 20), face = "bold"),
+      plot.margin = margin(t = 8, r = 12, b = 10, l = 12),
+      panel.spacing = unit(1.2, "lines")
+    ) +
+    labs(y = ylab)
+}
+
+plot1 <- make_plot("richness",      "Richness")
+plot2 <- make_plot("neutral",       "Neutral alpha diversity")
+plot3 <- make_plot("phylogenetic",  "Phylogenetic alpha diversity")
+plot4 <- make_plot("functional",    "Functional alpha diversity")
+
+# >>> Plots without legends <<<
+# Remove legends from individual plots
+plot1_no_legend <- plot1 + theme(legend.position = "none")
+plot2_no_legend <- plot2 + theme(legend.position = "none")
+plot3_no_legend <- plot3 + theme(legend.position = "none")
+plot4_no_legend <- plot4 + theme(legend.position = "none")
+
+# Combine plots without legends
+plots_combined <- (plot1_no_legend + plot2_no_legend + plot3_no_legend + plot4_no_legend) +
+  plot_layout(ncol = 2, widths = c(1, 1), heights = c(1, 1))
+
+# Create the legend
+legend_data <- data.frame(
+  environment = factor(env_limits, levels = env_limits),
+  x = 1:5,
+  y = 1
+)
+
+alpha_div_legend <- ggplot(legend_data, aes(x = x, y = y, fill = environment)) +
+  geom_point(shape = 22, size = 8, show.legend = TRUE) +
+  scale_fill_manual(
+    values = treatment_colors,
+    labels = env_labels_long,
+    breaks = env_limits,
+    drop = FALSE,
+    name = NULL
+  ) +
+  theme_void() +
+  theme(
+    legend.position = "top",
+    legend.direction = "horizontal",
+    legend.justification = "center",
+    legend.text = element_text(size = 13),
+    legend.key.size = unit(1.5, "lines"),
+    legend.spacing.x = unit(0.8, "cm"),
+    legend.margin = margin(b = 15, t = 10),
+    plot.margin = margin(t = 10, b = 5, l = 0, r = 0)
+  ) +
+  guides(fill = guide_legend(override.aes = list(size = 5)))
+
+# Combine legend on top with plots below
+final_plot <- cowplot::plot_grid(
+  alpha_div_legend,
+  plots_combined,
+  ncol = 1,
+  rel_heights = c(0.15, 1),
+  align = "v"
+)
+
+final_plot
+```
+
+
+Richness of microbiotic species - sex clusters
+
+**Note:** Create boxplots comparing alpha diversity metrics by sex, faceted by environment. Defines color scheme for sex categories, creates a plotting function that facets by environment, generates four plots (richness, neutral, phylogenetic, functional), combines plots into a 2x2 grid with shared legend, and includes Wilcoxon test p-values comparing Female vs Male within each environment.
+
+```{r alpha_div_boxplot_sex, comment="", message=FALSE, warning=FALSE, fig.height=5, fig.width=10, fig.fullwidth=TRUE}
+# colors (keep or replace)
+sex_colors <- c("Female" = "#E41A1C", "Male" = "#377EB8", "Unknown" = "grey50")
+
+make_plot_sex <- function(target_metric, ylab) {
+  alpha_div %>%
+    pivot_longer(-sample, names_to = "metric", values_to = "value") %>%
+    inner_join(sample_metadata, by = dplyr::join_by(sample == sample)) %>%
+    filter(metric == target_metric) %>%
+    mutate(
+      # ensure order + map short ticks
+      sex = factor(sex, levels = c("Female","Male","Unknown"))
+    ) %>%
+    ggplot(aes(x = sex, y = value, fill = sex)) +
+    geom_boxplot(width = 0.6, alpha = 0.7, outlier.shape = NA, 
+                 show.legend = TRUE, linewidth = 0.5) +
+    geom_jitter(aes(color = sex), width = 0.2, size = 1.3, alpha = 0.7, 
+                show.legend = FALSE) +
+    facet_grid(
+      ~ broad_environment,
+      labeller = labeller(broad_environment = c(
+        "1000198 - Mixed forest"       = "MF",
+        "1000221 - Temperate woodland" = "TW",
+        "1000218 - Xeric shrubland"    = "XS",
+        "1000215 - Temperate shrubland" = "TS",
+        "1000245 - Cropland"           = "C"
+      )),
+      scales = "fixed", space = "free_x"
+    ) +
+    # p-values: readable white labels at the top of each facet
+    ggpubr::stat_compare_means(
+      method = "wilcox.test",
+      comparisons = list(c("Female","Male")),
+      label = "p.format",
+      geom = "label", fill = "white", color = "black",
+      label.size = 0.3, label.padding = grid::unit(0.15, "lines"),
+      label.r = grid::unit(0.1, "lines"),
+      label.y.npc = 0.98, label.x.npc = 0.5, size = 3.5, fontface = "bold"
+    ) +
+    # SHORT x-ticks + legend with full names
+    scale_x_discrete(labels = c(Female = "F", Male = "M", Unknown = "U")) +
+    scale_fill_manual(
+      values = sex_colors,
+      labels = c("Female (F)", "Male (M)", "Unknown (U)")
+    ) +
+    scale_color_manual(values = sex_colors, guide = "none") +
+    scale_y_continuous(expand = expansion(mult = c(0.05, 0.15))) +
+    coord_cartesian(clip = "off") +
+    theme_classic() +
+    theme(
+      legend.position = "top",
+      legend.title = element_blank(),
+      legend.text = element_text(size = 11),
+      legend.margin = margin(b = 8),
+      strip.background = element_rect(fill = "grey95", color = "white"),
+      strip.text = element_text(size = 12, face = "bold", margin = margin(4, 0, 4, 0)),
+      axis.title.x = element_blank(),
+      axis.text.x = element_text(size = 11),
+      axis.text.y = element_text(size = 11),
+      axis.title.y = element_text(size = 12, margin = margin(r = 15)),
+      plot.margin = margin(t = 10, r = 8, b = 8, l = 8),
+      plot.caption = element_text(size = 9, hjust = 0, margin = margin(t = 5))
+    ) +
+    labs(
+      y = ylab,
+      caption = "Axis codes: F=Female; M=Male; U=Unknown."
+    )
+}
+
+plot1 <- make_plot_sex("richness",      "Richness")
+plot2 <- make_plot_sex("neutral",       "Neutral alpha diversity")
+plot3 <- make_plot_sex("phylogenetic",  "Phylogenetic alpha diversity")
+plot4 <- make_plot_sex("functional",    "Functional alpha diversity")
+
+# Remove legends from individual plots
+plot1_no_legend <- plot1 + theme(legend.position = "none")
+plot2_no_legend <- plot2 + theme(legend.position = "none")
+plot3_no_legend <- plot3 + theme(legend.position = "none")
+plot4_no_legend <- plot4 + theme(legend.position = "none")
+
+# Combine plots without legends
+plots_combined_sex <- (plot1_no_legend + plot2_no_legend + plot3_no_legend + plot4_no_legend) +
+  plot_layout(ncol = 2, widths = c(1, 1), heights = c(1, 1))
+
+# Create the legend for sex categories
+legend_data_sex <- data.frame(
+  sex = factor(c("Female", "Male", "Unknown"), levels = c("Female", "Male", "Unknown")),
+  x = 1:3,
+  y = 1
+)
+
+alpha_div_legend_sex <- ggplot(legend_data_sex, aes(x = x, y = y, fill = sex)) +
+  geom_point(shape = 22, size = 8, show.legend = TRUE) +
+  scale_fill_manual(
+    values = sex_colors,
+    labels = c("Female (F)", "Male (M)", "Unknown (U)"),
+    breaks = c("Female", "Male", "Unknown"),
+    name = NULL
+  ) +
+  theme_void() +
+  theme(
+    legend.position = "top",
+    legend.direction = "horizontal",
+    legend.justification = "center",
+    legend.text = element_text(size = 13),
+    legend.key.size = unit(1.5, "lines"),
+    legend.spacing.x = unit(0.8, "cm"),
+    legend.margin = margin(b = 15, t = 10),
+    plot.margin = margin(t = 10, b = 5, l = 0, r = 0)
+  ) +
+  guides(fill = guide_legend(override.aes = list(size = 5)))
+
+# Combine legend on top with plots below
+final_plot_sex <- cowplot::plot_grid(
+  alpha_div_legend_sex,
+  plots_combined_sex,
+  ncol = 1,
+  rel_heights = c(0.15, 1),
+  align = "v"
+)
+
+final_plot_sex
+
+```
+
+### Mixed models
+
+**Note:** Fit linear mixed-effects models (LME) and linear models (LM) for each alpha diversity metric. Merges alpha diversity with sample metadata and filters complete cases. For environment effects, **region** is the random intercept (sampling locality); for sex effects, **broad_environment** is the random intercept. Pairwise sex comparisons use `emmeans` on the sex LME.
+
+```{r rich_MM, comment="", message=FALSE, warning=FALSE}
+alpha_div_meta <- alpha_div %>%
+  inner_join(sample_metadata, by = join_by(sample == sample))
+
+alpha_div_meta_clean <- alpha_div_meta %>%
+  filter(!is.na(richness), !is.na(broad_environment), !is.na(sex), !is.na(region))
+
+Model_richness_random <- lme(
+  fixed = richness ~ broad_environment,
+  data = alpha_div_meta_clean,
+  random = ~ 1 | region
+)
+anova(Model_richness_random)
+
+Model_richness <- lm(
+  formula = richness ~ broad_environment + sex,
+  data = alpha_div_meta_clean
+)
+anova(Model_richness)
+
+Model_richness_sex_random <- lme(
+  fixed = richness ~ sex,
+  data = alpha_div_meta_clean,
+  random = ~ 1 | broad_environment
+)
+anova(Model_richness_sex_random)
+emmeans(Model_richness_sex_random, pairwise ~ sex)
+```
+
+```{r neutral_MM, comment="", message=FALSE, warning=FALSE}
+alpha_div_neutral_clean <- alpha_div_meta %>%
+  filter(!is.na(neutral), !is.na(broad_environment), !is.na(sex), !is.na(region))
+
+Model_neutral_random <- lme(
+  fixed = neutral ~ broad_environment,
+  data = alpha_div_neutral_clean,
+  random = ~ 1 | region
+)
+anova(Model_neutral_random)
+
+Model_neutral <- lm(
+  formula = neutral ~ broad_environment + sex,
+  data = alpha_div_neutral_clean
+)
+anova(Model_neutral)
+
+Model_neutral_sex_random <- lme(
+  fixed = neutral ~ sex,
+  data = alpha_div_neutral_clean,
+  random = ~ 1 | broad_environment
+)
+anova(Model_neutral_sex_random)
+emmeans(Model_neutral_sex_random, pairwise ~ sex)
+```
+
+```{r phylo_MM, comment="", message=FALSE, warning=FALSE}
+alpha_div_phylo_clean <- alpha_div_meta %>%
+  filter(!is.na(phylogenetic), !is.na(broad_environment), !is.na(sex), !is.na(region))
+
+Model_phylogenetic_random <- lme(
+  fixed = phylogenetic ~ broad_environment,
+  data = alpha_div_phylo_clean,
+  random = ~ 1 | region
+)
+anova(Model_phylogenetic_random)
+
+Model_phylogenetic <- lm(
+  formula = phylogenetic ~ broad_environment + sex,
+  data = alpha_div_phylo_clean
+)
+anova(Model_phylogenetic)
+
+Model_phylogenetic_sex_random <- lme(
+  fixed = phylogenetic ~ sex,
+  data = alpha_div_phylo_clean,
+  random = ~ 1 | broad_environment
+)
+anova(Model_phylogenetic_sex_random)
+emmeans(Model_phylogenetic_sex_random, pairwise ~ sex)
+```
+
+```{r funct_MM, comment="", message=FALSE, warning=FALSE}
+alpha_div_functional_clean <- alpha_div_meta %>%
+  filter(!is.na(functional), !is.na(broad_environment), !is.na(sex), !is.na(region))
+
+Model_functional_random <- lme(
+  fixed = functional ~ broad_environment,
+  data = alpha_div_functional_clean,
+  random = ~ 1 | region
+)
+anova(Model_functional_random)
+
+Model_functional <- lm(
+  formula = functional ~ broad_environment + sex,
+  data = alpha_div_functional_clean
+)
+anova(Model_functional)
+
+Model_functional_sex_random <- lme(
+  fixed = functional ~ sex,
+  data = alpha_div_functional_clean,
+  random = ~ 1 | broad_environment
+)
+anova(Model_functional_sex_random)
+emmeans(Model_functional_sex_random, pairwise ~ sex)
+```

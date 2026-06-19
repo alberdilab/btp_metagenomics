@@ -8,7 +8,15 @@ We test whether environmental α-diversity (Hill h0/h1/h2 of land-cover) relates
 **Note:** Load all required data objects including sample metadata, beta diversity matrices, and Hill diversity metrics from the RData files created in previous chapters.
 
 ```{r load_data_comparison, comment="", echo=FALSE, message=FALSE, warning=FALSE}
+source("R/chapter_deps.R")
 load("data/data.Rdata")
+ensure_hill_rdata()
+if (!file.exists("data/beta.Rdata")) {
+  stop(
+    "Missing data/beta.Rdata. Knit chapter 7 (Beta diversity) before this chapter.",
+    call. = FALSE
+  )
+}
 load("data/beta.Rdata")
 load("data/hill.Rdata")
 ```
@@ -328,8 +336,7 @@ pts_all <- as.data.frame(nmds0n$points) %>%
   dplyr::left_join(aligned0 %>% dplyr::select(sample, env_hill_h0, env_hill_h1, env_hill_h2), by = "sample") %>%
   tidyr::pivot_longer(cols = c(env_hill_h0, env_hill_h1, env_hill_h2), 
                       names_to = "hill_metric", 
-                      values_to = "hill_value",
-                      names_prefix = "env_hill_") %>%
+                      values_to = "hill_value") %>%
   tidyr::pivot_longer(cols = c(MDS1, MDS2), 
                       names_to = "nmds_axis", 
                       values_to = "nmds_value")

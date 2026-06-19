@@ -9,27 +9,35 @@ Load the original data files outputted by the bioinformatic pipeline.
 
 **Note:** Load sample metadata from the merged metadata file. The first column is renamed to "sample" to ensure consistent naming across the analysis.
 
-```{r load_sample_metadata, warning=FALSE, comments="", message=FALSE, eval=FALSE}
-sample_metadata <- read_tsv("data/merged_metadata.tsv") %>%
-    rename(sample=1)
+```{r load_sample_metadata, warning=FALSE, comments="", message=FALSE}
+outlier_sample <- "EHI01340"
 
+sample_metadata <- read_tsv("data/merged_metadata.tsv") %>%
+    rename(sample=1) %>%
+    filter(sample != outlier_sample)
+
+sample_sites <- readr::read_csv("data/sample_sites.csv", show_col_types = FALSE)
+sample_metadata <- sample_metadata %>%
+  left_join(sample_sites, by = c("sample" = "id"))
+
+valid_samples <- sample_metadata$sample
 ```
 
 ## load_read_counts
 
 **Note:** Load read count data from the compressed TSV file. Rename the first column to "genome" and select only columns corresponding to samples present in the metadata. This ensures data consistency between counts and metadata.
 
-```{r load_read_counts, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+```{r load_read_counts, warning=FALSE, comments="", message=FALSE}
 read_counts <- read_tsv("data/DMB0167_counts.tsv.gz") %>%
     rename(genome=1) %>% 
-    select(one_of(c("genome",sample_metadata$sample)))  # Select specific columns from the data
+    select(any_of(c("genome", valid_samples)))
 ```
 
 ## load_genome_metadata
 
 **Note:** Load genome metadata (MAG information) from the compressed TSV file. Rename "mag_size" to "length" for consistency. Filter to only include genomes present in the read counts data and arrange them in the same order as read_counts to ensure alignment across datasets.
 
-```{r load_genome_metadata, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+```{r load_genome_metadata, warning=FALSE, comments="", message=FALSE}
 genome_metadata <- read_tsv("data/DMB0167_mag_info.tsv.gz") %>%
     rename(length=mag_size)%>%
   semi_join(., read_counts, by = "genome") %>% 
@@ -40,11 +48,11 @@ genome_metadata <- read_tsv("data/DMB0167_mag_info.tsv.gz") %>%
 
 **Note:** Load genome coverage data (base hits) from the compressed TSV file. Rename the first column to "genome", select only columns for samples in metadata, filter to genomes present in genome_metadata, and arrange in the same order as read_counts. This coverage data is used to filter low-coverage genomes.
 
-```{r load_genome_hits, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+```{r load_genome_hits, warning=FALSE, comments="", message=FALSE}
 genome_coverage <- read_tsv("data/DMB0167_coverage.tsv.gz") %>%
     rename(genome=1) %>% 
-    select(one_of(c("genome",sample_metadata$sample)))%>%   # Select specific columns from the data
-  semi_join(., genome_metadata, by = "genome")%>%
+    select(any_of(c("genome", valid_samples))) %>%
+  semi_join(., genome_metadata, by = "genome") %>%
   arrange(match(genome, read_counts$genome))
 ```
 
@@ -52,7 +60,7 @@ genome_coverage <- read_tsv("data/DMB0167_coverage.tsv.gz") %>%
 
 **Note:** Load the phylogenetic tree of genomes from the compressed Newick file. Remove single quotes from tip labels (MAG names) and prune the tree to only include tips corresponding to genomes in the metadata. This ensures the tree matches the genomes used in downstream analyses.
 
-```{r load_genome_tree, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+```{r load_genome_tree, warning=FALSE, comments="", message=FALSE}
 genome_tree <- read_tree("data/DMB0167.tree.gz")
 genome_tree$tip.label <- str_replace_all(genome_tree$tip.label,"'", "") #remove single quotes in MAG names
 genome_tree <- keep.tip(genome_tree, tip=genome_metadata$genome) # keep only MAG tips
@@ -62,22 +70,27 @@ genome_tree <- keep.tip(genome_tree, tip=genome_metadata$genome) # keep only MAG
 
 **Note:** Download genome annotation files from ERDA using Airtable metadata. This chunk connects to Airtable, retrieves annotation URLs for MAGs with genes, downloads all annotation tables, and combines them into a single compressed file. This only needs to be run once to generate the genome_annotations table. Note that the Airtable connection requires a personal access token.
 
-```{r download_genome_annotations, warning=FALSE, comments="", message=FALSE, eval=FALSE}
-airtable("MAGs", "appWbHBNLE6iAsMRV") %>% #get base ID from Airtable browser URL
-  read_airtable(., fields = c("ID","mag_name","number_genes","anno_url"), id_to_col = TRUE) %>% #get 3 columns from MAGs table
-  filter(mag_name %in% paste0(genome_metadata$genome,".fa")) %>% #filter by MAG name
-  filter(number_genes > 0) %>% #genes need to exist
-  select(anno_url) %>% #list MAG annotation urls
-  pull() %>%
-  read_tsv() %>% #load all tables
-  rename(gene=1, genome=2, contig=3) %>% #rename first 3 columns
-  write_tsv(file="data/genome_annotations.tsv.xz") #write to overall compressed file
+```{r download_genome_annotations, warning=FALSE, comments="", message=FALSE, eval = FALSE}
+anno_file <- "data/genome_annotations.tsv.xz"
+if (file.exists(anno_file)) {
+  message("Using existing genome annotations: ", anno_file)
+} else {
+  airtable("MAGs", "appWbHBNLE6iAsMRV") %>% #get base ID from Airtable browser URL
+    read_airtable(., fields = c("ID","mag_name","number_genes","anno_url"), id_to_col = TRUE) %>% #get 3 columns from MAGs table
+    filter(mag_name %in% paste0(genome_metadata$genome,".fa")) %>% #filter by MAG name
+    filter(number_genes > 0) %>% #genes need to exist
+    select(anno_url) %>% #list MAG annotation urls
+    pull() %>%
+    read_tsv() %>% #load all tables
+    rename(gene=1, genome=2, contig=3) %>% #rename first 3 columns
+    write_tsv(file = anno_file) #write to overall compressed file
+}
 ```
 
 
 **Note:** Load the pre-generated genome annotations table from the compressed file. Rename the first three columns to "gene", "genome", and "contig" for consistency. This annotation data is used for functional analysis using the GIFT framework.
 
-```{r load_genome_annotations, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+```{r load_genome_annotations, warning=FALSE, comments="", message=FALSE}
 genome_annotations <- read_tsv("data/genome_annotations.tsv.xz") %>%
     rename(gene=1, genome=2, contig=3)
 ```
@@ -86,36 +99,56 @@ genome_annotations <- read_tsv("data/genome_annotations.tsv.xz") %>%
 
 **Note:** Filter read counts based on genome coverage. Set minimum coverage threshold (0.3) and create a binary mask where genomes with coverage above the threshold are kept (1) and below are excluded (0). Multiply read counts by this mask to zero out reads from low-coverage genomes, ensuring only high-quality genome assignments are retained.
 
-```{r filter_coverage, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+```{r filter_coverage, warning=FALSE, comments="", message=FALSE}
 min_coverage=0.3
-read_counts_filt <- genome_coverage %>%
-  mutate(across(where(is.numeric), ~ ifelse(. > min_coverage, 1, 0))) %>%  # Add or modify columns in the dataset
-  mutate(across(-1, ~ . * read_counts[[cur_column()]]))  # Add or modify columns in the dataset
+sample_cols <- setdiff(names(read_counts), "genome")
+
+coverage_mask <- genome_coverage %>%
+  mutate(across(where(is.numeric), ~ ifelse(. > min_coverage, 1, 0)))
+
+read_counts_filt <- read_counts %>%
+  left_join(
+    coverage_mask %>% rename_with(~ paste0(.x, "_mask"), -genome),
+    by = "genome"
+  )
+
+read_counts_filt[sample_cols] <-
+  read_counts_filt[sample_cols] * read_counts_filt[paste0(sample_cols, "_mask")]
+
+read_counts_filt <- read_counts_filt %>%
+  select(genome, all_of(sample_cols))
 ```
 
 ## Transform reads into genome counts
 
 **Note:** Transform raw read counts into normalized genome counts by dividing by genome length (scaled by read length). This accounts for the fact that longer genomes will naturally have more reads mapped to them, normalizing counts to represent relative abundance rather than absolute read numbers.
 
-```{r calculate_genome_counts_unfiltered, warning=FALSE, comments="", message=FALSE, eval=FALSE}
-readlength=150
+```{r calculate_genome_counts_unfiltered, warning=FALSE, comments="", message=FALSE}
+readlength <- 150
+genome_length_lookup <- genome_metadata %>% select(genome, mag_length = length)
+
 genome_counts <- read_counts %>%
-  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))  # Add or modify columns in the dataset
+  left_join(genome_length_lookup, by = "genome") %>%
+  mutate(across(-c(genome, mag_length), ~ . / (mag_length / readlength))) %>%
+  select(-mag_length)
 ```
 
 **Note:** Transform filtered read counts (after coverage filtering) into normalized genome counts using the same length normalization approach. This creates the filtered genome count matrix used in downstream analyses, excluding low-coverage genomes.
 
-```{r calculate_genome_counts_filtered_gut, warning=FALSE, comments="", message=FALSE, eval=FALSE}
-readlength=150
+```{r calculate_genome_counts_filtered_gut, warning=FALSE, comments="", message=FALSE}
+readlength <- 150
+
 genome_counts_filt <- read_counts_filt %>%
-  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))  # Add or modify columns in the dataset
+  left_join(genome_length_lookup, by = "genome") %>%
+  mutate(across(-c(genome, mag_length), ~ . / (mag_length / readlength))) %>%
+  select(-mag_length)
 ```
 
 ### Distill annotations into GIFTs 
 
 **Note:** Convert genome annotations into GIFT (Genome-Inferred Functional Traits) format using the distillR package. This aggregates gene-level annotations into functional trait profiles for each genome, which are used for community-level functional analysis. The function processes annotations from columns 9, 10, and 19 of the annotation table.
 
-```{r distill_annotations, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+```{r distill_annotations, warning=FALSE, comments="", message=FALSE, eval = FALSE}
  genome_gifts <- distill(genome_annotations,GIFT_db,genomecol=2,annotcol=c(9,10,19), verbosity=F)
 ```
 
@@ -124,7 +157,7 @@ genome_counts_filt <- read_counts_filt %>%
 
 **Note:** Load phylum-level color scheme from the EHI taxonomy color repository. Join with genome metadata to get colors for phyla present in the dataset, arrange to match the tree tip order, and create a named vector mapping phylum names to colors. This ensures consistent color coding across all visualizations.
 
-```{r get_ehi_colors, warning=FALSE, comments="", message=FALSE, eval=FALSE}  
+```{r get_ehi_colors, warning=FALSE, comments="", message=FALSE}  
 phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
     right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
     arrange(match(genome, genome_tree$tip.label)) %>%
@@ -136,7 +169,7 @@ phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI
 
 **Note:** Classify samples into geographic regions (Tasmania vs Australia) based on latitude and longitude coordinates. Samples within the specified geographic bounds are classified as "Tasmania", all others as "Australia". This creates a categorical variable for geographic analysis.
 
-```{r tasmania_australia_split_01, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+```{r tasmania_australia_split_01, warning=FALSE, comments="", message=FALSE}
 sample_metadata <- sample_metadata %>%
   mutate(
     island = case_when(
@@ -151,7 +184,7 @@ sample_metadata <- sample_metadata %>%
 
 **Note:** Save all processed data objects into a single RData file for efficient loading in downstream analyses. This includes sample metadata, genome metadata, read counts, normalized genome counts (both filtered and unfiltered), phylogenetic tree, GIFT functional annotations, and color schemes. All subsequent chapters load this single file to access the prepared data.
 
-```{r wrap_working_objects, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+```{r wrap_working_objects, warning=FALSE, comments="", message=FALSE}
   save(sample_metadata,
      genome_metadata,
      read_counts,

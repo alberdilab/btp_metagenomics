@@ -65,6 +65,7 @@ COLUMN NAMING RULES:
 - Use descriptive names that indicate the transformation (e.g., "_mean", "_sd")
 
 COLOR CONSISTENCY RULES:
+- Publication figures: see `VISUALIZATION_GUIDE.md` for theme, spotlight palettes, and export standards
 - BASELINE: EHI Taxonomy Colour Profile is the authoritative source for all taxonomy color coding
 - Maintain consistent color palettes across the entire project
 - Use predefined color objects from data.Rdata: phylum_colors, treatment_colors, gift_colors
