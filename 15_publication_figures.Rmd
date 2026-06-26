@@ -67,7 +67,7 @@ load_publication_figure_caches()
 
 ### Export standards
 
-See [`VISUALIZATION_GUIDE.md`](VISUALIZATION_GUIDE.md) § Design system. Defaults: **180 mm** wide, **300 dpi**, PDF via `save_publication_figure()` → `figures/`. Pass `theme_fn = theme_publication` (function reference, not a pre-built theme object).
+See [`VISUALIZATION_GUIDE.md`](VISUALIZATION_GUIDE.md) § Design system. Defaults: **180 mm** wide, **600 dpi**, PDF via `save_publication_figure()` → `figures/`. Pass `theme_fn = theme_publication` (function reference, not a pre-built theme object).
 
 ---
 
@@ -77,7 +77,7 @@ Aligned with the Aizpurua cat-paper logic: **context → diversity → community
 
 | Block | Figures | Status |
 |-------|---------|--------|
-| **A. Study context & landcover** | A1–A3 | Done |
+| **A. Study context & landcover** | A1–A3, A1b+E1b overview composite | Done |
 | **B. Alpha diversity** | B1 | Done |
 | **C. Beta diversity** | C1 | Done |
 | **G. Community phylogeny** | G1 circular tree, G1b env rings, G1b+HMSC rings, G2 catalogue rings | Done |
@@ -111,11 +111,17 @@ tasmania_devil_map_fig <- prepare_tasmania_map_points(
   sample_points = sample_points_map,
   env_variables = env_var_r200_fig %>% dplyr::select(id, devil)
 )
+
+all_map_points_fig <- prepare_study_map_points(
+  sample_metadata = sample_metadata_fig,
+  sample_points = sample_points_map,
+  env_variables = env_var_r200_fig %>% dplyr::select(id, devil)
+)
 ```
 
 ### Fig A1 — Tasmania sample map
 
-Geographic distribution of faecal sampling locations across Tasmania. Points are coloured by **broad environment type** (mixed forest, temperate woodland, xeric shrubland, temperate shrubland, cropland), showing where the study was conducted and how samples are spread across landscape contexts.
+Geographic distribution of faecal sampling locations across Tasmania. Points are coloured by **broad environment type** (mixed forest, temperate woodland, xeric shrubland, temperate shrubland, cropland), with **point size proportional to the number of samples per site** (samples sharing the same coordinates are aggregated).
 
 ```{r fig_A1_tasmania_map, message=FALSE, warning=FALSE, fig.height=6, fig.width=10}
 fig_A1 <- create_tasmania_environment_map(
@@ -130,7 +136,32 @@ fig_A1
 save_publication_figure(
   plot = fig_A1,
   filename = "fig_A1_tasmania_environment_map.pdf",
-  height_mm = 110
+  width_mm = 200,
+  height_mm = 120
+)
+```
+
+### Fig A1b — Tasmania sample map with devil density
+
+Combined study map: **point fill** = broad environment type, **point border colour** = Tasmanian devil density (200 m buffer), **point size** = number of samples per site.
+
+```{r fig_A1b_tasmania_map_devil, message=FALSE, warning=FALSE, fig.height=6, fig.width=11}
+fig_A1b <- create_tasmania_environment_map(
+  tasmania_devil_map_fig,
+  env_settings = env_settings,
+  map_sf = australia_map_fig,
+  title = NULL,
+  devil_var = "devil",
+  theme_fn = theme_publication
+)
+
+fig_A1b
+
+save_publication_figure(
+  plot = fig_A1b,
+  filename = "fig_A1b_tasmania_environment_map_devil_border.pdf",
+  width_mm = 200,
+  height_mm = 120
 )
 ```
 
@@ -151,7 +182,8 @@ fig_A2
 save_publication_figure(
   plot = fig_A2,
   filename = "fig_A2_tasmania_devil_density_map.pdf",
-  height_mm = 110
+  width_mm = 200,
+  height_mm = 120
 )
 ```
 
@@ -196,7 +228,7 @@ save_publication_figure(
 
 ### Fig B1 — Alpha diversity (Hill numbers)
 
-Four-panel summary of **within-sample microbiome diversity** using Hill numbers: richness (q = 0), neutral diversity (q = 1), phylogenetic diversity (q = 1), and functional diversity (q = 1). Boxplots compare broad environment types; jittered points show individual samples. Wilcoxon test results are shown on each panel.
+Four-panel summary of **within-sample microbiome diversity** using Hill numbers: richness (q = 0), neutral diversity (q = 1), phylogenetic diversity (q = 1), and functional diversity (q = 1). Boxplots compare broad environment types; jittered points show individual samples. Kruskal-Wallis test results are shown on each panel. A shared environment legend sits in the left column so all four panels use equal plot area.
 
 ```{r fig_B1_alpha, message=FALSE, warning=FALSE, fig.height=9, fig.width=12}
 fig_B1_panels <- purrr::imap(
@@ -207,22 +239,24 @@ fig_B1_panels <- purrr::imap(
     target_metric = .y,
     ylab = .x,
     env_settings = env_settings,
-    show_legend = .y == names(alpha_metric_labels)[1],
+    show_legend = FALSE,
     theme_fn = theme_publication
   )
 )
 
-fig_B1 <- (fig_B1_panels[[1]] | fig_B1_panels[[2]]) /
-  (fig_B1_panels[[3]] | fig_B1_panels[[4]]) +
-  patchwork::plot_layout(guides = "collect") +
-  patchwork::plot_annotation(tag_levels = "A")
+fig_B1_dims <- four_panel_diversity_figure_dims()
+fig_B1 <- compose_four_panel_environment_figure(
+  panels = fig_B1_panels,
+  env_settings = env_settings
+)
 
 fig_B1
 
 save_publication_figure(
   plot = fig_B1,
   filename = "fig_B1_alpha_diversity.pdf",
-  height_mm = 140
+  width_mm = fig_B1_dims$width_mm,
+  height_mm = fig_B1_dims$height_mm
 )
 ```
 
@@ -238,7 +272,7 @@ save_publication_figure(
 
 ### Fig C1 — Beta diversity (NMDS)
 
-Four **NMDS ordinations** of microbiome turnover between samples, one per Hill-based beta metric (richness, neutral, phylogenetic, functional). Points are samples coloured by broad environment; centroids mark group means. Shared axis limits allow direct comparison across panels.
+Four **NMDS ordinations** of microbiome turnover between samples, one per Hill-based beta metric (richness, neutral, phylogenetic, functional). Points are samples coloured by broad environment; centroids mark group means. Shared axis limits allow direct comparison across panels. Environment and island legends are placed in the left column so all four panels use equal plot area.
 
 ```{r fig_C1_nmds, message=FALSE, warning=FALSE, fig.height=9, fig.width=12}
 fig_C1_panels <- purrr::imap(
@@ -253,25 +287,47 @@ fig_C1_panels <- purrr::imap(
     panel_tag = .x,
     show_centroids = TRUE,
     theme_fn = theme_publication
-  ) +
-    theme(
-      legend.position = if (.y == names(beta_metric_labels)[1]) "bottom" else "none",
-      plot.title = element_text(size = 9, face = "bold", inherit.blank = TRUE)
-    )
+  )
 )
 
-fig_C1 <- (fig_C1_panels[[1]] | fig_C1_panels[[2]]) /
-  (fig_C1_panels[[3]] | fig_C1_panels[[4]]) +
-  patchwork::plot_layout(guides = "collect") +
-  patchwork::plot_annotation(tag_levels = "A")
+fig_C1_dims <- four_panel_diversity_figure_dims()
+fig_C1 <- compose_four_panel_environment_figure(
+  panels = fig_C1_panels,
+  env_settings = env_settings,
+  show_island_legend = TRUE
+)
 
 fig_C1
 
 save_publication_figure(
   plot = fig_C1,
   filename = "fig_C1_beta_nmds.pdf",
-  height_mm = 140
+  width_mm = fig_C1_dims$width_mm,
+  height_mm = fig_C1_dims$height_mm
 )
+```
+
+### Fig B1 + C1 — Alpha and beta diversity composite
+
+Combined **B1** (alpha Hill numbers) and **C1** (beta NMDS) in one figure. Panel grids use equal area; environment and island legends are extracted from the individual figures and stacked on the right at a shared horizontal position.
+
+```{r fig_AB_alpha_beta_composite, message=FALSE, warning=FALSE}
+fig_AB_bundle <- compose_alpha_beta_diversity_composite(
+  alpha_panels = fig_B1_panels,
+  beta_panels = fig_C1_panels,
+  env_settings = env_settings
+)
+
+fig_AB_bundle$plot
+
+for (ext in c("pdf", "png")) {
+  save_publication_figure(
+    plot = fig_AB_bundle$plot,
+    filename = paste0("fig_AB_alpha_beta_composite.", ext),
+    width_mm = fig_AB_bundle$width_mm,
+    height_mm = fig_AB_bundle$height_mm
+  )
+}
 ```
 
 ---
@@ -361,6 +417,7 @@ Same layout as G1b with an additional **HMSC association** ring (devil / tempera
 beta_ci_list <- prepare_hmsc_context_beta_ci_list(
   devil_ci = devil_ci_fig,
   temperature_ci = temp_ci_fig,
+  diversity_ci = diversity_ci_fig,
   post_table = post_table
 )
 
@@ -380,9 +437,9 @@ if (is.null(fig_G1b_hmsc)) {
 } else {
   fig_G1b_hmsc
 
-  g1b_hmsc_dims <- circular_phylogeny_figure_dims(
+  g1b_hmsc_dims <- circular_phylogeny_g1b_figure_layout(
     n_tips = length(study_genomes_fig),
-    legend_mm = 52
+    show_hmsc_legend = TRUE
   )
   save_publication_figure(
     plot = fig_G1b_hmsc,
@@ -443,30 +500,126 @@ if (is.null(fig_G2)) {
 
 ### Fig E1 — Phylum composition (stacked bars)
 
-**Relative abundance** of the 12 most common phyla per sample, shown as stacked bars faceted by broad environment. Rare phyla are grouped as “Other”. Gives a sample-level view of who dominates the community taxonomically.
+**Relative abundance** of all phyla per sample, shown as stacked bars (chapter-style). Samples are ordered by broad environment (TW → C → remaining groups by size) but shown in one continuous panel. A faceted variant (E1b) splits the same view by environment using phylogeny ring abbreviations (TW, C, XS, MF, TS).
 
-```{r fig_E1_phylum_stacked, message=FALSE, warning=FALSE, fig.height=7, fig.width=12}
+```{r fig_E1_phylum_stacked, message=FALSE, warning=FALSE, fig.height=6, fig.width=10}
 phylum_stack_fig <- prepare_phylum_stacked_data(
   genome_counts_fig,
   genome_metadata,
   sample_metadata_fig,
-  sample_order = sample_order_fig,
-  n_top = 12
+  sample_order = sample_order_fig
 )
 
 fig_E1 <- create_phylum_stacked_bar(
   phylum_stack_fig,
   phylum_colors = phylum_colors,
-  facet_env = TRUE,
-  theme_fn = theme_publication
+  facet_env = FALSE,
+  style = "chapter"
 )
 
 fig_E1
 
+e1_dims <- phylum_stacked_figure_dims(facet_env = FALSE)
 save_publication_figure(
   plot = fig_E1,
   filename = "fig_E1_phylum_stacked.pdf",
-  height_mm = 110
+  width_mm = e1_dims$width_mm,
+  height_mm = e1_dims$height_mm
+)
+save_publication_figure(
+  plot = fig_E1,
+  filename = "fig_E1_phylum_stacked.png",
+  width_mm = e1_dims$width_mm,
+  height_mm = e1_dims$height_mm
+)
+```
+
+```{r fig_E1b_phylum_stacked_faceted, message=FALSE, warning=FALSE, fig.height=7, fig.width=12}
+fig_E1b <- create_phylum_stacked_bar(
+  phylum_stack_fig,
+  phylum_colors = phylum_colors,
+  facet_env = TRUE,
+  style = "chapter"
+)
+
+fig_E1b
+
+e1b_dims <- phylum_stacked_figure_dims(facet_env = TRUE)
+save_publication_figure(
+  plot = fig_E1b,
+  filename = "fig_E1b_phylum_stacked_faceted.pdf",
+  width_mm = e1b_dims$width_mm,
+  height_mm = e1b_dims$height_mm
+)
+save_publication_figure(
+  plot = fig_E1b,
+  filename = "fig_E1b_phylum_stacked_faceted.png",
+  width_mm = e1b_dims$width_mm,
+  height_mm = e1b_dims$height_mm
+)
+```
+
+### Australia + Tasmania context — maps and relative abundance
+
+Upper panel: continental Australia (**a**) and Tasmania zoom (**b**), with environment fill, devil-density ring, and sample count per site. Lower panel: faceted phylum relative abundance by environment (**c**).
+
+```{r fig_australia_tasmania_relabund, message=FALSE, warning=FALSE, fig.height=12, fig.width=14}
+fig_australia_tasmania_maps <- create_australia_tasmania_context_map(
+  map_points_all = all_map_points_fig,
+  map_points_tasmania = tasmania_devil_map_fig,
+  env_settings = env_settings,
+  map_sf = australia_map_fig,
+  devil_var = "devil",
+  theme_fn = theme_publication
+)
+
+fig_E1b_wide <- create_phylum_stacked_bar(
+  phylum_stack_fig,
+  phylum_colors = phylum_colors,
+  facet_env = TRUE,
+  style = "chapter",
+  wide_layout = TRUE,
+  show_env_legend = FALSE
+)
+
+fig_australia_tasmania_relabund <- compose_australia_tasmania_relabund_figure(
+  map_panel = fig_australia_tasmania_maps,
+  relabund_panel = fig_E1b_wide
+)
+
+fig_australia_tasmania_relabund
+
+aus_tas_dims <- australia_tasmania_relabund_figure_dims(width_mm = 280)
+save_publication_figure(
+  plot = fig_australia_tasmania_relabund,
+  filename = "fig_australia_tasmania_context_E1b.png",
+  width_mm = aus_tas_dims$width_mm,
+  height_mm = aus_tas_dims$height_mm,
+  dpi = 1200,
+  tight_layout = TRUE
+)
+```
+
+### Study context overview — A1b + E1b
+
+Two-panel summary of sampling geography and phylum relative abundance by environment. Panels **a**–**b** match Figs A1b and E1b.
+
+```{r fig_study_context_overview, message=FALSE, warning=FALSE, fig.height=10, fig.width=8}
+fig_study_context_overview <- compose_study_context_overview_figure(
+  panel_a = fig_A1b,
+  panel_b = fig_E1b
+)
+
+fig_study_context_overview
+
+overview_dims <- study_context_overview_figure_dims(width_mm = 200)
+save_publication_figure(
+  plot = fig_study_context_overview,
+  filename = "fig_study_context_overview_A1b_E1b.png",
+  width_mm = overview_dims$width_mm,
+  height_mm = overview_dims$height_mm,
+  dpi = 1200,
+  tight_layout = TRUE
 )
 ```
 
@@ -484,6 +637,7 @@ family_sankey_fig <- prepare_family_sankey_data(
 fig_E2 <- create_family_sankey_plot(
   family_sankey_fig,
   phylum_colors = phylum_colors,
+  legend_position = "bottom",
   theme_fn = theme_publication
 )
 
@@ -492,7 +646,116 @@ fig_E2
 save_publication_figure(
   plot = fig_E2,
   filename = "fig_E2_family_sankey.pdf",
-  height_mm = 130
+  height_mm = 145
+)
+save_publication_figure(
+  plot = fig_E2,
+  filename = "fig_E2_family_sankey.png",
+  height_mm = 145
+)
+```
+
+### Fig E2b — Family composition (Sankey, legend left)
+
+Same as E2 with the phylum colour legend placed along the left margin (y-axis side) instead of below the plot.
+
+```{r fig_E2b_family_sankey, message=FALSE, warning=FALSE, fig.height=8, fig.width=12}
+fig_E2b <- create_family_sankey_plot(
+  family_sankey_fig,
+  phylum_colors = phylum_colors,
+  legend_position = "left",
+  theme_fn = theme_publication
+)
+
+fig_E2b
+
+save_publication_figure(
+  plot = fig_E2b,
+  filename = "fig_E2b_family_sankey_legend_left.pdf",
+  height_mm = 145
+)
+save_publication_figure(
+  plot = fig_E2b,
+  filename = "fig_E2b_family_sankey_legend_left.png",
+  height_mm = 145
+)
+```
+
+### Study context overview — A1b + E1b + E2b
+
+Three-panel layout: map and faceted phylum bars (**a**–**b**) on the left; family Sankey (**c**) on the right. The phylum colour legend is shown only on the Sankey panel.
+
+```{r fig_study_context_overview_sankey, message=FALSE, warning=FALSE, fig.height=10, fig.width=16}
+fig_E1b_env_only <- create_phylum_stacked_bar(
+  phylum_stack_fig,
+  phylum_colors = phylum_colors,
+  facet_env = TRUE,
+  style = "chapter",
+  show_phylum_legend = FALSE
+)
+
+fig_E2b_right <- create_family_sankey_plot(
+  family_sankey_fig,
+  phylum_colors = phylum_colors,
+  legend_position = "right",
+  theme_fn = theme_publication
+)
+
+fig_study_context_sankey <- compose_study_context_sankey_figure(
+  panel_a = fig_A1b,
+  panel_b = fig_E1b_env_only,
+  sankey_plot = fig_E2b_right
+)
+
+fig_study_context_sankey
+
+sankey_dims <- study_context_sankey_figure_dims(width_mm = 360)
+save_publication_figure(
+  plot = fig_study_context_sankey,
+  filename = "fig_study_context_overview_A1b_E1b_E2b.png",
+  width_mm = sankey_dims$width_mm,
+  height_mm = sankey_dims$height_mm,
+  dpi = 1200,
+  tight_layout = TRUE
+)
+```
+
+### G1b + E2b — Phylogeny and family Sankey (shared phylum legend)
+
+Circular phylogeny (G1b) above the family Sankey (E2b). The phylum colour legend is shown only on the phylogeny panel.
+
+```{r fig_G1b_E2b_phylogeny_family_sankey, message=FALSE, warning=FALSE, fig.height=18, fig.width=8}
+study_genomes_fig <- study_genome_ids(genome_counts_fig)
+
+fig_G1b_fused <- create_circular_community_phylogeny_environment_plot(
+  genome_tree = genome_tree,
+  genome_metadata = genome_metadata,
+  genome_counts = genome_counts_fig,
+  sample_metadata = sample_metadata_fig,
+  genome_ids = study_genomes_fig,
+  phylum_colors = phylum_colors
+)
+
+fig_E2b_fused <- create_family_sankey_plot(
+  family_sankey_fig,
+  phylum_colors = phylum_colors,
+  legend_position = "none",
+  theme_fn = theme_publication
+)
+
+fig_G1b_E2b_fused <- compose_phylogeny_family_sankey_figure(
+  phylogeny_plot = fig_G1b_fused,
+  sankey_plot = fig_E2b_fused
+)
+
+fig_G1b_E2b_fused
+
+fused_dims <- phylogeny_family_sankey_figure_dims(n_tips = length(study_genomes_fig))
+save_publication_figure(
+  plot = fig_G1b_E2b_fused,
+  filename = "fig_G1b_E2b_phylogeny_family_sankey.png",
+  width_mm = fused_dims$width_mm,
+  height_mm = fused_dims$height_mm
 )
 ```
 
@@ -538,7 +801,7 @@ save_publication_figure(
 - [x] **Fig F6** — Phylogeny + GIFT heatmap for significant MAGs (`ggtree` + `gheatmap`)
 - [x] **Fig F6b** — Stacked layout: phylogeny on top, fine-grained GIFT elements on y-axis
 - [x] **Fig F7** — Three-way congruence (devil + temperature + interaction agreement)
-- [x] **Fig F8** — Functional climate-stripe comparison (devil / temperature / interaction side by side)
+- [x] **Fig F8** — Functional climate-stripe comparison (devil / temperature / interaction / diversity; per-predictor hits grouped by GIFT function)
 
 **Data ready:** `publication_hmsc.Rdata` (from chapter 14)
 
@@ -717,9 +980,9 @@ save_publication_figure(
 
 ### Fig F6 — Phylogeny + GIFT heatmap
 
-Linear phylogeny of **HMSC-significant MAGs** (stratified across association patterns) with annotation strips: phylum, posterior **β** per predictor (white = not significant), and **GIFT function families** (aggregated with `to.functions()`, same as HMSC chapters).
+Stacked layout for **HMSC-significant MAGs** (stratified across association patterns): phylogeny on top (genomes along the x-axis), then phylum, posterior **β** per predictor (white = not significant), and **GIFT function families** as labelled rows (aggregated with `to.functions()`, same as HMSC chapters).
 
-```{r fig_F6_phylo_gift, message=FALSE, warning=FALSE, fig.height=14, fig.width=12}
+```{r fig_F6_phylo_gift, message=FALSE, warning=FALSE, fig.height=16, fig.width=14}
 phylo_gift_fig_data <- build_phylo_gift_fig_data(
   genome_tree = hmsc_tree,
   genome_metadata = genome_metadata,
@@ -728,25 +991,26 @@ phylo_gift_fig_data <- build_phylo_gift_fig_data(
   post_table = post_table,
   max_genomes = 120,
   beta_ci_list = spotlight_beta_ci_list(
-    devil_ci_fig, temp_ci_fig, interaction_ci_fig
+    devil_ci_fig, temp_ci_fig, interaction_ci_fig, diversity_ci_fig, post_table
   )
 )
 
 if (is.null(phylo_gift_fig_data)) {
   warning("No spotlight-significant genomes for F6.", call. = FALSE)
 } else {
-  fig_F6 <- create_phylo_gift_heatmap_plot(
+  fig_F6 <- create_phylo_gift_heatmap_plot_stacked(
     phylo_tree = phylo_gift_fig_data$tree,
     phylum_matrix = phylo_gift_fig_data$phylum,
     gift_matrix = phylo_gift_fig_data$gift,
+    GIFT_db = GIFT_db,
     beta_matrix = phylo_gift_fig_data$beta,
     phylum_colors = phylum_colors,
     tree_size = 0.22
   )
 
-  fig_F6_dims <- phylo_gift_figure_dims(
+  fig_F6_dims <- phylo_gift_stacked_figure_dims(
     n_genomes = phylo_gift_fig_data$n_genomes,
-    n_gift_elements = ncol(phylo_gift_fig_data$gift)
+    n_gift_rows = ncol(phylo_gift_fig_data$gift)
   )
 
   fig_F6
@@ -760,11 +1024,11 @@ if (is.null(phylo_gift_fig_data)) {
 }
 ```
 
-### Fig F6b — Stacked phylogeny + GIFT heatmap
+### Fig F6b — Phylogeny + GIFT element heatmap
 
-Same HMSC-significant MAG set as **Fig F6**, but with the phylogeny on top (genomes along the x-axis) and **element-level GIFT** as labelled rows below. Use this layout to compare fine-grained functional profiles against the function-family strip in F6.
+Same layout and MAG set as **Fig F6**, but with **element-level GIFT** (`to.elements()`, as in chapter 14 HMSC analysis): each row is an individual GIFT element (e.g. *Inosinic acid (IMP)*) rather than a function family aggregate.
 
-```{r fig_F6b_phylo_gift_stacked, message=FALSE, warning=FALSE, fig.height=16, fig.width=14}
+```{r fig_F6b_phylo_gift_stacked, message=FALSE, warning=FALSE, fig.height=22, fig.width=14}
 phylo_gift_fig_data_stacked <- build_phylo_gift_fig_data(
   genome_tree = hmsc_tree,
   genome_metadata = genome_metadata,
@@ -773,7 +1037,7 @@ phylo_gift_fig_data_stacked <- build_phylo_gift_fig_data(
   post_table = post_table,
   max_genomes = 120,
   beta_ci_list = spotlight_beta_ci_list(
-    devil_ci_fig, temp_ci_fig, interaction_ci_fig
+    devil_ci_fig, temp_ci_fig, interaction_ci_fig, diversity_ci_fig, post_table
   ),
   gift_level = "element"
 )
@@ -793,7 +1057,8 @@ if (is.null(phylo_gift_fig_data_stacked)) {
 
   fig_F6b_dims <- phylo_gift_stacked_figure_dims(
     n_genomes = phylo_gift_fig_data_stacked$n_genomes,
-    n_gift_rows = ncol(phylo_gift_fig_data_stacked$gift)
+    n_gift_rows = ncol(phylo_gift_fig_data_stacked$gift),
+    gift_level = "element"
   )
 
   fig_F6b
@@ -801,6 +1066,12 @@ if (is.null(phylo_gift_fig_data_stacked)) {
   save_publication_figure(
     plot = fig_F6b,
     filename = "fig_F6b_phylo_gift_heatmap_stacked.pdf",
+    width_mm = fig_F6b_dims$width_mm,
+    height_mm = fig_F6b_dims$height_mm
+  )
+  save_publication_figure(
+    plot = fig_F6b,
+    filename = "fig_F6b_phylo_gift_heatmap_stacked.png",
     width_mm = fig_F6b_dims$width_mm,
     height_mm = fig_F6b_dims$height_mm
   )
@@ -849,4 +1120,100 @@ save_publication_figure(
   filename = "fig_F7_threeway_congruence.pdf",
   height_mm = 150
 )
+```
+
+### Fig F8 — Functional climate-stripe panels (HMSC thresholds)
+
+One **climate-stripe panel per predictor** (devil, temperature, interaction, diversity). Each shows only GIFT elements significant for that covariate, grouped on the y-axis by **Degradation / Biosynthesis / Structure**. Bar length = mean abundance difference; colour intensity = −log₁₀(FDR).
+
+```{r fig_F8_thresholds, message=FALSE, warning=FALSE}
+if (!exists("functional_diff_diversity_fig")) {
+  functional_diff_diversity_fig <- calculate_functional_differences(
+    elements_response,
+    "diversity"
+  )
+}
+
+f8_panels <- list(
+  list(
+    data = functional_diff_devil_fig,
+    label = "Devil density",
+    slug = "devil",
+    fc = 0.2,
+    negative = "Negative association",
+    positive = "Positive association"
+  ),
+  list(
+    data = functional_diff_temp_fig,
+    label = "Temperature",
+    slug = "temperature",
+    fc = 0.2,
+    negative = "Negative association",
+    positive = "Positive association"
+  ),
+  list(
+    data = functional_diff_interaction_fig,
+    label = "Devil x temperature",
+    slug = "interaction",
+    fc = 0.05,
+    negative = "Negative interaction",
+    positive = "Positive interaction"
+  ),
+  list(
+    data = functional_diff_diversity_fig,
+    label = "Diversity",
+    slug = "diversity",
+    fc = 0.2,
+    negative = "Negative association",
+    positive = "Positive association"
+  )
+)
+
+for (panel in f8_panels) {
+  panel_list <- stats::setNames(list(panel$data), panel$label)
+  panel_data <- prepare_functional_predictor_comparison(
+    functional_diff_list = panel_list,
+    predictor_labels = panel$label,
+    gift_colors = gift_colors,
+    fc_threshold = panel$fc,
+    trait_set = "per_panel",
+    truncate_func_label = NULL
+  )
+  trait_labels <- if (nrow(panel_data) > 0L) {
+    levels(panel_data$trait_label)
+  } else {
+    character()
+  }
+  dims <- functional_climate_stripe_dims_mm(
+    functional_differences = panel$data,
+    fc_threshold = panel$fc,
+    trait_labels = trait_labels
+  )
+
+  fig <- create_functional_climate_stripe_figure(
+    predictor_label = panel$label,
+    functional_diff_list = panel_list,
+    gift_colors = gift_colors,
+    fc_threshold = panel$fc,
+    trait_set = "per_panel",
+    truncate_func_label = NULL,
+    group_by_function = TRUE,
+    negative_label = panel$negative,
+    positive_label = panel$positive,
+    theme_fn = theme_publication
+  )
+  base <- paste0("fig_F8_", panel$slug, "_hmsc_thresholds")
+  save_publication_figure(
+    plot = fig,
+    filename = paste0(base, ".pdf"),
+    width_mm = dims$width_mm,
+    height_mm = dims$height_mm
+  )
+  save_publication_figure(
+    plot = fig,
+    filename = paste0(base, ".png"),
+    width_mm = dims$width_mm,
+    height_mm = dims$height_mm
+  )
+}
 ```

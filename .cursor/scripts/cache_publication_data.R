@@ -14,7 +14,11 @@ suppressPackageStartupMessages({
 })
 
 source("R/plot_helpers.R")
+source("R/chapter_deps.R")
 paths <- publication_cache_paths()
+
+load("data/data.Rdata")
+ensure_gift_db()
 
 if (!save_publication_base_cache_from_disk(skip_if_no_landcover = FALSE)) {
   stop("Failed to build publication base cache.", call. = FALSE)

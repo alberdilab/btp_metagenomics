@@ -338,6 +338,24 @@ postList <- importFromHPC[1:4]
 fit_model_18 <- importPosteriorFromHPC(m, postList, nSamples, thin, transient)
 ```
 
+## Predictor correlations
+
+**Note:** Pearson correlations among the fixed-effect predictors in `model_final` (including the devil × temperature interaction term). Sample size matches the Tasmania HMSC design matrix (`r nrow(m$XData)` samples).
+
+```{r hmsc_predictor_correlation, warning=FALSE, message=FALSE, fig.height=5.5, fig.width=6}
+source("R/plot_helpers.R")
+
+hmsc_predictor_cor_mat <- prepare_hmsc_predictor_correlation_matrix(m)
+
+hmsc_predictor_cor_mat %>%
+  round(2) %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("variable") %>%
+  tt()
+
+create_hmsc_predictor_correlation_plot(hmsc_predictor_cor_mat)
+```
+
 ## Variance partitioning
 
 **Note:** Compute variance partitioning to quantify the proportion of variance explained by each predictor variable and random effect. Calculate predicted values and evaluate model fit using R². Display summary statistics of variance partitioning across all genomes.

@@ -62,6 +62,35 @@ environment_plot_settings <- function() {
   )
 }
 
+environment_short_label_map <- function(env_settings = environment_plot_settings()) {
+  stats::setNames(env_settings$labels_short, env_settings$limits)
+}
+
+environment_color_values <- function(env_settings = environment_plot_settings(),
+                                     levels = NULL) {
+  vals <- stats::setNames(env_settings$colors, env_settings$limits)
+  if (is.null(levels)) {
+    return(vals)
+  }
+  vals[levels]
+}
+
+phylum_stacked_environment_order <- function(sample_metadata,
+                                             env_settings = environment_plot_settings()) {
+  priority <- c(
+    "1000221 - Temperate woodland",
+    "1000245 - Cropland"
+  )
+  counts <- sample_metadata %>%
+    dplyr::mutate(broad_environment = as.character(.data$broad_environment)) %>%
+    dplyr::count(.data$broad_environment, name = "n")
+  others <- counts %>%
+    dplyr::filter(!.data$broad_environment %in% priority) %>%
+    dplyr::arrange(dplyr::desc(.data$n), .data$broad_environment) %>%
+    dplyr::pull(.data$broad_environment)
+  c(priority, others)
+}
+
 alpha_metric_labels <- c(
   richness = "Richness (Hill q0)",
   neutral = "Neutral diversity (Hill q1)",
@@ -276,8 +305,19 @@ create_volcano_plot <- function(functional_differences,
                                 gift_colors,
                                 fc_threshold = 0.2,
                                 fdr_threshold = 0.05,
+                                x_lab = "Mean difference (Positive − Negative)",
                                 highlight_thresholds = FALSE,
+                                show_legend = TRUE,
+                                volcano_metric = c("abundance_diff", "interaction_beta"),
+                                subtitle = NULL,
                                 theme_fn = theme_publication) {
+  volcano_metric <- match.arg(volcano_metric)
+  is_interaction_beta <- identical(volcano_metric, "interaction_beta")
+  fc_label <- if (is_interaction_beta) "\u03b2" else "diff"
+  default_interaction_subtitle <- paste(
+    "Mean HMSC interaction \u03b2 across genomes carrying each GIFT element",
+    "(distinct from abundance contrasts in panels A\u2013C)"
+  )
   plot_data <- functional_differences %>%
     mutate(func = substr(GIFT, 1, 3)) %>%
     mutate(
@@ -324,13 +364,18 @@ create_volcano_plot <- function(functional_differences,
     ) +
     ggplot2::scale_color_manual(values = color_values) +
     ggplot2::labs(
-      x = "Mean difference (Positive − Negative)",
+      title = variable_label,
+      x = x_lab,
       y = expression(-log[10]("FDR (BH)")),
       color = "Group",
-      subtitle = if (highlight_thresholds) {
+      subtitle = if (!is.null(subtitle)) {
+        subtitle
+      } else if (highlight_thresholds && is_interaction_beta) {
+        default_interaction_subtitle
+      } else if (highlight_thresholds) {
         NULL
       } else {
-        paste0("Thresholds: |diff| ≥ ", fc_threshold, ", FDR < ", fdr_threshold)
+        paste0("Thresholds: |", fc_label, "| \u2265 ", fc_threshold, ", FDR < ", fdr_threshold)
       }
     )
 
@@ -365,7 +410,7 @@ create_volcano_plot <- function(functional_differences,
         hjust = 0,
         size = 2.8,
         colour = "grey25",
-        label = paste0("|diff| ≥ ", fc_threshold)
+        label = paste0("|", fc_label, "| \u2265 ", fc_threshold)
       ) +
       ggplot2::annotate(
         "text",
@@ -385,7 +430,11 @@ create_volcano_plot <- function(functional_differences,
         fill = "white",
         alpha = 0.85,
         colour = "grey20",
-        label = paste0(n_hits, " significant GIFT elements")
+        label = if (is_interaction_beta) {
+          paste0(n_hits, " significant (mean \u03b2 \u2260 0)")
+        } else {
+          paste0(n_hits, " significant GIFT elements")
+        }
       )
   } else {
     p <- p +
@@ -393,13 +442,38 @@ create_volcano_plot <- function(functional_differences,
       ggplot2::geom_hline(yintercept = fdr_line, linetype = "dashed")
   }
 
-  p + theme_fn()
+  p <- p + theme_fn() +
+    ggplot2::theme(
+      legend.position = if (isTRUE(show_legend)) "right" else "none"
+    )
+
+  if (is_interaction_beta) {
+    p <- p +
+      ggplot2::theme(
+        plot.subtitle = ggplot2::element_text(
+          size = rel(0.82),
+          face = "italic",
+          colour = "#2166AC",
+          lineheight = 0.95,
+          margin = ggplot2::margin(b = 4)
+        ),
+        panel.border = ggplot2::element_rect(
+          colour = "#2166AC",
+          fill = NA,
+          linewidth = 0.75
+        ),
+        plot.title = ggplot2::element_text(colour = "#2166AC")
+      )
+  }
+
+  p
 }
 
 prepare_functional_significance_data <- function(functional_differences,
                                                  gift_colors,
                                                  fc_threshold = 0.2,
-                                                 fdr_threshold = 0.05) {
+                                                 fdr_threshold = 0.05,
+                                                 truncate_func_label = 28L) {
   functional_differences %>%
     dplyr::mutate(
       func = substr(.data$GIFT, 1, 3),
@@ -428,7 +502,11 @@ prepare_functional_significance_data <- function(functional_differences,
         .data$func,
         .data$func_label
       ),
-      func_label_short = stringr::str_trunc(.data$func_label_short, 28, "right"),
+      func_label_short = if (!is.null(truncate_func_label) && is.finite(truncate_func_label)) {
+        stringr::str_trunc(.data$func_label_short, truncate_func_label, "right")
+      } else {
+        .data$func_label_short
+      },
       gift_label = paste0(.data$GIFT, " - ", .data$func_label_short)
     )
 }
@@ -485,13 +563,15 @@ add_functional_difference_intervals <- function(functional_differences) {
 prepare_functional_trait_forest_data <- function(functional_differences,
                                                  gift_colors,
                                                  fc_threshold = 0.2,
-                                                 fdr_threshold = 0.05) {
+                                                 fdr_threshold = 0.05,
+                                                 truncate_func_label = 28L) {
   functional_differences %>%
     add_functional_difference_intervals() %>%
     prepare_functional_significance_data(
       gift_colors = gift_colors,
       fc_threshold = fc_threshold,
-      fdr_threshold = fdr_threshold
+      fdr_threshold = fdr_threshold,
+      truncate_func_label = truncate_func_label
     ) %>%
     dplyr::mutate(
       coefficient = .data$diff,
@@ -646,11 +726,242 @@ create_functional_trait_forest_plot <- function(functional_differences,
   p
 }
 
+#' Official #ShowYourStripes palette (8 blues + 8 reds from ColorBrewer 9-class single hue).
+#' @seealso https://showyourstripes.info
+show_your_stripes_colors <- function() {
+  c(
+    "#08306B", "#08519C", "#2171B5", "#4292C6",
+    "#6BAED6", "#9ECAE1", "#C6DBEF", "#DEEBF7",
+    "#FEE0D2", "#FCBBA1", "#FC9272", "#FB6A4A",
+    "#EF3B2C", "#CB181D", "#A50F15", "#67000D"
+  )
+}
+
 functional_climate_palette <- function(n = 256) {
+  stripes <- show_your_stripes_colors()
+  blues <- stripes[1:8]
+  reds <- stripes[9:16]
   n_side <- floor((n - 1) / 2)
-  blues <- grDevices::colorRampPalette(c("#08306B", "#4292C6", "#DEEBF7"))(n_side)
-  reds <- grDevices::colorRampPalette(c("#FEE0D2", "#FC9272", "#67000D"))(n_side)
-  c(blues, "#FFFFFF", reds)
+  c(
+    grDevices::colorRampPalette(blues)(n_side),
+    "#FFFFFF",
+    grDevices::colorRampPalette(reds)(n_side)
+  )
+}
+
+climate_stripe_endpoint_colors <- function() {
+  stripes <- show_your_stripes_colors()
+  list(
+    negative = stripes[[1]],
+    neutral = "#FFFFFF",
+    positive = stripes[[16]]
+  )
+}
+
+gift_major_function_group <- function(gift_codes) {
+  func_major <- substr(gift_codes, 1, 1)
+  dplyr::case_when(
+    func_major == "D" ~ "Degradation",
+    func_major == "B" ~ "Biosynthesis",
+    func_major == "S" ~ "Structure",
+    TRUE ~ "Other"
+  )
+}
+
+gift_major_function_group_levels <- function() {
+  c("Degradation", "Biosynthesis", "Structure", "Other")
+}
+
+gift_major_function_group_descriptions <- function() {
+  c(
+    Degradation = "Breakdown of lipids, sugars, proteins, and xenobiotics.",
+    Biosynthesis = "Synthesis of amino acids, vitamins, SCFAs, and antibiotics.",
+    Structure = "Cell envelope, appendages, and sporulation traits."
+  )
+}
+
+create_gift_function_grouped_legend_plot <- function(gift_colors,
+                                                     base_size = 9) {
+  descriptions <- gift_major_function_group_descriptions()
+  group_levels <- gift_major_function_group_levels()[1:3]
+  group_layout <- tibble::tibble(
+    func_group = factor(group_levels, levels = group_levels),
+    group_x = c(0, 2.9, 5.6),
+    n_col = c(5L, 5L, 3L),
+    title_x = c(1.1, 3.95, 6.35),
+    col_step = 0.55
+  )
+
+  items <- gift_colors %>%
+    dplyr::transmute(
+      code = .data$Code_function,
+      label = .data$Code_function,
+      color = .data$Color,
+      func_group = factor(
+        gift_major_function_group(.data$Code_function),
+        levels = group_levels
+      )
+    ) %>%
+    dplyr::arrange(.data$func_group, .data$code) %>%
+    dplyr::group_by(.data$func_group) %>%
+    dplyr::mutate(
+      idx = dplyr::row_number(),
+      n_col = group_layout$n_col[match(as.character(.data$func_group), group_layout$func_group)],
+      col_step = group_layout$col_step[match(as.character(.data$func_group), group_layout$func_group)],
+      legend_col = (.data$idx - 1L) %% .data$n_col,
+      legend_row = (.data$idx - 1L) %/% .data$n_col,
+      group_x = group_layout$group_x[match(as.character(.data$func_group), group_layout$func_group)],
+      x = .data$group_x + .data$legend_col * .data$col_step,
+      y = -(.data$legend_row + 0.5)
+    ) %>%
+    dplyr::ungroup()
+
+  title_df <- group_layout %>%
+    dplyr::mutate(
+      y = 0.95,
+      label = as.character(.data$func_group)
+    )
+
+  desc_df <- group_layout %>%
+    dplyr::mutate(
+      y = 0.45,
+      label = vapply(
+        as.character(.data$func_group),
+        function(grp) {
+          paste(stringr::str_wrap(descriptions[[grp]], width = 30), collapse = "\n")
+        },
+        character(1)
+      )
+    )
+
+  y_min <- min(items$y) - 0.55
+  y_max <- 1.35
+
+  ggplot2::ggplot(items) +
+    ggplot2::geom_rect(
+      ggplot2::aes(
+        xmin = .data$x,
+        xmax = .data$x + 0.24,
+        ymin = .data$y - 0.3,
+        ymax = .data$y + 0.3,
+        fill = .data$color
+      ),
+      colour = NA
+    ) +
+    ggplot2::geom_text(
+      ggplot2::aes(x = .data$x + 0.28, y = .data$y, label = .data$label),
+      hjust = 0,
+      size = publication_legend_geom_text_mm(base_size * 0.36),
+      colour = "grey15"
+    ) +
+    ggplot2::geom_text(
+      data = title_df,
+      ggplot2::aes(x = .data$title_x, y = .data$y, label = .data$label),
+      inherit.aes = FALSE,
+      fontface = "bold",
+      size = publication_legend_geom_text_mm(base_size * 0.42),
+      hjust = 0.5
+    ) +
+    ggplot2::geom_text(
+      data = desc_df,
+      ggplot2::aes(x = .data$title_x, y = .data$y, label = .data$label),
+      inherit.aes = FALSE,
+      size = publication_legend_geom_text_mm(base_size * 0.32),
+      hjust = 0.5,
+      colour = "grey35",
+      lineheight = 0.95
+    ) +
+    ggplot2::annotate(
+      "text",
+      x = 3.6,
+      y = y_min + 0.15,
+      label = "Grey points: non-significant GIFT elements (NS)",
+      size = publication_legend_geom_text_mm(base_size * 0.32),
+      colour = "grey40",
+      hjust = 0.5
+    ) +
+    ggplot2::scale_fill_identity() +
+    ggplot2::scale_x_continuous(limits = c(-0.15, 7.8), expand = c(0, 0)) +
+    ggplot2::scale_y_continuous(limits = c(y_min, y_max), expand = c(0, 0)) +
+    ggplot2::coord_cartesian(clip = "off") +
+    ggplot2::theme_void() +
+    ggplot2::theme(
+      plot.margin = ggplot2::margin(2, 8, 2, 8)
+    )
+}
+
+compose_hmsc_volcano_composite <- function(panel_plots,
+                                           gift_colors,
+                                           ncol = 2L,
+                                           legend_height_rel = 1.05,
+                                           caption = NULL) {
+  if (!requireNamespace("patchwork", quietly = TRUE)) {
+    stop("Package 'patchwork' is required for HMSC volcano composites.", call. = FALSE)
+  }
+
+  if (is.null(caption) && length(panel_plots) >= 4L) {
+    caption <- paste(
+      "Panels A\u2013C: mean GIFT abundance difference between HMSC-positive and HMSC-negative genomes.",
+      "Panel D: mean genome-level HMSC interaction \u03b2 per GIFT element (one-sample test vs 0)."
+    )
+  }
+
+  panel_block <- patchwork::wrap_plots(panel_plots, ncol = ncol) +
+    patchwork::plot_annotation(
+      tag_levels = "A",
+      caption = caption,
+      theme = ggplot2::theme(
+        plot.tag = ggplot2::element_text(face = "bold", size = 14),
+        plot.tag.position = "topleft",
+        plot.caption = ggplot2::element_text(
+          size = 8,
+          colour = "grey30",
+          hjust = 0,
+          lineheight = 1.05,
+          margin = ggplot2::margin(t = 6)
+        ),
+        plot.caption.position = "plot"
+      )
+    ) &
+    ggplot2::theme(legend.position = "none")
+
+  legend_plot <- create_gift_function_grouped_legend_plot(gift_colors)
+
+  panel_block / legend_plot +
+    patchwork::plot_layout(heights = c(4, legend_height_rel))
+}
+
+hmsc_volcano_composite_dims_mm <- function(width_mm = publication_figure_defaults()$width_mm,
+                                           height_mm = publication_figure_defaults()$height_mm,
+                                           ncol = 2L,
+                                           legend_extra_mm = 68) {
+  list(
+    width_mm = width_mm * ncol,
+    height_mm = height_mm * 2 + legend_extra_mm
+  )
+}
+
+add_gift_major_function_group <- function(data) {
+  data %>%
+    dplyr::mutate(
+      func_major = substr(.data$GIFT, 1, 1),
+      func_group = gift_major_function_group(.data$GIFT),
+      func_group = factor(.data$func_group, levels = gift_major_function_group_levels())
+    )
+}
+
+add_climate_stripe_fields <- function(data) {
+  data %>%
+    dplyr::mutate(
+      p_adj_plot = dplyr::if_else(
+        is.na(.data$p_adj) | .data$p_adj == 0,
+        .Machine$double.xmin,
+        .data$p_adj
+      ),
+      neglog10_fdr = -log10(.data$p_adj_plot),
+      stripe_value = .data$coefficient,
+      stripe_fill = .data$neglog10_fdr * sign(.data$coefficient)
+    )
 }
 
 prepare_functional_predictor_comparison <- function(functional_diff_list,
@@ -658,7 +969,8 @@ prepare_functional_predictor_comparison <- function(functional_diff_list,
                                                     gift_colors,
                                                     fc_threshold = 0.2,
                                                     fdr_threshold = 0.05,
-                                                    trait_set = c("per_panel", "union")) {
+                                                    trait_set = c("per_panel", "union"),
+                                                    truncate_func_label = 28L) {
   trait_set <- match.arg(trait_set)
   if (is.null(predictor_labels)) {
     predictor_labels <- names(functional_diff_list)
@@ -686,7 +998,8 @@ prepare_functional_predictor_comparison <- function(functional_diff_list,
         df,
         gift_colors,
         fc_threshold = fc_thresholds[[idx]],
-        fdr_threshold = fdr_threshold
+        fdr_threshold = fdr_threshold,
+        truncate_func_label = truncate_func_label
       ) %>%
         dplyr::mutate(
           predictor_id = predictor_labels[[idx]],
@@ -708,14 +1021,15 @@ prepare_functional_predictor_comparison <- function(functional_diff_list,
     return(
       panel_data %>%
         dplyr::filter(.data$hit) %>%
+        add_gift_major_function_group() %>%
+        add_climate_stripe_fields() %>%
         dplyr::group_by(.data$predictor_label) %>%
-        dplyr::arrange(.data$coefficient) %>%
+        dplyr::arrange(.data$func_group, .data$coefficient) %>%
         dplyr::mutate(
           trait_label = factor(
             .data$trait_label,
             levels = unique(.data$trait_label)
-          ),
-          stripe_value = .data$coefficient
+          )
         ) %>%
         dplyr::ungroup()
     )
@@ -744,9 +1058,11 @@ prepare_functional_predictor_comparison <- function(functional_diff_list,
 
   panel_data %>%
     dplyr::filter(.data$GIFT %in% trait_order) %>%
+    add_climate_stripe_fields() %>%
     dplyr::mutate(
       trait_label = factor(.data$trait_label, levels = trait_labels),
-      stripe_value = dplyr::if_else(.data$hit, .data$coefficient, NA_real_)
+      stripe_value = dplyr::if_else(.data$hit, .data$coefficient, NA_real_),
+      stripe_fill = dplyr::if_else(.data$hit, .data$stripe_fill, NA_real_)
     )
 }
 
@@ -756,8 +1072,10 @@ create_functional_climate_stripe_panel <- function(panel_data,
                                                    negative_label = "Negative association",
                                                    positive_label = "Positive association",
                                                    x_lab = "Mean abundance difference",
-                                                   fill_lab = "Effect size",
+                                                   fill_lab = expression(-log[10](FDR)),
                                                    show_non_sig = TRUE,
+                                                   group_by_function = FALSE,
+                                                   base_size = 9,
                                                    theme_fn = theme_publication) {
   plot_data <- panel_data %>%
     dplyr::filter(.data$predictor_label == panel_label)
@@ -770,9 +1088,12 @@ create_functional_climate_stripe_panel <- function(panel_data,
     )
   }
 
+  hit_data <- plot_data %>%
+    dplyr::filter(.data$hit)
+
   if (is.null(fill_limits)) {
-    lim <- max(abs(plot_data$stripe_value), na.rm = TRUE)
-    lim <- max(lim, 0.01)
+    lim <- max(abs(hit_data$stripe_fill), na.rm = TRUE)
+    lim <- max(lim, -log10(0.05))
     fill_limits <- c(-lim, lim)
   }
 
@@ -792,10 +1113,10 @@ create_functional_climate_stripe_panel <- function(panel_data,
 
   p <- p +
     ggplot2::geom_col(
-      data = dplyr::filter(plot_data, .data$hit),
+      data = hit_data,
       ggplot2::aes(
         x = .data$stripe_value,
-        fill = .data$stripe_value
+        fill = .data$stripe_fill
       ),
       width = 0.78
     ) +
@@ -814,37 +1135,55 @@ create_functional_climate_stripe_panel <- function(panel_data,
       title = panel_label,
       x = x_lab,
       y = NULL
-    ) +
-    ggplot2::annotate(
-      "text",
-      x = fill_limits[1],
-      y = Inf,
-      vjust = 1.3,
-      hjust = 0,
-      size = 2.6,
-      colour = "#2166AC",
-      fontface = "bold",
-      label = paste0("<- ", negative_label)
-    ) +
-    ggplot2::annotate(
-      "text",
-      x = fill_limits[2],
-      y = Inf,
-      vjust = 1.3,
-      hjust = 1,
-      size = 2.6,
-      colour = "#B2182B",
-      fontface = "bold",
-      label = paste0(positive_label, " ->")
-    ) +
-    theme_fn(base_size = 9) +
+    )
+
+  use_func_groups <- isTRUE(group_by_function) &&
+    "func_group" %in% names(plot_data) &&
+    any(!is.na(plot_data$func_group))
+
+  if (use_func_groups) {
+    plot_data <- plot_data %>%
+      dplyr::filter(!is.na(.data$func_group)) %>%
+      dplyr::mutate(
+        func_group = droplevels(.data$func_group)
+      )
+    p <- p +
+      ggplot2::facet_grid(
+        func_group ~ .,
+        scales = "free_y",
+        space = "free_y",
+        switch = "y"
+      )
+  }
+
+  p <- p +
+    theme_fn(base_size = base_size) +
     ggplot2::theme(
       panel.grid.major.y = ggplot2::element_blank(),
       panel.grid.major.x = ggplot2::element_line(colour = "grey93", linewidth = 0.25),
-      plot.title = ggplot2::element_text(face = "bold", hjust = 0.5),
-      plot.margin = ggplot2::margin(14, 6, 6, 6),
+      plot.title = ggplot2::element_text(face = "bold", hjust = 0.5, size = base_size * 1.05),
+      axis.text.y = ggplot2::element_text(size = base_size * 0.85),
+      axis.text.x = ggplot2::element_text(size = base_size * 0.9),
+      axis.title.x = ggplot2::element_text(size = base_size * 0.95, margin = ggplot2::margin(t = 6)),
+      plot.margin = ggplot2::margin(8, 10, 8, 6),
       legend.position = "none"
     )
+
+  if (use_func_groups) {
+    p <- p +
+      ggplot2::theme(
+        strip.placement = "outside",
+        strip.background = ggplot2::element_blank(),
+        strip.text.y.left = ggplot2::element_text(
+          angle = 0,
+          hjust = 1,
+          size = base_size * 0.72,
+          face = "italic",
+          colour = "grey35"
+        ),
+        panel.spacing.y = grid::unit(0.4, "lines")
+      )
+  }
 
   p
 }
@@ -903,9 +1242,8 @@ create_functional_climate_comparison_plot <- function(functional_diff_list,
   }
 
   fill_limits <- if (shared_limits) {
-    lim <- max(abs(plot_data$stripe_value), na.rm = TRUE)
-    fc_max <- max(fc_thresholds)
-    lim <- max(lim, fc_max)
+    lim <- max(abs(plot_data$stripe_fill), na.rm = TRUE)
+    lim <- max(lim, -log10(fdr_threshold))
     c(-lim, lim)
   } else {
     NULL
@@ -926,11 +1264,7 @@ create_functional_climate_comparison_plot <- function(functional_diff_list,
         panel_label = label,
         fill_limits = panel_limits,
         x_lab = x_labs[[as.integer(idx)]],
-        fill_lab = if (grepl("interaction", label, ignore.case = TRUE)) {
-          "Mean interaction\nbeta"
-        } else {
-          "Mean abundance\ndifference"
-        },
+        fill_lab = expression(-log[10](FDR)),
         show_non_sig = show_non_sig,
         theme_fn = theme_fn
       )
@@ -943,6 +1277,158 @@ create_functional_climate_comparison_plot <- function(functional_diff_list,
 
   patchwork::wrap_plots(panels, ncol = length(panels)) +
     patchwork::plot_layout(guides = "collect")
+}
+
+create_functional_climate_stripe_figure <- function(predictor_label,
+                                                    functional_diff_list,
+                                                    gift_colors,
+                                                    predictor_labels = NULL,
+                                                    fc_threshold = 0.2,
+                                                    fdr_threshold = 0.05,
+                                                    trait_set = c("per_panel", "union"),
+                                                    truncate_func_label = NULL,
+                                                    group_by_function = TRUE,
+                                                    x_lab = NULL,
+                                                    negative_label = "Negative association",
+                                                    positive_label = "Positive association",
+                                                    base_size = 11,
+                                                    theme_fn = theme_publication) {
+  trait_set <- match.arg(trait_set)
+  if (is.null(predictor_labels)) {
+    predictor_labels <- names(functional_diff_list)
+  }
+
+  if (is.null(x_lab)) {
+    x_lab <- if (grepl("interaction", predictor_label, ignore.case = TRUE)) {
+      "Mean interaction beta"
+    } else {
+      "Mean abundance difference"
+    }
+  }
+
+  fill_lab <- expression(-log[10](FDR))
+
+  plot_data <- prepare_functional_predictor_comparison(
+    functional_diff_list = functional_diff_list,
+    predictor_labels = predictor_labels,
+    gift_colors = gift_colors,
+    fc_threshold = fc_threshold,
+    fdr_threshold = fdr_threshold,
+    trait_set = trait_set,
+    truncate_func_label = truncate_func_label
+  )
+
+  p <- create_functional_climate_stripe_panel(
+    panel_data = plot_data,
+    panel_label = predictor_label,
+    fill_limits = NULL,
+    x_lab = x_lab,
+    fill_lab = fill_lab,
+    show_non_sig = identical(trait_set, "union"),
+    group_by_function = group_by_function && identical(trait_set, "per_panel"),
+    negative_label = negative_label,
+    positive_label = positive_label,
+    base_size = base_size,
+    theme_fn = theme_fn
+  )
+
+  if (nrow(plot_data) > 0L && any(plot_data$hit)) {
+    p <- p +
+      ggplot2::theme(
+        legend.position = "bottom",
+        axis.text.y = ggplot2::element_text(
+          size = base_size * 0.85,
+          hjust = 1,
+          colour = "grey15"
+        ),
+        plot.margin = ggplot2::margin(14, 12, 10, 2)
+      )
+  }
+
+  p
+}
+
+functional_climate_stripe_union_trait_count <- function(functional_diff_list,
+                                                        fc_threshold = 0.2,
+                                                        fdr_threshold = 0.05) {
+  fc_thresholds <- rep(fc_threshold, length(functional_diff_list))
+  if (length(fc_threshold) > 1) {
+    if (length(fc_threshold) != length(functional_diff_list)) {
+      stop("fc_threshold must be length 1 or match functional_diff_list", call. = FALSE)
+    }
+    fc_thresholds <- fc_threshold
+  }
+
+  purrr::map2(functional_diff_list, fc_thresholds, function(df, fc) {
+    df %>%
+      dplyr::filter(
+        !is.na(.data$p_adj),
+        .data$p_adj < fdr_threshold,
+        abs(.data$diff) >= fc
+      ) %>%
+      dplyr::pull(.data$GIFT)
+  }) %>%
+    unlist() %>%
+    unique() %>%
+    length()
+}
+
+functional_climate_stripe_dims_mm <- function(functional_differences = NULL,
+                                              functional_diff_list = NULL,
+                                              trait_labels = NULL,
+                                              fc_threshold = 0.2,
+                                              fdr_threshold = 0.05,
+                                              width_mm = NULL,
+                                              mm_per_trait = 6.5,
+                                              min_mm = 95,
+                                              label_char_mm = 1.55) {
+  n_traits <- if (!is.null(functional_diff_list)) {
+    functional_climate_stripe_union_trait_count(
+      functional_diff_list,
+      fc_threshold = fc_threshold,
+      fdr_threshold = fdr_threshold
+    )
+  } else if (!is.null(trait_labels)) {
+    length(trait_labels)
+  } else if (!is.null(functional_differences)) {
+    functional_differences %>%
+      dplyr::filter(
+        !is.na(.data$p_adj),
+        .data$p_adj < fdr_threshold,
+        abs(.data$diff) >= fc_threshold
+      ) %>%
+      nrow()
+  } else {
+    0L
+  }
+
+  if (is.null(width_mm)) {
+    if (!is.null(trait_labels)) {
+      width_mm <- max(185, 95 + max(nchar(trait_labels), na.rm = TRUE) * label_char_mm)
+    } else {
+      width_mm <- 185
+    }
+  }
+
+  n_groups <- 0L
+  if (!is.null(functional_differences) && n_traits > 0L) {
+    fc_val <- if (length(fc_threshold) > 1) fc_threshold[[1]] else fc_threshold
+    n_groups <- functional_differences %>%
+      dplyr::filter(
+        !is.na(.data$p_adj),
+        .data$p_adj < fdr_threshold,
+        abs(.data$diff) >= fc_val
+      ) %>%
+      dplyr::mutate(func_major = substr(.data$GIFT, 1, 1)) %>%
+      dplyr::pull(.data$func_major) %>%
+      unique() %>%
+      length()
+  }
+
+  list(
+    width_mm = width_mm,
+    height_mm = max(min_mm, 48 + n_traits * mm_per_trait + max(n_groups - 1L, 0L) * 8)
+  )
 }
 
 functional_comparison_height_mm <- function(functional_diff_list,
@@ -1390,7 +1876,41 @@ create_forest_plot <- function(data, x_var = "mean", y_var = NULL, xmin_var = "q
   p
 }
 
-theme_publication <- function(base_size = 10, base_family = "") {
+publication_legend_size_delta <- function() {
+  2L
+}
+
+publication_legend_text_size <- function(base_size = 10) {
+  base_size + publication_legend_size_delta()
+}
+
+publication_legend_title_size <- function(base_size = 10) {
+  base_size + publication_legend_size_delta() + 0.5
+}
+
+publication_legend_geom_text_mm <- function(size_mm) {
+  size_mm + publication_legend_size_delta() / ggplot2::.pt
+}
+
+publication_legend_theme <- function(base_size = 10, text_face = "bold") {
+  key_scale <- publication_legend_text_size(base_size) / 10
+  ggplot2::theme(
+    legend.position = "bottom",
+    legend.title = ggplot2::element_text(
+      size = publication_legend_title_size(base_size),
+      face = "bold"
+    ),
+    legend.text = ggplot2::element_text(
+      size = publication_legend_text_size(base_size),
+      face = text_face
+    ),
+    legend.key.size = ggplot2::unit(0.35 * key_scale, "cm"),
+    legend.key.height = ggplot2::unit(0.35 * key_scale, "cm"),
+    legend.key.width = ggplot2::unit(0.35 * key_scale, "cm")
+  )
+}
+
+theme_publication <- function(base_size = 11, base_family = "") {
   theme_minimal(base_size = base_size, base_family = base_family) +
     theme(
       panel.grid.minor = element_blank(),
@@ -1400,10 +1920,9 @@ theme_publication <- function(base_size = 10, base_family = "") {
       plot.title.position = "plot",
       plot.subtitle = element_text(colour = "grey30", inherit.blank = TRUE),
       plot.caption.position = "plot",
-      legend.position = "bottom",
-      legend.title = element_text(face = "bold", inherit.blank = TRUE),
       axis.title = element_text(face = "bold", inherit.blank = TRUE)
-    )
+    ) +
+    publication_legend_theme(base_size = base_size)
 }
 
 spotlight_palettes <- function() {
@@ -1422,7 +1941,7 @@ publication_figure_defaults <- function() {
   list(
     width_mm = 180,
     height_mm = 120,
-    dpi = 300,
+    dpi = 600,
     dir = "figures"
   )
 }
@@ -1614,7 +2133,7 @@ create_alpha_environment_plot <- function(alpha_div, sample_metadata, target_met
       drop = FALSE
     ) +
     ggpubr::stat_compare_means(
-      method = "wilcox.test",
+      method = "kruskal.test",
       label = "p.format",
       geom = "label",
       fill = "white",
@@ -1623,7 +2142,7 @@ create_alpha_environment_plot <- function(alpha_div, sample_metadata, target_met
       color = "black",
       label.y.npc = 0.98,
       label.x = 3,
-      size = 3.5,
+      size = 3,
       fontface = "bold"
     ) +
     ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = c(0.08, 0.12))) +
@@ -1632,7 +2151,8 @@ create_alpha_environment_plot <- function(alpha_div, sample_metadata, target_met
     ggplot2::theme(
       legend.position = if (show_legend) "top" else "none",
       legend.title = ggplot2::element_blank(),
-      axis.title.x = ggplot2::element_blank()
+      axis.title.x = ggplot2::element_blank(),
+      plot.margin = ggplot2::margin(4, 6, 4, 4, unit = "pt")
     ) +
     ggplot2::labs(y = ylab)
 
@@ -1825,13 +2345,19 @@ create_nmds_plot <- function(beta_matrix,
     }
   }
 
+  panel_title <- panel_tag %||% "NMDS ordination"
   p <- p +
     theme_fn() +
     ggplot2::labs(
-      title = paste0("NMDS (stress = ", round(stress_value, 3), ")"),
-      subtitle = panel_tag,
+      title = panel_title,
+      subtitle = paste0("stress = ", round(stress_value, 3)),
       x = "NMDS1",
       y = "NMDS2"
+    ) +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(size = 9, face = "bold", inherit.blank = TRUE),
+      plot.subtitle = ggplot2::element_text(size = 7.5, colour = "grey35", inherit.blank = TRUE),
+      plot.margin = ggplot2::margin(4, 6, 4, 4, unit = "pt")
     ) +
     ggplot2::guides(
       color = ggplot2::guide_legend(order = 1, override.aes = list(size = 3)),
@@ -1845,6 +2371,361 @@ create_nmds_plot <- function(beta_matrix,
   }
 
   p
+}
+
+four_panel_diversity_figure_dims <- function() {
+  list(width_mm = 200, height_mm = 165)
+}
+
+build_publication_environment_fill_legend_grob <- function(
+    env_settings = environment_plot_settings(),
+    legend_position = c("left", "right")) {
+  legend_position <- match.arg(legend_position)
+  legend_df <- tibble::tibble(
+    environment = factor(env_settings$limits, levels = env_settings$limits)
+  )
+
+  legend_plot <- ggplot2::ggplot(
+    legend_df,
+    ggplot2::aes(
+      x = 1,
+      y = .data$environment,
+      fill = .data$environment
+    )
+  ) +
+    ggplot2::geom_point(shape = 22, size = 3) +
+    ggplot2::scale_fill_manual(
+      name = "Environment",
+      values = env_settings$colors,
+      labels = env_settings$labels_long,
+      drop = FALSE
+    ) +
+    ggplot2::theme_void() +
+    circular_phylogeny_legend_theme(base_size = publication_legend_text_size(7L)) +
+    ggplot2::theme(legend.position = legend_position)
+
+  cowplot::get_legend(legend_plot)
+}
+
+build_island_shape_legend_grob <- function(legend_position = c("left", "right")) {
+  legend_position <- match.arg(legend_position)
+  legend_df <- tibble::tibble(
+    island = factor(c("Australia", "Tasmania"), levels = c("Australia", "Tasmania"))
+  )
+
+  legend_plot <- ggplot2::ggplot(
+    legend_df,
+    ggplot2::aes(
+      x = 1,
+      y = .data$island,
+      shape = .data$island
+    )
+  ) +
+    ggplot2::geom_point(size = 3) +
+    ggplot2::scale_shape_discrete(name = "Island") +
+    ggplot2::theme_void() +
+    circular_phylogeny_legend_theme(base_size = publication_legend_text_size(7L)) +
+    ggplot2::theme(legend.position = legend_position)
+
+  cowplot::get_legend(legend_plot)
+}
+
+build_diversity_composite_legend_grob <- function(
+    env_settings = environment_plot_settings(),
+    show_environment = TRUE,
+    show_island = TRUE,
+    legend_position = c("left", "right")) {
+  legend_position <- match.arg(legend_position)
+  legend_parts <- list()
+  if (isTRUE(show_environment)) {
+    legend_parts <- c(
+      legend_parts,
+      list(build_publication_environment_fill_legend_grob(
+        env_settings = env_settings,
+        legend_position = legend_position
+      ))
+    )
+  }
+  if (isTRUE(show_island)) {
+    legend_parts <- c(
+      legend_parts,
+      list(build_island_shape_legend_grob(legend_position = legend_position))
+    )
+  }
+  if (length(legend_parts) == 0L) {
+    return(NULL)
+  }
+  if (length(legend_parts) == 1L) {
+    return(legend_parts[[1]])
+  }
+  cowplot::plot_grid(plotlist = legend_parts, ncol = 1, align = "v")
+}
+
+build_four_panel_diversity_grid <- function(panels, tag_levels = "A") {
+  if (length(panels) != 4L) {
+    stop("build_four_panel_diversity_grid() expects exactly four panels.", call. = FALSE)
+  }
+
+  panel_theme <- ggplot2::theme(legend.position = "none")
+  panels <- purrr::map(panels, ~ .x + panel_theme)
+
+  (panels[[1]] | panels[[2]]) / (panels[[3]] | panels[[4]]) +
+    patchwork::plot_layout(widths = c(1, 1), heights = c(1, 1)) +
+    patchwork::plot_annotation(tag_levels = tag_levels) &
+    ggplot2::theme(
+      plot.tag = ggplot2::element_text(face = "bold", size = 12),
+      plot.tag.position = "topleft"
+    )
+}
+
+alpha_beta_composite_figure_dims <- function(
+    fig_dims = four_panel_diversity_figure_dims(),
+    legend_rel_width = 0.22,
+    row_gap_mm = 6) {
+  plot_width_mm <- fig_dims$width_mm
+  legend_width_mm <- plot_width_mm * legend_rel_width
+  list(
+    width_mm = plot_width_mm + legend_width_mm,
+    height_mm = fig_dims$height_mm * 2 + row_gap_mm,
+    plot_width_mm = plot_width_mm,
+    legend_width_mm = legend_width_mm
+  )
+}
+
+compose_alpha_beta_diversity_composite <- function(
+    alpha_panels,
+    beta_panels,
+    env_settings = environment_plot_settings(),
+    fig_dims = four_panel_diversity_figure_dims(),
+    legend_rel_width = 0.22) {
+  if (length(alpha_panels) != 4L || length(beta_panels) != 4L) {
+    stop("compose_alpha_beta_diversity_composite() expects four alpha and four beta panels.",
+         call. = FALSE)
+  }
+
+  dims <- alpha_beta_composite_figure_dims(
+    fig_dims = fig_dims,
+    legend_rel_width = legend_rel_width
+  )
+
+  alpha_grid <- build_four_panel_diversity_grid(alpha_panels, tag_levels = "a")
+  beta_grid <- build_four_panel_diversity_grid(beta_panels, tag_levels = "a")
+
+  legend_grob <- build_diversity_composite_legend_grob(
+    env_settings = env_settings,
+    show_environment = TRUE,
+    show_island = TRUE,
+    legend_position = "right"
+  )
+
+  composite <- alpha_grid +
+    beta_grid +
+    patchwork::wrap_elements(full = legend_grob) +
+    patchwork::plot_layout(
+      design = "
+        AA#
+        BB#
+      ",
+      widths = c(dims$plot_width_mm, dims$legend_width_mm),
+      heights = c(1, 1)
+    ) +
+    patchwork::plot_annotation(
+      tag_levels = list(c("A", "B")),
+      theme = ggplot2::theme(
+        plot.tag = ggplot2::element_text(face = "bold", size = 16),
+        plot.tag.position = "topleft"
+      )
+    )
+
+  list(
+    plot = composite,
+    width_mm = dims$width_mm,
+    height_mm = dims$height_mm
+  )
+}
+
+compose_four_panel_environment_figure <- function(panels,
+                                                  env_settings = environment_plot_settings(),
+                                                  legend_rel_width = 0.17,
+                                                  show_environment_legend = TRUE,
+                                                  show_island_legend = FALSE,
+                                                  legend_position = c("left", "right"),
+                                                  tag_levels = "A") {
+  legend_position <- match.arg(legend_position)
+  if (length(panels) != 4L) {
+    stop("compose_four_panel_environment_figure() expects exactly four panels.", call. = FALSE)
+  }
+
+  panel_theme <- ggplot2::theme(legend.position = "none")
+  panels <- purrr::map(panels, ~ .x + panel_theme)
+
+  panel_grid <- build_four_panel_diversity_grid(panels, tag_levels = tag_levels)
+
+  legend_parts <- list()
+  if (isTRUE(show_environment_legend)) {
+    legend_parts <- c(legend_parts, list(build_publication_environment_fill_legend_grob(
+      env_settings = env_settings,
+      legend_position = legend_position
+    )))
+  }
+  if (isTRUE(show_island_legend)) {
+    legend_parts <- c(legend_parts, list(build_island_shape_legend_grob(
+      legend_position = legend_position
+    )))
+  }
+
+  if (length(legend_parts) == 0L) {
+    return(panel_grid)
+  }
+
+  legend_grob <- if (length(legend_parts) == 1L) {
+    legend_parts[[1]]
+  } else {
+    cowplot::plot_grid(plotlist = legend_parts, ncol = 1, align = "v")
+  }
+
+  legend_panel <- patchwork::wrap_elements(full = legend_grob)
+  if (legend_position == "left") {
+    legend_panel + panel_grid +
+      patchwork::plot_layout(widths = c(legend_rel_width, 1 - legend_rel_width))
+  } else {
+    panel_grid + legend_panel +
+      patchwork::plot_layout(widths = c(1 - legend_rel_width, legend_rel_width))
+  }
+}
+
+compose_tagged_figure_stack <- function(panels,
+                                        layout_heights = NULL,
+                                        tag_levels = "a",
+                                        tag_size = 12) {
+  if (length(panels) < 2L) {
+    stop("compose_tagged_figure_stack() expects at least two panels.", call. = FALSE)
+  }
+  if (is.null(layout_heights)) {
+    layout_heights <- rep(1, length(panels))
+  }
+  if (length(layout_heights) != length(panels)) {
+    stop("layout_heights must match the number of panels.", call. = FALSE)
+  }
+
+  wrapped_panels <- lapply(panels, patchwork::wrap_elements)
+  patchwork::wrap_plots(
+    plotlist = wrapped_panels,
+    ncol = 1,
+    heights = layout_heights
+  ) +
+    patchwork::plot_annotation(
+      tag_levels = tag_levels,
+      theme = ggplot2::theme(
+        plot.tag = ggplot2::element_text(face = "bold", size = tag_size),
+        plot.tag.position = "topleft"
+      )
+    )
+}
+
+compose_study_context_overview_figure <- function(panel_a,
+                                                 panel_b,
+                                                 layout_heights = c(1, 1.05),
+                                                 tag_levels = "a",
+                                                 tag_size = 12) {
+  compose_tagged_figure_stack(
+    panels = list(panel_a, panel_b),
+    layout_heights = layout_heights,
+    tag_levels = tag_levels,
+    tag_size = tag_size
+  )
+}
+
+study_context_overview_figure_dims <- function(width_mm = 200,
+                                               panel_a_height_mm = 120,
+                                               panel_b_height_mm = NULL,
+                                               panel_b_facet_env = TRUE) {
+  if (is.null(panel_b_height_mm)) {
+    panel_b_height_mm <- phylum_stacked_figure_dims(facet_env = panel_b_facet_env)$height_mm
+  }
+  list(
+    width_mm = width_mm,
+    height_mm = round(panel_a_height_mm + panel_b_height_mm + 8)
+  )
+}
+
+compose_study_context_sankey_figure <- function(panel_a,
+                                                panel_b,
+                                                sankey_plot,
+                                                layout_heights = c(1, 1.05),
+                                                left_width = 0.52,
+                                                tag_levels = "a",
+                                                tag_size = 12) {
+  tag_theme <- ggplot2::theme(
+    plot.tag = ggplot2::element_text(face = "bold", size = tag_size),
+    plot.tag.position = "topleft"
+  )
+
+  patchwork::wrap_plots(
+    A = panel_a,
+    B = patchwork::wrap_elements(full = panel_b, clip = FALSE),
+    C = patchwork::wrap_elements(full = sankey_plot, clip = FALSE),
+    design = "
+      AC
+      BC
+    ",
+    widths = c(left_width, 1 - left_width),
+    heights = layout_heights
+  ) +
+    patchwork::plot_annotation(
+      tag_levels = tag_levels,
+      theme = tag_theme
+    )
+}
+
+study_context_sankey_figure_dims <- function(width_mm = 360,
+                                             left_width = 0.52,
+                                             panel_a_height_mm = 120,
+                                             panel_b_facet_env = TRUE,
+                                             sankey_height_mm = 145) {
+  left_width_mm <- round(width_mm * left_width)
+  left_dims <- study_context_overview_figure_dims(
+    width_mm = left_width_mm,
+    panel_a_height_mm = panel_a_height_mm,
+    panel_b_facet_env = panel_b_facet_env
+  )
+  list(
+    width_mm = width_mm,
+    height_mm = max(left_dims$height_mm, sankey_height_mm + 8)
+  )
+}
+
+compose_phylogeny_family_sankey_figure <- function(phylogeny_plot,
+                                                  sankey_plot,
+                                                  layout_heights = c(1.12, 0.88),
+                                                  tag_levels = NULL,
+                                                  tag_size = 12) {
+  panels <- list(phylogeny_plot, sankey_plot)
+  if (is.null(tag_levels)) {
+    patchwork::wrap_plots(
+      plotlist = lapply(panels, patchwork::wrap_elements),
+      ncol = 1,
+      heights = layout_heights
+    )
+  } else {
+    compose_tagged_figure_stack(
+      panels = panels,
+      layout_heights = layout_heights,
+      tag_levels = tag_levels,
+      tag_size = tag_size
+    )
+  }
+}
+
+phylogeny_family_sankey_figure_dims <- function(n_tips,
+                                              width_mm = 200,
+                                              sankey_height_mm = 145) {
+  g1b_dims <- circular_phylogeny_detailed_figure_dims(n_tips = n_tips, tight = TRUE)
+  height_scale <- width_mm / g1b_dims$width_mm
+  list(
+    width_mm = width_mm,
+    height_mm = round(g1b_dims$height_mm * height_scale + sankey_height_mm + 8)
+  )
 }
 
 subset_dist_matrix <- function(dist_obj, sample_ids) {
@@ -2916,81 +3797,444 @@ prepare_taxonomy_relabun <- function(genome_counts, genome_metadata, sample_meta
 }
 
 prepare_phylum_stacked_data <- function(genome_counts, genome_metadata, sample_metadata,
-                                        sample_order = NULL, n_top = 12,
-                                        other_label = "Other") {
-  long_df <- genome_counts %>%
+                                        sample_order = NULL, n_top = NULL,
+                                        other_label = "Other",
+                                        env_settings = environment_plot_settings()) {
+  short_by_full <- environment_short_label_map(env_settings)
+  env_order <- phylum_stacked_environment_order(sample_metadata, env_settings)
+  short_order <- unname(short_by_full[env_order])
+
+  plot_df <- genome_counts %>%
     dplyr::mutate(dplyr::across(-genome, ~ .x / sum(.x))) %>%
     tidyr::pivot_longer(-genome, names_to = "sample", values_to = "count") %>%
     dplyr::left_join(genome_metadata %>% dplyr::select(genome, phylum), by = "genome") %>%
     dplyr::left_join(
-      sample_metadata %>% dplyr::select(sample, broad_environment),
+      sample_metadata %>% dplyr::select(sample, dplyr::any_of("broad_environment")),
       by = "sample"
     ) %>%
-    dplyr::group_by(sample, broad_environment, phylum) %>%
-    dplyr::summarise(relabun = sum(count), .groups = "drop")
-
-  top_phyla <- long_df %>%
-    dplyr::group_by(phylum) %>%
-    dplyr::summarise(total = sum(relabun), .groups = "drop") %>%
-    dplyr::arrange(dplyr::desc(total)) %>%
-    dplyr::slice_head(n = n_top) %>%
-    dplyr::pull(phylum)
-
-  plot_df <- long_df %>%
+    dplyr::filter(count > 0) %>%
     dplyr::mutate(
-      phylum = ifelse(phylum %in% top_phyla, phylum, other_label),
-      phylum = factor(phylum, levels = c(top_phyla, other_label))
-    ) %>%
-    dplyr::group_by(sample, broad_environment, phylum) %>%
-    dplyr::summarise(relabun = sum(relabun), .groups = "drop")
+      broad_environment = factor(.data$broad_environment, levels = env_order),
+      broad_environment_short = factor(
+        short_by_full[as.character(.data$broad_environment)],
+        levels = short_order
+      )
+    )
 
-  if (!is.null(sample_order)) {
+  if (!is.null(n_top)) {
+    phylum_levels <- plot_df %>%
+      dplyr::group_by(phylum) %>%
+      dplyr::summarise(total = sum(count), .groups = "drop") %>%
+      dplyr::arrange(dplyr::desc(total)) %>%
+      dplyr::pull(phylum)
+    top_phyla <- utils::head(phylum_levels, n_top)
     plot_df <- plot_df %>%
-      dplyr::mutate(sample = factor(sample, levels = sample_order))
-  } else {
-    plot_df <- plot_df %>%
-      dplyr::mutate(sample = factor(sample))
+      dplyr::mutate(
+        phylum = ifelse(phylum %in% top_phyla, phylum, other_label)
+      )
   }
+
+  if (is.null(sample_order)) {
+    sample_order <- sample_metadata %>%
+      dplyr::mutate(broad_environment = factor(.data$broad_environment, levels = env_order)) %>%
+      dplyr::arrange(.data$broad_environment, .data$sample) %>%
+      dplyr::pull(.data$sample)
+  }
+
+  plot_df <- plot_df %>%
+    dplyr::mutate(sample = factor(sample, levels = sample_order))
 
   plot_df
 }
 
-create_phylum_stacked_bar <- function(plot_df, phylum_colors = NULL,
-                                    facet_env = TRUE, theme_fn = theme_publication) {
-  fill_vals <- if (!is.null(phylum_colors)) {
-    lvls <- levels(plot_df$phylum)
-    stats::setNames(
-      dplyr::coalesce(phylum_colors[lvls], rep("grey80", length(lvls))),
-      lvls
+phylum_stacked_legend_theme <- function(base_size = publication_legend_text_size(5.5),
+                                        legend_position = "right") {
+  circular_phylogeny_legend_theme(base_size = base_size) +
+    ggplot2::theme(
+      legend.position = legend_position,
+      legend.box = "vertical",
+      legend.box.spacing = ggplot2::unit(1.8, "mm")
+    )
+}
+
+build_phylum_stacked_legend_panel <- function(plot,
+                                              env_order = NULL,
+                                              phylum_colors = NULL,
+                                              legend_base_size = publication_legend_text_size(5),
+                                              match_ring_phylogeny = TRUE,
+                                              show_phylum_legend = TRUE,
+                                              show_env_legend = TRUE,
+                                              legend_layout = c("stacked", "columns")) {
+  legend_layout <- match.arg(legend_layout)
+  env_settings <- environment_plot_settings()
+  if (is.null(env_order)) {
+    env_order <- env_settings$limits
+  }
+  env_order <- intersect(as.character(env_order), env_settings$limits)
+
+  plot_df <- plot$data
+  phylum_levels <- if (is.factor(plot_df$phylum)) {
+    levels(plot_df$phylum)
+  } else {
+    unique(plot_df$phylum)
+  }
+
+  if (!is.null(phylum_colors) && isTRUE(match_ring_phylogeny)) {
+    phylum_colors <- prepare_ring_phylogeny_phylum_colors(phylum_colors)
+  }
+  phylum_labels <- format_phylum_label(phylum_levels)
+  phylum_fill <- if (!is.null(phylum_colors)) {
+    dplyr::coalesce(phylum_colors[phylum_levels], rep("grey80", length(phylum_levels)))
+  } else {
+    rep("grey80", length(phylum_levels))
+  }
+
+  env_labels <- paste0(
+    unname(environment_short_label_map(env_settings)[env_order]),
+    " - ",
+    gsub(
+      "\\s*\\([^)]+\\)$",
+      "",
+      unname(env_settings$labels_long[env_order])
+    )
+  )
+
+  n_phyla <- length(phylum_levels)
+  n_env <- length(env_labels)
+  section_gap <- 0.9
+  title_gap <- 0.65
+  key_width <- 0.09
+
+  use_columns <- legend_layout == "columns" &&
+    isTRUE(show_phylum_legend) &&
+    isTRUE(show_env_legend) &&
+    n_phyla > 0L &&
+    n_env > 0L
+
+  if (isTRUE(use_columns)) {
+    n_rows <- max(n_phyla, n_env)
+    phylum_y <- seq_len(n_phyla)
+    env_y <- seq_len(n_env)
+    title_y <- n_rows + title_gap
+    phylum_title_y <- title_y
+    env_title_y <- title_y
+    y_max <- title_y + 0.35
+    x_key <- 0.04
+    x_text <- 0.15
+    x_env_text <- 0.52
+  } else {
+    x_key <- 0.05
+    x_text <- 0.16
+    x_env_text <- x_text
+    env_y <- if (isTRUE(show_env_legend) && n_env > 0L) seq_len(n_env) else numeric(0)
+    env_title_y <- if (length(env_y) > 0L) max(env_y) + title_gap else 0
+    phylum_y <- if (isTRUE(show_phylum_legend) && n_phyla > 0L) {
+      if (length(env_y) > 0L) {
+        env_title_y + section_gap + seq_len(n_phyla)
+      } else {
+        rev(seq_len(n_phyla))
+      }
+    } else {
+      numeric(0)
+    }
+    phylum_title_y <- if (length(phylum_y) > 0L) {
+      if (length(env_y) > 0L) {
+        max(phylum_y) + title_gap
+      } else {
+        max(phylum_y) + title_gap
+      }
+    } else {
+      0
+    }
+    y_max <- max(c(env_title_y, phylum_title_y, max(env_y, 0), max(phylum_y, 0))) + 0.35
+  }
+
+  phylum_df <- if (length(phylum_y) > 0L) {
+    tibble::tibble(
+      y = phylum_y,
+      label = phylum_labels,
+      fill_color = unname(phylum_fill)
+    )
+  } else {
+    NULL
+  }
+  env_df <- if (length(env_y) > 0L) {
+    tibble::tibble(
+      y = env_y,
+      label = env_labels
     )
   } else {
     NULL
   }
 
-  p <- ggplot2::ggplot(plot_df, ggplot2::aes(x = sample, y = relabun, fill = phylum)) +
-    ggplot2::geom_col(width = 0.85, colour = "white", linewidth = 0.08) +
+  p <- ggplot2::ggplot()
+
+  if (!is.null(phylum_df)) {
+    p <- p +
+      ggplot2::geom_tile(
+        data = phylum_df,
+        ggplot2::aes(x = x_key, y = .data$y, fill = I(.data$fill_color)),
+        width = key_width,
+        height = 0.72,
+        color = NA
+      ) +
+      ggplot2::geom_text(
+        data = phylum_df,
+        ggplot2::aes(x = x_text, y = .data$y, label = .data$label),
+        hjust = 0,
+        size = legend_base_size / .pt
+      ) +
+      ggplot2::annotate(
+        "text",
+        x = x_text,
+        y = phylum_title_y,
+        label = "Phylum",
+        hjust = 0,
+        fontface = "bold",
+        size = (legend_base_size + 0.5) / .pt
+      )
+  }
+
+  if (!is.null(env_df)) {
+    p <- p +
+      ggplot2::geom_text(
+        data = env_df,
+        ggplot2::aes(x = x_env_text, y = .data$y, label = .data$label),
+        hjust = 0,
+        size = legend_base_size / .pt
+      ) +
+      ggplot2::annotate(
+        "text",
+        x = x_env_text,
+        y = env_title_y,
+        label = "Environment",
+        hjust = 0,
+        fontface = "bold",
+        size = (legend_base_size + 0.5) / .pt
+      )
+  }
+
+  p +
+    ggplot2::coord_cartesian(
+      xlim = c(0, 1),
+      ylim = c(0.35, y_max),
+      clip = "off"
+    ) +
+    ggplot2::theme_void() +
+    ggplot2::theme(plot.margin = ggplot2::margin(0, 0, 0, 0))
+}
+
+compose_phylum_stacked_bar <- function(plot,
+                                       env_order = NULL,
+                                       show_env_legend = TRUE,
+                                       show_phylum_legend = TRUE,
+                                       phylum_colors = NULL,
+                                       match_ring_phylogeny = TRUE,
+                                       legend_rel_width = NULL,
+                                       legend_base_size = publication_legend_text_size(5),
+                                       legend_layout = c("stacked", "columns"),
+                                       plot_margin = ggplot2::margin(5, 5, 5, 5)) {
+  legend_layout <- match.arg(legend_layout)
+  if (is.null(legend_rel_width)) {
+    legend_rel_width <- if (legend_layout == "columns") {
+      0.22
+    } else if (isTRUE(show_phylum_legend) && isTRUE(show_env_legend)) {
+      0.32
+    } else if (isTRUE(show_env_legend) || isTRUE(show_phylum_legend)) {
+      0.22
+    } else {
+      0.32
+    }
+  }
+
+  legend_panel <- if (isTRUE(show_env_legend) || isTRUE(show_phylum_legend)) {
+    build_phylum_stacked_legend_panel(
+      plot = plot,
+      env_order = env_order,
+      phylum_colors = phylum_colors,
+      legend_base_size = legend_base_size,
+      match_ring_phylogeny = match_ring_phylogeny,
+      show_phylum_legend = show_phylum_legend,
+      show_env_legend = show_env_legend,
+      legend_layout = legend_layout
+    )
+  } else {
+    legend_theme <- phylum_stacked_legend_theme(
+      base_size = legend_base_size,
+      legend_position = "right"
+    )
+    patchwork::wrap_elements(
+      full = cowplot::get_legend(plot + legend_theme),
+      clip = FALSE
+    )
+  }
+
+  plot_panel <- plot +
+    ggplot2::theme(
+      legend.position = "none",
+      plot.margin = plot_margin
+    )
+
+  if (isTRUE(show_env_legend)) {
+    plot_panel +
+      patchwork::wrap_elements(full = legend_panel, clip = FALSE) +
+      patchwork::plot_layout(widths = c(1 - legend_rel_width, legend_rel_width))
+  } else {
+    plot_panel +
+      legend_panel +
+      patchwork::plot_layout(widths = c(1 - legend_rel_width, legend_rel_width))
+  }
+}
+
+create_phylum_stacked_bar <- function(plot_df, phylum_colors = NULL,
+                                      facet_env = FALSE,
+                                      style = c("chapter", "publication"),
+                                      legend_position = "right",
+                                      legend_ncol = 1L,
+                                      match_ring_phylogeny = TRUE,
+                                      show_env_legend = TRUE,
+                                      show_phylum_legend = TRUE,
+                                      legend_rel_width = NULL,
+                                      wide_layout = FALSE,
+                                      legend_base_size = publication_legend_text_size(5),
+                                      theme_fn = theme_publication) {
+  style <- match.arg(style)
+
+  if (isTRUE(wide_layout) && is.null(legend_rel_width)) {
+    legend_rel_width <- if (isTRUE(show_env_legend)) 0.22 else 0.11
+  }
+  legend_layout <- "stacked"
+  plot_margin <- if (isTRUE(wide_layout)) {
+    ggplot2::margin(4, 0, 4, 0)
+  } else {
+    ggplot2::margin(5, 5, 5, 5)
+  }
+
+  if (!is.null(phylum_colors) && isTRUE(match_ring_phylogeny)) {
+    phylum_colors <- prepare_ring_phylogeny_phylum_colors(phylum_colors)
+  }
+
+  p <- ggplot2::ggplot(
+    plot_df,
+    ggplot2::aes(x = sample, y = count, fill = phylum, group = phylum)
+  ) +
+    ggplot2::geom_bar(
+      stat = "identity",
+      colour = "white",
+      linewidth = 0.1,
+      width = 1
+    ) +
     ggplot2::labs(
-      x = "Sample",
+      x = "Samples",
       y = "Relative abundance",
       fill = "Phylum"
     ) +
-    theme_fn() +
-    ggplot2::theme(
-      axis.text.x = ggplot2::element_blank(),
-      axis.ticks.x = ggplot2::element_blank(),
-      panel.grid.major.x = ggplot2::element_blank(),
-      legend.position = "bottom"
-    )
+    ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = c(0, 0))) +
+    ggplot2::guides(fill = ggplot2::guide_legend(ncol = legend_ncol))
 
-  if (!is.null(fill_vals)) {
-    p <- p + ggplot2::scale_fill_manual(values = fill_vals)
+  if (style == "chapter") {
+    p <- p +
+      ggplot2::theme(
+        axis.text.x = ggplot2::element_blank(),
+        axis.ticks.x = ggplot2::element_blank(),
+        axis.title.x = ggplot2::element_blank(),
+        panel.background = ggplot2::element_blank(),
+        panel.border = ggplot2::element_blank(),
+        panel.grid.major = ggplot2::element_blank(),
+        panel.grid.minor = ggplot2::element_blank(),
+        strip.background = ggplot2::element_rect(fill = "white"),
+        strip.text = ggplot2::element_text(size = 10.5, lineheight = 0.6, face = "bold"),
+        axis.line = ggplot2::element_line(linewidth = 0.5, linetype = "solid", colour = "black"),
+        legend.position = legend_position,
+        legend.title = ggplot2::element_text(
+          face = "bold",
+          size = publication_legend_title_size()
+        ),
+        legend.text = ggplot2::element_text(
+          size = publication_legend_text_size(),
+          face = "bold"
+        ),
+        legend.key.height = ggplot2::unit(0.45, "cm"),
+        legend.key.width = ggplot2::unit(0.45, "cm"),
+        plot.margin = ggplot2::margin(5, 5, 5, 5)
+      )
+  } else {
+    p <- p +
+      theme_fn() +
+      ggplot2::theme(
+        axis.text.x = ggplot2::element_blank(),
+        axis.ticks.x = ggplot2::element_blank(),
+        panel.grid.major.x = ggplot2::element_blank(),
+        legend.position = legend_position,
+        legend.title = ggplot2::element_text(
+          face = "bold",
+          size = publication_legend_title_size()
+        ),
+        legend.text = ggplot2::element_text(
+          size = publication_legend_text_size(),
+          face = "bold"
+        ),
+        legend.key.height = ggplot2::unit(0.45, "cm"),
+        legend.key.width = ggplot2::unit(0.45, "cm"),
+        plot.margin = ggplot2::margin(5, 5, 5, 5)
+      )
   }
 
-  if (facet_env && "broad_environment" %in% names(plot_df)) {
+  if (!is.null(phylum_colors)) {
+    p <- p + ggplot2::scale_fill_manual(
+      values = phylum_colors,
+      labels = if (isTRUE(match_ring_phylogeny)) format_phylum_label else ggplot2::waiver()
+    )
+  }
+
+  if (facet_env && "broad_environment_short" %in% names(plot_df)) {
+    p <- p + ggplot2::facet_grid(
+      . ~ broad_environment_short,
+      scales = "free_x",
+      space = "free_x"
+    )
+  } else if (facet_env && "broad_environment" %in% names(plot_df)) {
     p <- p + ggplot2::facet_grid(. ~ broad_environment, scales = "free_x", space = "free_x")
   }
 
+  if (isTRUE(wide_layout)) {
+    p <- p +
+      ggplot2::scale_x_discrete(expand = ggplot2::expansion(add = 0.12)) +
+      ggplot2::theme(
+        panel.spacing.x = ggplot2::unit(0.12, "lines")
+      )
+  }
+
+  env_order <- if ("broad_environment" %in% names(plot_df)) {
+    levels(plot_df$broad_environment)
+  } else {
+    NULL
+  }
+
+  if (isTRUE(show_env_legend) || isTRUE(show_phylum_legend)) {
+    p <- compose_phylum_stacked_bar(
+      plot = p,
+      env_order = env_order,
+      phylum_colors = phylum_colors,
+      match_ring_phylogeny = match_ring_phylogeny,
+      show_env_legend = show_env_legend,
+      show_phylum_legend = show_phylum_legend,
+      legend_rel_width = legend_rel_width,
+      legend_base_size = legend_base_size,
+      legend_layout = legend_layout,
+      plot_margin = plot_margin
+    )
+  }
+
   p
+}
+
+phylum_stacked_figure_dims <- function(facet_env = FALSE) {
+  if (facet_env) {
+    list(width_mm = 180, height_mm = 120)
+  } else {
+    list(width_mm = 180, height_mm = 100)
+  }
 }
 
 clean_taxonomy_label <- function(x, prefix = NULL) {
@@ -3058,9 +4302,49 @@ prepare_family_sankey_data <- function(genome_counts, genome_metadata, n_top = 1
     )
 }
 
+family_sankey_stratum_labels <- function(plot, label_min = 0.008) {
+  built <- ggplot2::ggplot_build(plot)
+  stratum_layers <- which(vapply(
+    built$data,
+    function(d) all(c("stratum", "ymax", "ymin", "x") %in% names(d)),
+    logical(1)
+  ))
+  if (length(stratum_layers) == 0) {
+    return(NULL)
+  }
+
+  stratum_df <- built$data[[stratum_layers[length(stratum_layers)]]] %>%
+    dplyr::mutate(
+      height = .data$ymax - .data$ymin,
+      ymid = (.data$ymin + .data$ymax) / 2,
+      label = as.character(.data$stratum)
+    ) %>%
+    dplyr::filter(.data$height >= label_min) %>%
+    dplyr::group_by(.data$x, .data$label) %>%
+    dplyr::slice(1) %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(
+      side = dplyr::if_else(.data$x < 1.5, "phylum", "family")
+    )
+
+  stratum_df
+}
+
 create_family_sankey_plot <- function(plot_df, phylum_colors = NULL,
                                       label_min = 0.008,
+                                      label_style = c("external", "internal"),
+                                      label_size = NULL,
+                                      legend_position = c("bottom", "left", "right", "none"),
+                                      legend_ncol = NULL,
                                       theme_fn = theme_publication) {
+  label_style <- match.arg(label_style)
+  legend_position <- match.arg(legend_position)
+  if (is.null(legend_ncol)) {
+    legend_ncol <- if (legend_position == "bottom") 5L else 1L
+  }
+  if (is.null(label_size)) {
+    label_size <- if (label_style == "external") 2.5 else 2.8
+  }
   if (!requireNamespace("ggalluvial", quietly = TRUE)) {
     stop(
       "Package 'ggalluvial' is required for family Sankey plots. ",
@@ -3082,6 +4366,12 @@ create_family_sankey_plot <- function(plot_df, phylum_colors = NULL,
     NULL
   }
 
+  x_expand <- if (label_style == "external") {
+    ggplot2::expansion(mult = c(0.42, 0.48))
+  } else {
+    ggplot2::expansion(mult = c(0.12, 0.08))
+  }
+
   p <- ggplot2::ggplot(
     plot_df,
     ggplot2::aes(
@@ -3099,22 +4389,32 @@ create_family_sankey_plot <- function(plot_df, phylum_colors = NULL,
     ggalluvial::geom_stratum(
       width = 1 / 6,
       fill = "grey95",
-      colour = "white",
-      linewidth = 0.3
-    ) +
-    ggplot2::geom_text(
+      colour = "black",
+      linewidth = 0.25
+    )
+
+  if (label_style == "internal") {
+    p <- p + ggplot2::geom_text(
       stat = "stratum",
       ggplot2::aes(label = ggplot2::after_stat(stratum)),
       min.y = label_min,
-      size = 2.8,
+      size = label_size,
       lineheight = 0.85
-    ) +
+    )
+  }
+
+  p <- p +
     ggplot2::scale_x_discrete(
       limits = c("Phylum", "Family"),
-      expand = ggplot2::expansion(mult = c(0.12, 0.08))
+      expand = x_expand
     ) +
     ggplot2::scale_y_continuous(
-      labels = function(x) paste0(round(100 * x, 1), "%")
+      labels = function(x) paste0(round(100 * x, 1), "%"),
+      expand = if (label_style == "external") {
+        ggplot2::expansion(mult = c(0.03, 0.03))
+      } else {
+        ggplot2::expansion(mult = c(0, 0))
+      }
     ) +
     ggplot2::labs(
       x = NULL,
@@ -3122,14 +4422,108 @@ create_family_sankey_plot <- function(plot_df, phylum_colors = NULL,
       fill = "Phylum",
       title = "Family contribution to the microbiome"
     ) +
+    ggplot2::guides(
+      fill = ggplot2::guide_legend(
+        ncol = legend_ncol,
+        byrow = legend_position == "bottom",
+        override.aes = list(alpha = 1)
+      )
+    ) +
     theme_fn() +
     ggplot2::theme(
-      legend.position = "bottom",
-      axis.text.x = ggplot2::element_text(face = "bold")
+      legend.position = legend_position,
+      legend.title = ggplot2::element_text(
+        face = "bold",
+        size = publication_legend_title_size(6)
+      ),
+      legend.text = ggplot2::element_text(
+        size = publication_legend_text_size(6),
+        face = "bold"
+      ),
+      legend.key.height = ggplot2::unit(0.35, "cm"),
+      legend.key.width = ggplot2::unit(0.35, "cm"),
+      legend.spacing.y = ggplot2::unit(0.1, "cm"),
+      legend.box.spacing = ggplot2::unit(0.2, "cm"),
+      axis.text.x = ggplot2::element_text(face = "bold"),
+      plot.margin = switch(
+        legend_position,
+        left = ggplot2::margin(5, 5, 5, 2),
+        right = ggplot2::margin(5, 2, 5, 5),
+        bottom = ggplot2::margin(5, 5, 2, 5),
+        none = ggplot2::margin(5, 5, 5, 5)
+      )
     )
 
   if (!is.null(fill_vals)) {
     p <- p + ggplot2::scale_fill_manual(values = fill_vals)
+  }
+
+  if (label_style == "external") {
+    if (!requireNamespace("ggrepel", quietly = TRUE)) {
+      stop(
+        "Package 'ggrepel' is required for external Sankey labels. ",
+        "Install with install.packages('ggrepel').",
+        call. = FALSE
+      )
+    }
+
+    label_df <- family_sankey_stratum_labels(p, label_min = label_min)
+    if (!is.null(label_df) && nrow(label_df) > 0) {
+      repel_args <- list(
+        inherit.aes = FALSE,
+        direction = "y",
+        size = label_size,
+        lineheight = 0.85,
+        segment.size = 0.2,
+        segment.color = "grey60",
+        min.segment.length = 0,
+        max.overlaps = Inf,
+        box.padding = 0.2,
+        point.padding = 0.15,
+        seed = 42
+      )
+
+      phylum_labels <- label_df %>% dplyr::filter(.data$side == "phylum")
+      family_labels <- label_df %>% dplyr::filter(.data$side == "family")
+
+      if (nrow(phylum_labels) > 0) {
+        p <- p + do.call(
+          ggrepel::geom_text_repel,
+          c(
+            list(
+              data = phylum_labels,
+              mapping = ggplot2::aes(
+                x = .data$x,
+                y = .data$ymid,
+                label = .data$label
+              ),
+              hjust = 1,
+              nudge_x = -0.1
+            ),
+            repel_args
+          )
+        )
+      }
+
+      if (nrow(family_labels) > 0) {
+        p <- p + do.call(
+          ggrepel::geom_text_repel,
+          c(
+            list(
+              data = family_labels,
+              mapping = ggplot2::aes(
+                x = .data$x,
+                y = .data$ymid,
+                label = .data$label
+              ),
+              hjust = 0,
+              nudge_x = 0.1
+            ),
+            repel_args
+          )
+        )
+      }
+    }
   }
 
   p
@@ -3268,7 +4662,7 @@ create_dominant_mag_tile_plot <- function(tile_df, phylum_colors = NULL,
 }
 
 hmsc_spotlight_association_vars <- function() {
-  c("devil", "temperature", "devil:temperature")
+  c("devil", "temperature", "diversity", "devil:temperature")
 }
 
 hmsc_phylo_palette <- function() {
@@ -3291,8 +4685,97 @@ hmsc_trend_display_names <- function() {
   c(
     "devil" = "Devil",
     "temperature" = "Temperature",
+    "diversity" = "Diversity",
     "devil:temperature" = "Interaction"
   )
+}
+
+hmsc_covariate_display_names <- function() {
+  c(
+    "devil" = "Devil density",
+    "temperature" = "Temperature",
+    "diversity" = "Diversity",
+    "logseqdepth" = "log sequencing depth",
+    "devil:temperature" = "Devil × temperature"
+  )
+}
+
+prepare_hmsc_predictor_correlation_matrix <- function(model_obj,
+                                                     method = c("pearson", "spearman", "kendall")) {
+  method <- match.arg(method)
+  if (is.null(model_obj$XData) || nrow(model_obj$XData) == 0L) {
+    return(NULL)
+  }
+
+  formula_vars <- setdiff(model_obj$covNames, "(Intercept)")
+  base_cols <- intersect(
+    c("devil", "temperature", "diversity", "logseqdepth"),
+    colnames(model_obj$XData)
+  )
+  if (length(base_cols) == 0L) {
+    return(NULL)
+  }
+
+  mat <- as.data.frame(model_obj$XData)[, base_cols, drop = FALSE]
+  if ("devil:temperature" %in% formula_vars &&
+      all(c("devil", "temperature") %in% colnames(mat))) {
+    mat$`devil:temperature` <- mat$devil * mat$temperature
+  }
+
+  keep <- intersect(formula_vars, colnames(mat))
+  if (length(keep) == 0L) {
+    return(NULL)
+  }
+  mat <- mat[, keep, drop = FALSE]
+
+  stats::cor(mat, use = "pairwise.complete.obs", method = method)
+}
+
+create_hmsc_predictor_correlation_plot <- function(cor_mat,
+                                                   display_names = hmsc_covariate_display_names(),
+                                                   title = "Pearson correlations among HMSC predictors",
+                                                   fill_label = "Pearson r",
+                                                   theme_fn = theme_publication) {
+  if (is.null(cor_mat) || ncol(cor_mat) == 0L) {
+    return(NULL)
+  }
+
+  vars <- colnames(cor_mat)
+  labels <- vapply(vars, function(v) display_names[[v]] %||% v, character(1))
+
+  long <- cor_mat %>%
+    as.data.frame() %>%
+    tibble::rownames_to_column("var1") %>%
+    tidyr::pivot_longer(-"var1", names_to = "var2", values_to = "r") %>%
+    dplyr::mutate(
+      var1 = factor(.data$var1, levels = vars, labels = labels),
+      var2 = factor(.data$var2, levels = vars, labels = labels),
+      label = sprintf("%.2f", .data$r)
+    )
+
+  pal <- hmsc_phylo_palette()
+  ggplot2::ggplot(long, ggplot2::aes(x = .data$var1, y = .data$var2, fill = .data$r)) +
+    ggplot2::geom_tile(color = "white", linewidth = 0.4) +
+    ggplot2::geom_text(
+      ggplot2::aes(label = .data$label),
+      size = 3.2,
+      color = "grey15"
+    ) +
+    ggplot2::scale_fill_gradient2(
+      low = pal$purple,
+      mid = "white",
+      high = pal$yellow,
+      midpoint = 0,
+      limits = c(-1, 1),
+      name = fill_label
+    ) +
+    ggplot2::coord_fixed() +
+    ggplot2::labs(x = NULL, y = NULL, title = title) +
+    theme_fn() +
+    ggplot2::theme(
+      axis.text.x = ggplot2::element_text(angle = 45, hjust = 1),
+      panel.grid = ggplot2::element_blank()
+    )
 }
 
 hmsc_beta_gradient_colors <- function() {
@@ -3301,6 +4784,24 @@ hmsc_beta_gradient_colors <- function() {
     low = pal$purple,
     mid = "white",
     high = pal$yellow
+  )
+}
+
+phylo_gift_capacity_colors <- function() {
+  c(low = "#f7fbff", high = "#2166AC")
+}
+
+hmsc_beta_fill_scale <- function(limits = c(-1, 1),
+                                 guide = ggplot2::guide_colorbar(),
+                                 na.value = "white") {
+  ggplot2::scale_fill_gradientn(
+    colours = functional_climate_palette(),
+    limits = limits,
+    breaks = c(-1, -0.5, 0, 0.5, 1),
+    labels = c("-1.0", "-0.5", "0", "0.5", "1.0"),
+    oob = scales::squish,
+    na.value = na.value,
+    guide = guide
   )
 }
 
@@ -3315,12 +4816,31 @@ hmsc_beta_limits <- function(beta_matrix) {
   c(-lim, lim)
 }
 
-spotlight_beta_ci_list <- function(devil_ci, temperature_ci, interaction_ci) {
-  list(
+spotlight_beta_ci_list <- function(devil_ci,
+                                   temperature_ci,
+                                   interaction_ci,
+                                   diversity_ci = NULL,
+                                   post_table = NULL) {
+  beta_list <- list(
     devil = devil_ci,
-    temperature = temperature_ci,
-    `devil:temperature` = interaction_ci
+    temperature = temperature_ci
   )
+  if (!is.null(diversity_ci)) {
+    beta_list$diversity <- diversity_ci
+  } else if (!is.null(post_table) && "diversity" %in% colnames(post_table)) {
+    beta_list$diversity <- post_table %>%
+      tibble::rownames_to_column("genome") %>%
+      dplyr::transmute(
+        genome = .data$genome,
+        mean = dplyr::case_when(
+          .data$diversity == "Positive" ~ 1,
+          .data$diversity == "Negative" ~ -1,
+          TRUE ~ 0
+        )
+      )
+  }
+  beta_list$`devil:temperature` <- interaction_ci
+  beta_list
 }
 
 prepare_spotlight_beta_matrix <- function(beta_ci_list, tip_order,
@@ -3401,7 +4921,11 @@ compact_phylo_gift_hmsc_colnames <- function(mat) {
   colnames(mat) <- ifelse(
     nm == "Temperature",
     "Temp.",
-    ifelse(nm == "Interaction", "Int.", nm)
+    ifelse(
+      nm == "Diversity",
+      "Div.",
+      ifelse(nm == "Interaction", "Int.", nm)
+    )
   )
   mat
 }
@@ -3652,8 +5176,16 @@ build_phylo_gift_fig_data <- function(genome_tree, genome_metadata, genome_gifts
   )
 }
 
+phylo_gift_legend_inset_mm <- function() {
+  16
+}
+
+phylo_gift_legend_base_size <- function() {
+  publication_legend_text_size(7.5)
+}
+
 phylo_gift_legend_theme <- function() {
-  circular_phylogeny_legend_theme(base_size = 7.5) +
+  circular_phylogeny_legend_theme(base_size = phylo_gift_legend_base_size()) +
     ggplot2::theme(
       legend.box = "vertical",
       legend.position = "left"
@@ -3671,12 +5203,59 @@ phylo_gift_colorbar_guide <- function() {
     ticks = TRUE,
     frame.colour = "grey75",
     ticks.colour = "grey50",
-    label.theme = ggplot2::element_text(size = 8, hjust = 0.5),
-    title.theme = ggplot2::element_text(size = 8, face = "bold", hjust = 0.5)
+    label.theme = ggplot2::element_text(
+      size = publication_legend_text_size(8),
+      face = "bold",
+      hjust = 0.5
+    ),
+    title.theme = ggplot2::element_text(
+      size = publication_legend_title_size(8),
+      face = "bold",
+      hjust = 0.5
+    )
   )
 }
 
-compose_phylo_gift_figure <- function(tree_plot, legend_rel_width = 0.18, legend_source = NULL) {
+phylo_gift_stacked_colorbar_guide <- function() {
+  ggplot2::guide_colorbar(
+    direction = "vertical",
+    barwidth = ggplot2::unit(0.5, "cm"),
+    barheight = ggplot2::unit(2.8, "cm"),
+    title.position = "top",
+    title.hjust = 0.5,
+    label.position = "right",
+    ticks = TRUE,
+    frame.colour = "grey75",
+    ticks.colour = "grey50",
+    label.theme = ggplot2::element_text(
+      size = publication_legend_text_size(7.5),
+      face = "bold",
+      hjust = 0
+    ),
+    title.theme = ggplot2::element_text(
+      size = publication_legend_title_size(7.5),
+      face = "bold",
+      hjust = 0.5,
+      margin = ggplot2::margin(b = 2)
+    )
+  )
+}
+
+phylo_gift_stacked_legend_theme <- function() {
+  circular_phylogeny_legend_theme(base_size = phylo_gift_legend_base_size()) +
+    ggplot2::theme(
+      legend.box = "vertical",
+      legend.position = "left",
+      legend.box.spacing = ggplot2::unit(4, "mm"),
+      legend.spacing.y = ggplot2::unit(2.5, "mm"),
+      legend.margin = ggplot2::margin(0, 0, 0, 0)
+    )
+}
+
+compose_phylo_gift_figure <- function(tree_plot,
+                                      legend_rel_width = 0.18,
+                                      legend_source = NULL,
+                                      legend_inset_mm = phylo_gift_legend_inset_mm()) {
   legend_plot <- (legend_source %||% tree_plot) + phylo_gift_legend_theme()
   g <- ggplot2::ggplotGrob(legend_plot)
   guide_idx <- which(g$layout$name == "guide-box-left")
@@ -3694,7 +5273,12 @@ compose_phylo_gift_figure <- function(tree_plot, legend_rel_width = 0.18, legend
       plot.caption = ggplot2::element_text(size = 7, colour = "grey30", hjust = 0)
     )
 
-  patchwork::wrap_elements(full = legend_grob) +
+  legend_panel <- patchwork::wrap_elements(full = legend_grob) +
+    ggplot2::theme(
+      plot.margin = ggplot2::margin(0, 1, 0, legend_inset_mm, unit = "mm")
+    )
+
+  legend_panel +
     tree_panel +
     patchwork::plot_layout(widths = c(legend_rel_width, 1 - legend_rel_width))
 }
@@ -3707,7 +5291,7 @@ create_phylo_gift_heatmap_plot <- function(phylo_tree,
                                            phylum_colors = NULL,
                                            trend_colors = hmsc_trend_fill_colors(),
                                            beta_colors = hmsc_beta_gradient_colors(),
-                                           gift_colors = c(low = "#f7fbff", high = "#2166AC"),
+                                           gift_colors = phylo_gift_capacity_colors(),
                                            tree_size = 0.25,
                                            show_post_heatmap = TRUE,
                                            legend_position = "left") {
@@ -3883,10 +5467,23 @@ phylo_gift_tip_x_positions <- function(phylo_tree, tree_size = 0.25) {
   p <- ggtree::ggtree(phylo_tree, size = tree_size) +
     ggplot2::coord_flip() +
     ggplot2::scale_x_reverse()
+  # After coord_flip tips spread along data$y, which maps to the horizontal axis.
   p$data %>%
     dplyr::filter(.data$isTip) %>%
     dplyr::arrange(.data$y) %>%
-    dplyr::transmute(genome = .data$label, x = .data$x)
+    dplyr::transmute(genome = .data$label, x = .data$y)
+}
+
+phylo_gift_stacked_x_limits <- function(tip_pos, pad = 0.5) {
+  xr <- range(tip_pos$x, na.rm = TRUE)
+  c(xr[1] - pad, xr[2] + pad)
+}
+
+phylo_gift_stacked_x_scale <- function(tip_pos) {
+  ggplot2::scale_x_continuous(
+    limits = phylo_gift_stacked_x_limits(tip_pos),
+    expand = c(0, 0)
+  )
 }
 
 phylo_gift_tile_width <- function(tip_pos) {
@@ -3905,15 +5502,31 @@ phylo_gift_row_labels <- function(codes, GIFT_db, gift_level = c("function", "el
   gift_level <- match.arg(gift_level)
   if (gift_level == "element") {
     lookup <- GIFT_db %>%
-      dplyr::distinct(.data$Code_element, .data$Element)
-    labels <- lookup$Element[match(codes, lookup$Code_element)]
+      dplyr::distinct(.data$Code_element, .data$Element, .data$Function) %>%
+      dplyr::mutate(
+        label = dplyr::if_else(
+          is.na(.data$Element) | .data$Element == "",
+          .data$Code_element,
+          .data$Element
+        )
+      )
+    labels <- lookup$label[match(codes, lookup$Code_element)]
   } else {
     lookup <- GIFT_db %>%
       dplyr::distinct(.data$Code_function, .data$Function)
     labels <- lookup$Function[match(codes, lookup$Code_function)]
   }
   labels[is.na(labels)] <- codes[is.na(labels)]
-  stringr::str_trunc(labels, 42, "right")
+  trunc_len <- if (gift_level == "element") 48L else 42L
+  stringr::str_trunc(labels, trunc_len, "right")
+}
+
+phylo_gift_gift_stack_height <- function(n_gift, gift_level = c("function", "element")) {
+  gift_level <- match.arg(gift_level)
+  if (identical(gift_level, "element")) {
+    return(max(3, min(10, 1.2 + n_gift * 0.055)))
+  }
+  max(1.8, min(5.5, 0.9 + n_gift * 0.045))
 }
 
 phylo_gift_stacked_row_fontsize <- function(n_rows) {
@@ -3932,10 +5545,26 @@ phylo_gift_stacked_row_fontsize <- function(n_rows) {
   7.5
 }
 
-phylo_gift_stacked_tree_plot <- function(phylo_tree, tree_size = 0.25) {
-  ggtree::ggtree(phylo_tree, size = tree_size) +
+phylo_gift_hmsc_row_fontsize <- function(n_rows) {
+  if (n_rows <= 4L) {
+    return(8)
+  }
+  phylo_gift_stacked_row_fontsize(n_rows)
+}
+
+phylo_gift_stacked_tree_plot <- function(phylo_tree, tree_size = 0.25, tip_pos = NULL) {
+  p <- ggtree::ggtree(phylo_tree, size = tree_size) +
     ggplot2::coord_flip() +
-    ggplot2::scale_x_reverse() +
+    # Hang the tree downward: tips at the bottom, root at the top.
+    ggplot2::scale_x_reverse()
+  # Tip spread lives in data$y; after coord_flip that maps to the horizontal axis.
+  if (!is.null(tip_pos) && nrow(tip_pos) > 0L) {
+    p <- p + ggplot2::scale_y_continuous(
+      limits = phylo_gift_stacked_x_limits(tip_pos),
+      expand = c(0, 0)
+    )
+  }
+  p +
     ggplot2::theme(
       plot.margin = ggplot2::margin(2, 2, 0, 2),
       legend.position = "none"
@@ -3949,6 +5578,12 @@ phylo_gift_stacked_strip_theme <- function() {
       axis.text.x = ggplot2::element_blank(),
       axis.ticks.x = ggplot2::element_blank(),
       axis.title.x = ggplot2::element_blank(),
+      axis.title.y = ggplot2::element_text(
+        angle = 90,
+        size = 8,
+        face = "bold",
+        margin = ggplot2::margin(r = 4)
+      ),
       plot.margin = ggplot2::margin(0, 2, 0, 2),
       legend.position = "none"
     )
@@ -3961,7 +5596,8 @@ phylo_gift_aligned_matrix_plot <- function(tip_pos,
                                            tile_width = phylo_gift_tile_width(tip_pos),
                                            row_height = NULL,
                                            fill_scale,
-                                           ylab = NULL) {
+                                           ylab = NULL,
+                                           y_text_size = NULL) {
   if (ncol(mat) == 0L || nrow(mat) == 0L) {
     return(NULL)
   }
@@ -3973,9 +5609,16 @@ phylo_gift_aligned_matrix_plot <- function(tip_pos,
       0.45
     } else if (n_rows <= 4L) {
       0.55
+    } else if (n_rows > 80L) {
+      0.82
+    } else if (n_rows > 30L) {
+      0.9
     } else {
       1
     }
+  }
+  if (is.null(y_text_size)) {
+    y_text_size <- phylo_gift_stacked_row_fontsize(n_rows)
   }
 
   long <- as.data.frame(mat) %>%
@@ -3988,8 +5631,18 @@ phylo_gift_aligned_matrix_plot <- function(tip_pos,
       y = (.data$row_idx - 0.5) * row_height
     )
 
-  y_breaks <- seq(row_height / 2, (n_rows - 0.5) * row_height, by = row_height)
-  y_labels <- row_labels[match(row_levels, row_levels)]
+  show_y_labels <- length(row_labels) > 0L &&
+    any(nzchar(as.character(row_labels)))
+  y_breaks <- if (show_y_labels) {
+    seq(row_height / 2, (n_rows - 0.5) * row_height, by = row_height)
+  } else {
+    NULL
+  }
+  y_labels <- if (show_y_labels) {
+    row_labels[match(row_levels, row_levels)]
+  } else {
+    NULL
+  }
 
   ggplot2::ggplot(long, ggplot2::aes(x = .data$x, y = .data$y, fill = .data$value)) +
     ggplot2::geom_tile(
@@ -3998,6 +5651,7 @@ phylo_gift_aligned_matrix_plot <- function(tip_pos,
       colour = NA
     ) +
     fill_scale +
+    phylo_gift_stacked_x_scale(tip_pos) +
     ggplot2::scale_y_continuous(
       breaks = y_breaks,
       labels = y_labels,
@@ -4005,25 +5659,376 @@ phylo_gift_aligned_matrix_plot <- function(tip_pos,
     ) +
     phylo_gift_stacked_strip_theme() +
     ggplot2::theme(
-      axis.text.y = ggplot2::element_text(
-        size = phylo_gift_stacked_row_fontsize(n_rows)
-      )
+      axis.text.y = if (show_y_labels) {
+        ggplot2::element_text(size = y_text_size)
+      } else {
+        ggplot2::element_blank()
+      },
+      axis.ticks.y = if (show_y_labels) {
+        ggplot2::element_line()
+      } else {
+        ggplot2::element_blank()
+      }
     ) +
     ggplot2::labs(x = NULL, y = ylab, fill = NULL)
 }
 
-phylo_gift_legend_only_plot <- function(fill_scale, fill_label) {
+phylo_gift_stacked_legend_geom <- function() {
+  list(
+    swatch_x = 0.14,
+    swatch_w = 0.06,
+    label_x = 0.21,
+    title_x = 0.1,
+    xlim = c(0.08, 1)
+  )
+}
+
+phylo_gift_stacked_legend_colors <- function(values,
+                                             low,
+                                             high,
+                                             limits,
+                                             mid = NULL,
+                                             midpoint = 0) {
+  values <- pmax(limits[1], pmin(limits[2], values))
+  vapply(values, function(value) {
+    rgb_vals <- if (!is.null(mid)) {
+      if (value <= midpoint) {
+        denom <- midpoint - limits[1]
+        t <- if (denom == 0) 0 else (value - limits[1]) / denom
+        grDevices::colorRamp(c(low, mid))(t)
+      } else {
+        denom <- limits[2] - midpoint
+        t <- if (denom == 0) 1 else (value - midpoint) / denom
+        grDevices::colorRamp(c(mid, high))(t)
+      }
+    } else {
+      normed <- (value - limits[1]) / diff(limits)
+      grDevices::colorRamp(c(low, high))(normed)
+    }
+    grDevices::rgb(rgb_vals, maxColorValue = 255)
+  }, character(1))
+}
+
+phylo_gift_stacked_gradient_legend_layers <- function(y_base,
+                                                      title,
+                                                      limits,
+                                                      breaks,
+                                                      labels,
+                                                      low,
+                                                      high,
+                                                      mid = NULL,
+                                                      midpoint = 0,
+                                                      n_steps = 48L) {
+  geom <- phylo_gift_stacked_legend_geom()
+  row_h <- 0.085
+  vals <- seq(limits[1], limits[2], length.out = n_steps)
+  tile_df <- tibble::tibble(
+    x = geom$swatch_x,
+    y = y_base + seq_along(vals) * row_h,
+    fill = phylo_gift_stacked_legend_colors(
+      values = vals,
+      low = low,
+      high = high,
+      limits = limits,
+      mid = mid,
+      midpoint = midpoint
+    ),
+    kind = "gradient"
+  )
+  y_range <- range(tile_df$y)
+  break_df <- tibble::tibble(
+    x = geom$label_x,
+    label = labels,
+    y = y_range[1] + (breaks - limits[1]) / diff(limits) * diff(y_range)
+  )
+  title_df <- tibble::tibble(
+    x = geom$title_x,
+    y = y_range[2] + 0.55,
+    label = title
+  )
+  list(
+    tiles = tile_df,
+    labels = break_df,
+    title = title_df,
+    y_top = title_df$y[1] + 0.2
+  )
+}
+
+phylo_gift_stacked_phylum_legend_layers <- function(y_base,
+                                                    phylum_colors,
+                                                    present_phyla = NULL) {
+  geom <- phylo_gift_stacked_legend_geom()
+  phylum_names <- names(phylum_colors)
+  if (!is.null(present_phyla)) {
+    present_phyla <- unique(as.character(present_phyla))
+    phylum_names <- intersect(phylum_names, present_phyla)
+  }
+  if (length(phylum_names) == 0L) {
+    return(NULL)
+  }
+
+  row_height <- 0.52
+  tile_df <- tibble::tibble(
+    x = geom$swatch_x,
+    y = y_base + seq_along(phylum_names) * row_height,
+    fill = unname(phylum_colors[phylum_names]),
+    kind = "phylum"
+  )
+  label_df <- tibble::tibble(
+    x = geom$label_x,
+    y = tile_df$y,
+    label = format_phylum_label(phylum_names)
+  )
+  title_df <- tibble::tibble(
+    x = geom$title_x,
+    y = max(tile_df$y) + 0.55,
+    label = "Phylum"
+  )
+  list(
+    tiles = tile_df,
+    labels = label_df,
+    title = title_df,
+    y_top = title_df$y[1] + 0.2
+  )
+}
+
+phylo_gift_stacked_legend_plot <- function(phylum_colors = NULL,
+                                           present_phyla = NULL,
+                                           beta_colors = NULL,
+                                           beta_lim = NULL,
+                                           gift_colors = NULL,
+                                           gift_level = c("function", "element"),
+                                           show_hmsc = TRUE) {
+  gift_level <- match.arg(gift_level)
+  geom <- phylo_gift_stacked_legend_geom()
+  gap <- 0.85
+  y_base <- 0
+  tile_parts <- list()
+  label_parts <- list()
+  title_parts <- list()
+
+  if (!is.null(gift_colors)) {
+    gift_layer <- if (identical(gift_level, "function")) {
+      phylo_gift_stacked_gradient_legend_layers(
+        y_base = y_base,
+        title = "GIFT function capacity",
+        limits = c(0, 1),
+        breaks = c(0, 0.5, 1),
+        labels = c("None", "Partial", "Full"),
+        low = gift_colors["low"],
+        high = gift_colors["high"]
+      )
+    } else {
+      phylo_gift_stacked_gradient_legend_layers(
+        y_base = y_base,
+        title = "GIFT element in MAG",
+        limits = c(0, 1),
+        breaks = c(0, 1),
+        labels = c("Absent", "Present"),
+        low = gift_colors["low"],
+        high = gift_colors["high"]
+      )
+    }
+    tile_parts <- c(tile_parts, list(gift_layer$tiles))
+    label_parts <- c(label_parts, list(gift_layer$labels))
+    title_parts <- c(title_parts, list(gift_layer$title))
+    y_base <- gift_layer$y_top + gap
+  }
+
+  if (isTRUE(show_hmsc) && !is.null(beta_colors) && !is.null(beta_lim)) {
+    hmsc_layer <- phylo_gift_stacked_gradient_legend_layers(
+      y_base = y_base,
+      title = "HMSC beta (scaled)",
+      limits = beta_lim,
+      breaks = c(-1, -0.5, 0, 0.5, 1),
+      labels = c("-1.0", "-0.5", "0", "0.5", "1.0"),
+      low = beta_colors$low,
+      mid = beta_colors$mid,
+      high = beta_colors$high
+    )
+    tile_parts <- c(tile_parts, list(hmsc_layer$tiles))
+    label_parts <- c(label_parts, list(hmsc_layer$labels))
+    title_parts <- c(title_parts, list(hmsc_layer$title))
+    y_base <- hmsc_layer$y_top + gap
+  }
+
+  if (!is.null(phylum_colors) && length(phylum_colors) > 0L) {
+    phylum_layer <- phylo_gift_stacked_phylum_legend_layers(
+      y_base = y_base,
+      phylum_colors = phylum_colors,
+      present_phyla = present_phyla
+    )
+    if (!is.null(phylum_layer)) {
+      tile_parts <- c(tile_parts, list(phylum_layer$tiles))
+      label_parts <- c(label_parts, list(phylum_layer$labels))
+      title_parts <- c(title_parts, list(phylum_layer$title))
+      y_base <- phylum_layer$y_top
+    }
+  }
+
+  if (length(tile_parts) == 0L) {
+    return(NULL)
+  }
+
+  tile_df <- dplyr::bind_rows(tile_parts)
+  label_df <- dplyr::bind_rows(label_parts)
+  title_df <- dplyr::bind_rows(title_parts)
+  tile_df$height <- ifelse(
+    tile_df$kind == "gradient",
+    0.085 * 0.92,
+    0.52 * 0.82
+  )
+  y_min <- min(tile_df$y) - max(tile_df$height) / 2
+  y_max <- max(title_df$y) + 0.2
+
+  ggplot2::ggplot() +
+    ggplot2::geom_tile(
+      data = tile_df,
+      ggplot2::aes(x = .data$x, y = .data$y),
+      fill = tile_df$fill,
+      width = geom$swatch_w,
+      height = tile_df$height,
+      colour = NA
+    ) +
+    ggplot2::geom_text(
+      data = label_df,
+      ggplot2::aes(x = .data$x, y = .data$y, label = .data$label),
+      hjust = 0,
+      size = publication_legend_geom_text_mm(2.85),
+      inherit.aes = FALSE
+    ) +
+    ggplot2::geom_text(
+      data = title_df,
+      ggplot2::aes(x = .data$x, y = .data$y, label = .data$label),
+      hjust = 0,
+      fontface = "bold",
+      size = publication_legend_geom_text_mm(3.2),
+      inherit.aes = FALSE
+    ) +
+    ggplot2::scale_x_continuous(limits = geom$xlim, expand = c(0, 0)) +
+    ggplot2::scale_y_continuous(limits = c(y_min, y_max), expand = c(0, 0)) +
+    ggplot2::theme_void() +
+    ggplot2::theme(
+      plot.margin = ggplot2::margin(0, 0, 0, phylo_gift_legend_inset_mm(), unit = "mm")
+    )
+}
+
+build_phylo_gift_phylum_legend_grob <- function(phylum_colors, present_phyla = NULL) {
+  phylo_gift_phylum_legend_plot(phylum_colors, present_phyla = present_phyla)
+}
+
+compose_phylo_gift_stacked_legends <- function(phylum_colors = NULL,
+                                               present_phyla = NULL,
+                                               hmsc_fill_scale = NULL,
+                                               hmsc_fill_label = NULL,
+                                               gift_fill_scale = NULL,
+                                               gift_fill_label = NULL,
+                                               beta_colors = NULL,
+                                               beta_lim = NULL,
+                                               gift_colors = NULL,
+                                               gift_level = c("function", "element"),
+                                               hmsc_values = c(-1, 0, 1),
+                                               gift_values = c(0, 0.5, 1)) {
+  gift_level <- match.arg(gift_level)
+  phylo_gift_stacked_legend_plot(
+    phylum_colors = phylum_colors,
+    present_phyla = present_phyla,
+    beta_colors = if (!is.null(hmsc_fill_scale)) beta_colors else NULL,
+    beta_lim = if (!is.null(hmsc_fill_scale)) beta_lim else NULL,
+    gift_colors = gift_colors,
+    gift_level = gift_level,
+    show_hmsc = !is.null(hmsc_fill_scale)
+  )
+}
+
+compose_phylo_gift_stacked_figure <- function(combo,
+                                              legend_grob,
+                                              legend_rel_width = 0.17,
+                                              legend_inset_frac = 0.18) {
+  main_grob <- grid::grid.grabExpr(print(combo))
+  legend_raw <- grid::grid.grabExpr(print(legend_grob))
+  legend_panel <- cowplot::ggdraw() +
+    cowplot::draw_plot(
+      legend_raw,
+      x = legend_inset_frac,
+      y = 0,
+      width = 1 - legend_inset_frac,
+      height = 1
+    )
+  cowplot::plot_grid(
+    legend_panel,
+    main_grob,
+    ncol = 2,
+    rel_widths = c(legend_rel_width, 1 - legend_rel_width),
+    align = "h",
+    axis = "lr"
+  )
+}
+
+phylo_gift_legend_only_plot <- function(fill_scale, fill_label, values = c(0, 1)) {
   legend_df <- data.frame(
     x = 1,
-    y = 1,
-    value = c(0, 1)
+    y = seq_along(values),
+    value = values
   )
   ggplot2::ggplot(legend_df, ggplot2::aes(x = .data$x, y = .data$y, fill = .data$value)) +
     ggplot2::geom_tile(alpha = 0) +
     fill_scale +
     ggplot2::labs(fill = fill_label) +
     ggplot2::theme_void() +
-    phylo_gift_legend_theme()
+    phylo_gift_stacked_legend_theme()
+}
+
+phylo_gift_phylum_legend_plot <- function(phylum_colors, present_phyla = NULL) {
+  phylum_names <- names(phylum_colors)
+  if (!is.null(present_phyla)) {
+    present_phyla <- unique(as.character(present_phyla))
+    phylum_names <- intersect(phylum_names, present_phyla)
+  }
+  if (length(phylum_names) == 0L) {
+    return(NULL)
+  }
+
+  geom <- phylo_gift_stacked_legend_geom()
+  phylum_labels <- format_phylum_label(phylum_names)
+  row_height <- 0.52
+  legend_df <- tibble::tibble(
+    y = seq_along(phylum_names) * row_height,
+    label = phylum_labels,
+    fill_color = unname(phylum_colors[phylum_names])
+  )
+  title_y <- max(legend_df$y) + 0.55
+
+  ggplot2::ggplot() +
+    ggplot2::annotate(
+      "text",
+      x = geom$title_x,
+      y = title_y,
+      label = "Phylum",
+      hjust = 0,
+      fontface = "bold",
+      size = publication_legend_geom_text_mm(3.2)
+    ) +
+    ggplot2::geom_tile(
+      data = legend_df,
+      ggplot2::aes(x = geom$swatch_x, y = .data$y, fill = .data$fill_color),
+      width = geom$swatch_w,
+      height = row_height * 0.82,
+      colour = NA
+    ) +
+    ggplot2::geom_text(
+      data = legend_df,
+      ggplot2::aes(x = geom$label_x, y = .data$y, label = .data$label),
+      hjust = 0,
+      size = publication_legend_geom_text_mm(2.85)
+    ) +
+    ggplot2::scale_fill_identity() +
+    ggplot2::scale_x_continuous(limits = geom$xlim, expand = c(0, 0)) +
+    ggplot2::scale_y_continuous(limits = c(row_height * 0.45, title_y + 0.2), expand = c(0, 0)) +
+    ggplot2::theme_void() +
+    ggplot2::theme(
+      plot.margin = ggplot2::margin(0, 0, 0, phylo_gift_legend_inset_mm(), unit = "mm")
+    )
 }
 
 phylo_gift_stack_aligned_panels <- function(panels, heights) {
@@ -4058,7 +6063,7 @@ create_phylo_gift_heatmap_plot_stacked <- function(phylo_tree,
                                                    phylum_colors = NULL,
                                                    trend_colors = hmsc_trend_fill_colors(),
                                                    beta_colors = hmsc_beta_gradient_colors(),
-                                                   gift_colors = c(low = "#f7fbff", high = "#2166AC"),
+                                                   gift_colors = phylo_gift_capacity_colors(),
                                                    tree_size = 0.25,
                                                    show_post_heatmap = TRUE,
                                                    legend_position = "left") {
@@ -4076,45 +6081,52 @@ create_phylo_gift_heatmap_plot_stacked <- function(phylo_tree,
     gift_codes
   }
 
-  tree_plot <- phylo_gift_stacked_tree_plot(phylo_tree, tree_size = tree_size)
+  tree_plot <- phylo_gift_stacked_tree_plot(
+    phylo_tree,
+    tree_size = tree_size,
+    tip_pos = tip_pos
+  )
+
+  phylum_fill_scale <- if (!is.null(phylum_colors)) {
+    phylum_labels <- stats::setNames(
+      format_phylum_label(names(phylum_colors)),
+      names(phylum_colors)
+    )
+    ggplot2::scale_fill_manual(
+      values = phylum_colors,
+      labels = phylum_labels,
+      na.value = "grey80"
+    )
+  } else {
+    ggplot2::scale_fill_grey(na.value = "grey80")
+  }
 
   phylum_plot <- phylo_gift_aligned_matrix_plot(
     tip_pos = tip_pos,
     mat = phylum_matrix,
     row_levels = colnames(phylum_matrix),
-    row_labels = colnames(phylum_matrix),
+    row_labels = character(0),
     tile_width = tile_width,
     row_height = 0.4,
-    fill_scale = {
-      phylum_scale <- if (!is.null(phylum_colors)) {
-        phylum_labels <- stats::setNames(
-          format_phylum_label(names(phylum_colors)),
-          names(phylum_colors)
-        )
-        ggplot2::scale_fill_manual(
-          values = phylum_colors,
-          labels = phylum_labels,
-          na.value = "grey80"
-        )
-      } else {
-        ggplot2::scale_fill_grey(na.value = "grey80")
-      }
-      phylum_scale
-    },
-    ylab = "Phylum"
+    fill_scale = phylum_fill_scale,
+    ylab = NULL
   )
+
+  present_phyla <- unique(as.character(phylum_matrix[, 1, drop = TRUE]))
 
   association_matrix <- beta_matrix %||% post_matrix
   use_continuous_beta <- !is.null(beta_matrix)
   hmsc_plot <- NULL
+  hmsc_fill_scale <- NULL
+  hmsc_fill_label <- NULL
+  beta_lim <- NULL
   if (show_post_heatmap && !is.null(association_matrix) && ncol(association_matrix) > 0) {
     if (!use_continuous_beta) {
       association_matrix <- rename_trend_matrix_cols(association_matrix)
-    } else {
-      association_matrix <- compact_phylo_gift_hmsc_colnames(association_matrix)
     }
     hmsc_fill_scale <- if (use_continuous_beta) {
       beta_lim <- hmsc_beta_limits(association_matrix)
+      hmsc_fill_label <- "HMSC beta (scaled)"
       ggplot2::scale_fill_gradient2(
         low = beta_colors$low,
         mid = beta_colors$mid,
@@ -4125,9 +6137,10 @@ create_phylo_gift_heatmap_plot_stacked <- function(phylo_tree,
         labels = c("-1.0", "-0.5", "0", "0.5", "1.0"),
         oob = scales::squish,
         na.value = "white",
-        guide = phylo_gift_colorbar_guide()
+        guide = phylo_gift_stacked_colorbar_guide()
       )
     } else {
+      hmsc_fill_label <- "HMSC trend"
       ggplot2::scale_fill_manual(values = trend_colors, drop = FALSE)
     }
     hmsc_plot <- phylo_gift_aligned_matrix_plot(
@@ -4136,9 +6149,10 @@ create_phylo_gift_heatmap_plot_stacked <- function(phylo_tree,
       row_levels = colnames(association_matrix),
       row_labels = colnames(association_matrix),
       tile_width = tile_width,
-      row_height = 0.55,
+      row_height = 0.72,
       fill_scale = hmsc_fill_scale,
-      ylab = if (use_continuous_beta) "HMSC beta" else "HMSC trend"
+      ylab = NULL,
+      y_text_size = phylo_gift_hmsc_row_fontsize(ncol(association_matrix))
     )
   }
 
@@ -4150,7 +6164,7 @@ create_phylo_gift_heatmap_plot_stacked <- function(phylo_tree,
       breaks = c(0, 0.5, 1),
       labels = c("None", "Partial", "Full"),
       na.value = "white",
-      guide = phylo_gift_colorbar_guide()
+      guide = phylo_gift_stacked_colorbar_guide()
     )
   } else {
     ggplot2::scale_fill_gradient(
@@ -4160,7 +6174,7 @@ create_phylo_gift_heatmap_plot_stacked <- function(phylo_tree,
       breaks = c(0, 1),
       labels = c("Absent", "Present"),
       na.value = "white",
-      guide = phylo_gift_colorbar_guide()
+      guide = phylo_gift_stacked_colorbar_guide()
     )
   }
   gift_fill_label <- if (identical(gift_level, "function")) {
@@ -4195,9 +6209,9 @@ create_phylo_gift_heatmap_plot_stacked <- function(phylo_tree,
     )
 
   n_gift <- ncol(gift_matrix)
-  gift_stack_height <- max(1.8, min(5.5, 0.9 + n_gift * 0.045))
+  gift_stack_height <- phylo_gift_gift_stack_height(n_gift, gift_level = gift_level)
   stack_panels <- list(tree_plot, phylum_plot, hmsc_plot, gift_plot)
-  stack_heights <- c(1, 0.12, 0.22, gift_stack_height)
+  stack_heights <- c(2.2, 0.12, 0.28, gift_stack_height)
   if (is.null(hmsc_plot)) {
     stack_panels <- stack_panels[c(1L, 2L, 4L)]
     stack_heights <- stack_heights[c(1L, 2L, 4L)]
@@ -4211,24 +6225,46 @@ create_phylo_gift_heatmap_plot_stacked <- function(phylo_tree,
   }
 
   if (identical(legend_position, "left")) {
-    legend_panel <- phylo_gift_legend_only_plot(
-      fill_scale = gift_fill_scale,
-      fill_label = gift_fill_label
+    legend_grob <- compose_phylo_gift_stacked_legends(
+      phylum_colors = phylum_colors,
+      present_phyla = present_phyla,
+      hmsc_fill_scale = hmsc_fill_scale,
+      hmsc_fill_label = hmsc_fill_label,
+      gift_fill_scale = gift_fill_scale,
+      gift_fill_label = gift_fill_label,
+      beta_colors = if (use_continuous_beta) beta_colors else NULL,
+      beta_lim = if (use_continuous_beta) beta_lim else NULL,
+      gift_colors = gift_colors,
+      gift_level = gift_level
     )
-    combo <- combo %>% aplot::insert_left(legend_panel, width = 1.1)
+    combo <- compose_phylo_gift_stacked_figure(
+      combo = combo,
+      legend_grob = legend_grob,
+      legend_rel_width = 0.17
+    )
+    attr(combo, "phylo_gift_stacked_figure") <- TRUE
   }
 
   combo
 }
 
-phylo_gift_stacked_figure_dims <- function(n_genomes, n_gift_rows,
-                                           width_mm = 200, min_height_mm = 220,
-                                           max_height_mm = 420, legend_width_mm = 32) {
+phylo_gift_stacked_figure_dims <- function(n_genomes,
+                                           n_gift_rows,
+                                           gift_level = c("function", "element"),
+                                           width_mm = 200,
+                                           min_height_mm = 250,
+                                           max_height_mm = NULL,
+                                           legend_width_mm = 52) {
+  gift_level <- match.arg(gift_level)
+  if (is.null(max_height_mm)) {
+    max_height_mm <- if (identical(gift_level, "element")) 620 else 460
+  }
+  row_mm <- if (identical(gift_level, "element")) 2.35 else 3.2
   list(
-    width_mm = legend_width_mm + max(width_mm, min(340, width_mm + n_genomes * 1.1)),
+    width_mm = legend_width_mm + max(width_mm, min(380, width_mm + n_genomes * 2.2)),
     height_mm = max(
       min_height_mm,
-      min(max_height_mm, 90 + n_gift_rows * 2.8 + min(50, n_genomes * 0.15))
+      min(max_height_mm, 150 + n_gift_rows * row_mm + min(70, n_genomes * 0.2))
     )
   )
 }
@@ -4444,16 +6480,22 @@ load_australia_map_sf <- function() {
     dplyr::filter(admin == "Australia")
 }
 
-prepare_tasmania_map_points <- function(sample_metadata,
-                                        sample_points,
-                                        env_variables = NULL,
-                                        island = "Tasmania") {
+prepare_study_map_points <- function(sample_metadata,
+                                     sample_points,
+                                     env_variables = NULL,
+                                     island = NULL) {
   map_df <- sample_metadata %>%
-    dplyr::filter(.data$island == .env$island) %>%
     dplyr::select(
       sample,
       dplyr::any_of(c("broad_environment", "island"))
-    ) %>%
+    )
+
+  if (!is.null(island)) {
+    map_df <- map_df %>%
+      dplyr::filter(.data$island == .env$island)
+  }
+
+  map_df <- map_df %>%
     dplyr::left_join(
       sample_points %>% dplyr::select(sample, longitude, latitude),
       by = "sample"
@@ -4470,49 +6512,343 @@ prepare_tasmania_map_points <- function(sample_metadata,
     dplyr::filter(!is.na(longitude), !is.na(latitude))
 }
 
-tasmania_map_limits <- function() {
-  list(
-    xlim = c(143, 149),
-    ylim = c(-44, -39)
+prepare_tasmania_map_points <- function(sample_metadata,
+                                        sample_points,
+                                        env_variables = NULL,
+                                        island = "Tasmania") {
+  prepare_study_map_points(
+    sample_metadata = sample_metadata,
+    sample_points = sample_points,
+    env_variables = env_variables,
+    island = island
   )
+}
+
+tasmania_island_limits <- function(map_sf, padding = 0.12) {
+  search_bb <- sf::st_bbox(
+    c(xmin = 143.5, ymin = -44.2, xmax = 149.0, ymax = -38.8),
+    crs = sf::st_crs(map_sf)
+  )
+  tas_land <- sf::st_intersection(
+    map_sf,
+    sf::st_as_sfc(search_bb)
+  )
+  bb <- sf::st_bbox(tas_land)
+  list(
+    xlim = c(bb[["xmin"]] - padding, bb[["xmax"]] + padding),
+    ylim = c(bb[["ymin"]] - padding, bb[["ymax"]] + padding)
+  )
+}
+
+tasmania_map_limits <- function(map_sf = NULL, padding = 0.12) {
+  if (!is.null(map_sf)) {
+    return(tasmania_island_limits(map_sf, padding = padding))
+  }
+  list(
+    xlim = c(144, 148.6),
+    ylim = c(-43.7, -39.0)
+  )
+}
+
+australia_study_map_limits <- function(padding = 0.04) {
+  list(
+    xlim = c(110 - padding * 40, 150 + padding * 40),
+    ylim = c(-45 - padding * 17, -28 + padding * 17)
+  )
+}
+
+compose_tasmania_map_with_legend <- function(map_plot,
+                                             devil_border = FALSE,
+                                             legend_position = c("left", "right", "none")) {
+  legend_position <- match.arg(legend_position)
+  if (legend_position == "none") {
+    return(
+      map_plot +
+        ggplot2::theme(
+          legend.position = "none",
+          plot.title.position = "panel",
+          plot.title = ggplot2::element_text(
+            hjust = 0.5,
+            margin = ggplot2::margin(b = 4, unit = "pt")
+          ),
+          plot.margin = ggplot2::margin(4, 4, 4, 4, "pt")
+        )
+    )
+  }
+
+  legend_text_size <- if (isTRUE(devil_border)) {
+    publication_legend_text_size(7)
+  } else {
+    publication_legend_text_size(8)
+  }
+  legend_title_size <- if (isTRUE(devil_border)) {
+    publication_legend_title_size(7)
+  } else {
+    publication_legend_title_size(8)
+  }
+  legend_key_size <- if (isTRUE(devil_border)) 0.42 else 0.5
+  legend_key_height <- if (isTRUE(devil_border)) 0.38 else 0.45
+  legend_spacing <- if (isTRUE(devil_border)) 0.22 else 0.4
+  outer_margin <- if (isTRUE(devil_border)) 4 else 8
+  inner_margin <- if (isTRUE(devil_border)) 2 else 4
+  top_margin <- if (isTRUE(devil_border)) 4 else 5
+
+  margin_spec <- switch(
+    legend_position,
+    left = ggplot2::margin(top_margin, outer_margin, 4, inner_margin, "pt"),
+    right = ggplot2::margin(top_margin, inner_margin, 4, outer_margin, "pt")
+  )
+
+  map_plot +
+    ggplot2::theme(
+      legend.position = legend_position,
+      legend.box = "vertical",
+      legend.box.just = "left",
+      legend.box.spacing = ggplot2::unit(legend_spacing, "cm"),
+      legend.key.size = ggplot2::unit(legend_key_size, "cm"),
+      legend.key.height = ggplot2::unit(legend_key_height, "cm"),
+      legend.text = ggplot2::element_text(size = legend_text_size, face = "bold"),
+      legend.title = ggplot2::element_text(size = legend_title_size, face = "bold"),
+      legend.title.align = 0,
+      plot.title.position = "panel",
+      plot.title = ggplot2::element_text(
+        hjust = 0.5,
+        margin = ggplot2::margin(b = 4, unit = "pt")
+      ),
+      plot.margin = margin_spec
+    )
+}
+
+compose_tasmania_map_with_left_legend <- function(map_plot, devil_border = FALSE) {
+  compose_tasmania_map_with_legend(
+    map_plot,
+    devil_border = devil_border,
+    legend_position = "left"
+  )
+}
+
+tasmania_devil_density_limits <- function(devil_values) {
+  lim <- range(devil_values, na.rm = TRUE)
+  pad <- diff(lim) * 0.04
+  c(lim[1] - pad, lim[2] + pad)
+}
+
+tasmania_devil_density_colour_limits <- function(devil_values) {
+  c(0, max(devil_values, na.rm = TRUE) * 1.02)
+}
+
+tasmania_devil_ring_style <- function() {
+  list(
+    outline_colour = "#1a1a1a",
+    outer_outline_stroke = 1.75,
+    ring_stroke = 1.5,
+    inner_outline_stroke = 0.5,
+    gradient_colours = c("#ffffff", "#c8e6c8", "#5a9e5a", "#1f5c1f", "#0a2e0a"),
+    gradient_values = c(0, 0.22, 0.5, 0.78, 1)
+  )
+}
+
+resolve_map_env_legend_levels <- function(plot_data,
+                                          env_settings = environment_plot_settings(),
+                                          env_legend_levels = NULL) {
+  if (!is.null(env_legend_levels)) {
+    return(intersect(as.character(env_legend_levels), env_settings$limits))
+  }
+  env_settings$limits[
+    env_settings$limits %in% unique(as.character(plot_data$broad_environment))
+  ]
+}
+
+aggregate_tasmania_map_sites <- function(map_points, devil_var = NULL) {
+  grp_cols <- c("longitude", "latitude", "broad_environment")
+  if (!is.null(devil_var)) {
+    if (!devil_var %in% names(map_points)) {
+      stop("Column '", devil_var, "' not found in map_points.", call. = FALSE)
+    }
+    map_points %>%
+      dplyr::group_by(dplyr::across(dplyr::all_of(grp_cols))) %>%
+      dplyr::summarise(
+        n_samples = dplyr::n(),
+        devil_density = mean(.data[[devil_var]], na.rm = TRUE),
+        .groups = "drop"
+      )
+  } else {
+    map_points %>%
+      dplyr::group_by(dplyr::across(dplyr::all_of(grp_cols))) %>%
+      dplyr::summarise(n_samples = dplyr::n(), .groups = "drop")
+  }
 }
 
 create_tasmania_environment_map <- function(map_points,
                                             env_settings = environment_plot_settings(),
                                             map_sf = NULL,
                                             title = "Tasmania samples by environment",
+                                            aggregate_sites = TRUE,
+                                            devil_var = NULL,
+                                            map_limits = NULL,
+                                            legend_position = "left",
+                                            env_legend_levels = NULL,
                                             theme_fn = theme_publication) {
   if (is.null(map_sf)) {
     map_sf <- load_australia_map_sf()
   }
-  limits <- tasmania_map_limits()
 
-  map_points %>%
+  plot_data <- if (isTRUE(aggregate_sites)) {
+    aggregate_tasmania_map_sites(map_points, devil_var = devil_var)
+  } else {
+    map_points %>%
+      dplyr::mutate(n_samples = 1L) %>%
+      {
+        if (!is.null(devil_var)) {
+          if (!devil_var %in% names(.)) {
+            stop("Column '", devil_var, "' not found in map_points.", call. = FALSE)
+          }
+          dplyr::mutate(., devil_density = .data[[devil_var]])
+        } else {
+          .
+        }
+      }
+  }
+
+  plot_data <- plot_data %>%
     dplyr::mutate(
       broad_environment = factor(broad_environment, levels = env_settings$limits)
-    ) %>%
+    )
+
+  size_breaks <- sort(unique(plot_data$n_samples))
+  use_devil_border <- !is.null(devil_var) && "devil_density" %in% names(plot_data)
+  limits <- map_limits %||% tasmania_map_limits(map_sf)
+
+  p <- plot_data %>%
     ggplot2::ggplot() +
     ggplot2::geom_sf(
       data = map_sf,
       fill = "grey92",
       colour = "grey35",
       linewidth = 0.3
-    ) +
-    ggplot2::geom_point(
-      ggplot2::aes(
-        x = longitude,
-        y = latitude,
-        colour = broad_environment
-      ),
-      size = 2.8,
-      alpha = 0.85
-    ) +
-    ggplot2::scale_colour_manual(
-      values = env_settings$colors,
-      labels = env_settings$labels_long,
-      breaks = env_settings$limits,
-      drop = FALSE,
-      name = "Environment"
+    )
+
+  if (isTRUE(use_devil_border)) {
+    devil_lim <- tasmania_devil_density_colour_limits(plot_data$devil_density)
+    devil_breaks <- pretty(devil_lim, n = 5)
+    env_present <- resolve_map_env_legend_levels(
+      plot_data = plot_data,
+      env_settings = env_settings,
+      env_legend_levels = env_legend_levels
+    )
+    env_colors <- environment_color_values(env_settings)
+    ring_style <- tasmania_devil_ring_style()
+
+    p <- p +
+      ggplot2::geom_point(
+        ggplot2::aes(
+          x = longitude,
+          y = latitude,
+          fill = broad_environment,
+          size = n_samples
+        ),
+        shape = 21,
+        colour = ring_style$outline_colour,
+        stroke = ring_style$outer_outline_stroke,
+        alpha = 1
+      ) +
+      ggplot2::geom_point(
+        ggplot2::aes(
+          x = longitude,
+          y = latitude,
+          fill = broad_environment,
+          colour = devil_density,
+          size = n_samples
+        ),
+        shape = 21,
+        stroke = ring_style$ring_stroke,
+        alpha = 1
+      ) +
+      ggplot2::geom_point(
+        ggplot2::aes(
+          x = longitude,
+          y = latitude,
+          fill = broad_environment,
+          size = n_samples
+        ),
+        shape = 21,
+        colour = ring_style$outline_colour,
+        stroke = ring_style$inner_outline_stroke,
+        alpha = 1
+      ) +
+      ggplot2::scale_fill_manual(
+        values = env_colors,
+        labels = unname(env_settings$labels_long[env_present]),
+        breaks = env_present,
+        drop = FALSE,
+        name = "Environment",
+        guide = ggplot2::guide_legend(
+          order = 1,
+          override.aes = list(
+            colour = "grey40",
+            stroke = 0.7,
+            size = 4
+          )
+        )
+      ) +
+      ggplot2::scale_colour_gradientn(
+        colours = ring_style$gradient_colours,
+        values = ring_style$gradient_values,
+        limits = devil_lim,
+        breaks = devil_breaks,
+        labels = scales::label_number(accuracy = 0.01),
+        oob = scales::squish,
+        name = "Devil density ring (200 m)",
+        guide = ggplot2::guide_colourbar(
+          order = 3,
+          direction = "horizontal",
+          barwidth = ggplot2::unit(2.0, "cm"),
+          barheight = ggplot2::unit(0.32, "cm"),
+          frame.colour = "grey70",
+          ticks.colour = "grey40",
+          title.position = "top",
+          title.hjust = 0,
+          label.position = "bottom"
+        )
+      ) +
+      ggplot2::guides(
+        size = ggplot2::guide_legend(
+          order = 2,
+          ncol = 2,
+          byrow = FALSE,
+          override.aes = list(
+            fill = "grey78",
+            colour = "#1f5c1f",
+            shape = 21,
+            stroke = 0.7
+          )
+        )
+      )
+  } else {
+    p <- p +
+      ggplot2::geom_point(
+        ggplot2::aes(
+          x = longitude,
+          y = latitude,
+          colour = broad_environment,
+          size = n_samples
+        ),
+        alpha = 0.85
+      ) +
+      ggplot2::scale_colour_manual(
+        values = environment_color_values(env_settings),
+        labels = env_settings$labels_long,
+        breaks = env_settings$limits,
+        drop = FALSE,
+        name = "Environment"
+      )
+  }
+
+  p <- p +
+    ggplot2::scale_size_continuous(
+      range = if (isTRUE(use_devil_border)) c(3, 8) else c(2.5, 7),
+      breaks = size_breaks,
+      name = "Samples per site"
     ) +
     ggplot2::coord_sf(
       xlim = limits$xlim,
@@ -4526,9 +6862,110 @@ create_tasmania_environment_map <- function(map_points,
     ) +
     theme_fn() +
     ggplot2::theme(
-      legend.position = "bottom",
       panel.grid = ggplot2::element_blank()
     )
+
+  compose_tasmania_map_with_legend(
+    p,
+    devil_border = use_devil_border,
+    legend_position = legend_position
+  )
+}
+
+create_australia_tasmania_context_map <- function(map_points_all,
+                                                  map_points_tasmania,
+                                                  env_settings = environment_plot_settings(),
+                                                  map_sf = NULL,
+                                                  devil_var = "devil",
+                                                  australia_width = 1,
+                                                  tasmania_width = 1.15,
+                                                  tag_size = 12,
+                                                  theme_fn = theme_publication) {
+  if (is.null(map_sf)) {
+    map_sf <- load_australia_map_sf()
+  }
+
+  tag_theme <- ggplot2::theme(
+    plot.tag = ggplot2::element_text(face = "bold", size = tag_size),
+    plot.tag.position = "topleft"
+  )
+
+  env_legend_levels <- env_settings$limits[
+    env_settings$limits %in% c(
+      unique(as.character(map_points_all$broad_environment)),
+      unique(as.character(map_points_tasmania$broad_environment))
+    )
+  ]
+
+  fig_australia <- create_tasmania_environment_map(
+    map_points_all,
+    env_settings = env_settings,
+    map_sf = map_sf,
+    title = NULL,
+    devil_var = devil_var,
+    map_limits = australia_study_map_limits(),
+    legend_position = "none",
+    theme_fn = theme_fn
+  )
+
+  fig_tasmania <- create_tasmania_environment_map(
+    map_points_tasmania,
+    env_settings = env_settings,
+    map_sf = map_sf,
+    title = NULL,
+    devil_var = devil_var,
+    legend_position = "right",
+    env_legend_levels = env_legend_levels,
+    theme_fn = theme_fn
+  )
+
+  patchwork::wrap_plots(
+    fig_australia,
+    fig_tasmania,
+    ncol = 2,
+    widths = c(australia_width, tasmania_width)
+  ) +
+    patchwork::plot_layout(guides = "keep") +
+    patchwork::plot_annotation(
+      tag_levels = "a",
+      theme = tag_theme
+    )
+}
+
+australia_tasmania_context_map_dims <- function(width_mm = 280,
+                                                  height_mm = 120) {
+  list(width_mm = width_mm, height_mm = height_mm)
+}
+
+compose_australia_tasmania_relabund_figure <- function(map_panel,
+                                                       relabund_panel,
+                                                       layout_heights = c(1, 1.05),
+                                                       tag_size = 12) {
+  if (!requireNamespace("cowplot", quietly = TRUE)) {
+    stop("Package 'cowplot' is required for Australia/Tasmania composites.", call. = FALSE)
+  }
+
+  rel_heights <- layout_heights / sum(layout_heights)
+
+  cowplot::plot_grid(
+    map_panel,
+    relabund_panel,
+    ncol = 1,
+    rel_heights = rel_heights,
+    labels = c("", "c"),
+    label_size = tag_size,
+    label_fontface = "bold"
+  )
+}
+
+australia_tasmania_relabund_figure_dims <- function(width_mm = 280,
+                                                    map_height_mm = 120,
+                                                    facet_env = TRUE) {
+  relabund_dims <- phylum_stacked_figure_dims(facet_env = facet_env)
+  list(
+    width_mm = width_mm,
+    height_mm = round(map_height_mm + relabund_dims$height_mm + 8)
+  )
 }
 
 create_tasmania_devil_density_map <- function(map_points,
@@ -4543,7 +6980,7 @@ create_tasmania_devil_density_map <- function(map_points,
     stop("Column '", devil_var, "' not found in map_points.", call. = FALSE)
   }
 
-  limits <- tasmania_map_limits()
+  limits <- tasmania_map_limits(map_sf)
 
   map_points %>%
     ggplot2::ggplot() +
@@ -4768,7 +7205,7 @@ circular_phylogeny_environment_plot_genome_size_ring_scale <- function() {
 
 # Scale all annotation rings (not the tree) on G1b environment plots.
 circular_phylogeny_environment_plot_annotation_scale <- function() {
-  1.15
+  2.07
 }
 
 # Shift the full annotation stack inward over the tree (fraction of tree→phylum gap).
@@ -4926,9 +7363,9 @@ circular_phylogeny_environment_plot_annotation_stack_span <- function(phylum_rin
   phylum_span + env_span + genome_span
 }
 
-# geom_fruit offset is absolute from branch tips; radial shift per unit offset ≈ 1.31.
+# geom_fruit offset is from branch tips; radial shift per unit offset matches gheatmap.
 circular_phylogeny_fruit_offset_scale <- function() {
-  1.31
+  circular_gheatmap_span_factor()
 }
 
 circular_phylogeny_fruit_offset_from_tips_flush_heatmap <- function(tip_radius,
@@ -5026,7 +7463,7 @@ circular_phylogeny_tip_radius <- function(phylo_tree) {
 }
 
 circular_phylogeny_fruit_ring_center_radius <- function(previous_outer, pwidth) {
-  previous_outer + pwidth / 2
+  previous_outer + pwidth / (2 * circular_phylogeny_fruit_offset_scale())
 }
 
 compute_circular_phylogeny_ring_label_positions <- function(phylum_x,
@@ -5115,26 +7552,138 @@ enhance_phylum_plot_colors <- function(phylum_colors,
   )
 }
 
-circular_phylogeny_legend_theme <- function(base_size = 6) {
+circular_phylogeny_tree_color <- function() {
+  grDevices::grey(55 / 100)
+}
+
+# G1b-only nudges for phylum colours that clash with the tree grey or env ring reds.
+circular_phylogeny_grey_phylum_overrides <- function() {
+  c(
+    Methanobacteriota = "#D8D8D8",
+    Spirochaetota     = "#C0C0C0",
+    Verrucomicrobiota = "#585858",
+    Thermoplasmatota  = "#282828"
+  )
+}
+
+resolve_circular_phylogeny_environment_phylum_colors <- function(phylum_colors) {
+  out <- phylum_colors
+
+  grey_overrides <- circular_phylogeny_grey_phylum_overrides()
+  for (phylum_label in names(grey_overrides)) {
+    keys <- grep(phylum_label, names(out), value = TRUE)
+    if (length(keys) > 0) {
+      out[keys] <- grey_overrides[[phylum_label]]
+    }
+  }
+
+  camp_keys <- grep("Campylobacterota", names(out), value = TRUE)
+  if (length(camp_keys) > 0) {
+    out[camp_keys] <- "#A81828"
+  }
+
+  out
+}
+
+prepare_ring_phylogeny_phylum_colors <- function(phylum_colors,
+                                                   environment_overrides = TRUE) {
+  out <- enhance_phylum_plot_colors(phylum_colors)
+  if (isTRUE(environment_overrides)) {
+    out <- resolve_circular_phylogeny_environment_phylum_colors(out)
+  }
+  out
+}
+
+circular_phylogeny_legend_base_size <- function() {
+  10L
+}
+
+circular_phylogeny_environment_legend_base_size <- function() {
+  circular_phylogeny_legend_base_size() + 4L
+}
+
+circular_phylogeny_g1b_legend_mm <- function(show_hmsc_legend = FALSE,
+                                           show_contamination_legend = FALSE) {
+  legend_scale <- circular_phylogeny_environment_legend_base_size() / 10
+  if (isTRUE(show_hmsc_legend)) {
+    return(round(68 * legend_scale))
+  }
+  if (isTRUE(show_contamination_legend)) {
+    return(round(55 * legend_scale))
+  }
+  round(48 * legend_scale)
+}
+
+circular_phylogeny_environment_legend_inset_mm <- function() {
+  10
+}
+
+circular_phylogeny_g1b_figure_layout <- function(n_tips,
+                                                 show_hmsc_legend = FALSE,
+                                                 show_contamination_legend = FALSE,
+                                                 tight = TRUE) {
+  inset_mm <- circular_phylogeny_environment_legend_inset_mm()
+  legend_mm <- circular_phylogeny_g1b_legend_mm(
+    show_hmsc_legend = show_hmsc_legend,
+    show_contamination_legend = show_contamination_legend
+  ) + inset_mm
+  dims <- circular_phylogeny_figure_dims(
+    n_tips = n_tips,
+    legend_mm = legend_mm,
+    tight = tight
+  )
+  legend_width_mm <- dims$width_mm - dims$height_mm
+  list(
+    width_mm = dims$width_mm,
+    height_mm = dims$height_mm,
+    legend_rel_width = legend_width_mm / dims$width_mm,
+    legend_inset_mm = inset_mm
+  )
+}
+
+circular_phylogeny_environment_legend_rel_width <- function(show_hmsc_legend = FALSE,
+                                                            show_contamination_legend = FALSE,
+                                                            n_tips = NULL) {
+  if (is.null(n_tips)) {
+    legend_scale <- circular_phylogeny_environment_legend_base_size() / 10
+    if (isTRUE(show_hmsc_legend)) {
+      return(0.22 * legend_scale)
+    }
+    if (isTRUE(show_contamination_legend)) {
+      return(0.20 * legend_scale)
+    }
+    return(0.18 * legend_scale)
+  }
+  circular_phylogeny_g1b_figure_layout(
+    n_tips = n_tips,
+    show_hmsc_legend = show_hmsc_legend,
+    show_contamination_legend = show_contamination_legend
+  )$legend_rel_width
+}
+
+circular_phylogeny_legend_theme <- function(base_size = circular_phylogeny_legend_base_size()) {
+  key_scale <- base_size / 6
   ggplot2::theme(
     legend.position = "left",
     legend.title = ggplot2::element_text(size = base_size + 0.5, face = "bold"),
     legend.text = ggplot2::element_text(size = base_size),
-    legend.key.size = ggplot2::unit(2.6, "mm"),
-    legend.key.height = ggplot2::unit(2.8, "mm"),
-    legend.key.width = ggplot2::unit(2.8, "mm"),
-    legend.spacing.y = ggplot2::unit(0.8, "mm"),
-    legend.box.spacing = ggplot2::unit(2, "mm"),
+    legend.key.size = ggplot2::unit(2.6 * key_scale, "mm"),
+    legend.key.height = ggplot2::unit(2.8 * key_scale, "mm"),
+    legend.key.width = ggplot2::unit(2.8 * key_scale, "mm"),
+    legend.spacing.y = ggplot2::unit(0.8 * key_scale, "mm"),
+    legend.box.spacing = ggplot2::unit(2 * key_scale, "mm"),
     legend.margin = ggplot2::margin(0, 0, 0, 0)
   )
 }
 
 compose_circular_phylogeny_figure <- function(tree_plot, legend_rel_width = 0.1) {
+  legend_base_size <- circular_phylogeny_legend_base_size()
+  key_scale <- legend_base_size / 6
   legend_plot <- tree_plot +
-    circular_phylogeny_legend_theme() +
+    circular_phylogeny_legend_theme(base_size = legend_base_size) +
     ggplot2::theme(
       legend.box = "vertical",
-      legend.box.spacing = ggplot2::unit(2.5, "mm")
+      legend.box.spacing = ggplot2::unit(2.5 * key_scale, "mm")
     )
   legend_grob <- cowplot::get_legend(legend_plot)
   tree_panel <- tree_plot +
@@ -5150,16 +7699,24 @@ compose_circular_phylogeny_figure <- function(tree_plot, legend_rel_width = 0.1)
 }
 
 build_environment_legend_grob <- function(env_settings = environment_plot_settings(),
-                                        env_levels = NULL) {
+                                          env_levels = NULL,
+                                          legend_theme = circular_phylogeny_legend_theme(),
+                                          use_long_labels = TRUE) {
   if (is.null(env_levels)) {
     env_levels <- env_settings$limits
   }
   env_levels <- intersect(env_levels, env_settings$limits)
   short_by_full <- stats::setNames(env_settings$labels_short, env_settings$limits)
-  colors_by_full <- stats::setNames(env_settings$colors, env_settings$limits)
-  legend_labels <- unname(short_by_full[env_levels])
+  legend_labels <- if (isTRUE(use_long_labels)) {
+    unname(env_settings$labels_long[env_levels])
+  } else {
+    unname(short_by_full[env_levels])
+  }
   legend_colors <- environment_ring_fill_values(env_settings, env_levels)
   legend_colors <- legend_colors[names(legend_colors) != "off"]
+  if (isTRUE(use_long_labels)) {
+    names(legend_colors) <- legend_labels[match(names(legend_colors), unname(short_by_full[env_levels]))]
+  }
 
   legend_df <- tibble::tibble(
     environment = factor(legend_labels, levels = legend_labels)
@@ -5177,12 +7734,15 @@ build_environment_legend_grob <- function(env_settings = environment_plot_settin
     ggplot2::scale_fill_manual(
       name = "Environment",
       values = legend_colors,
-      drop = FALSE
+      drop = FALSE,
+      guide = ggplot2::guide_legend(
+        ncol = 1,
+        override.aes = list(alpha = 1, linewidth = 0)
+      )
     ) +
     ggplot2::theme_void() +
-    circular_phylogeny_legend_theme() +
+    legend_theme +
     ggplot2::theme(
-      legend.position = "left",
       legend.key = ggplot2::element_rect(color = NA)
     )
 
@@ -5190,36 +7750,43 @@ build_environment_legend_grob <- function(env_settings = environment_plot_settin
 }
 
 build_contamination_legend_grob <- function(
-    alpha = circular_phylogeny_contamination_ring_alpha()) {
+    alpha = circular_phylogeny_contamination_ring_alpha(),
+    legend_theme = circular_phylogeny_legend_theme(),
+    legend_base_size = circular_phylogeny_legend_base_size()) {
   cols <- circular_phylogeny_contamination_colors(alpha)
+  bar_mm <- 2.8 * legend_base_size / 6
   legend_df <- tibble::tibble(
-    x = seq(0, 1, length.out = 7),
+    x = seq(0, 1, length.out = 50),
     y = 1,
-    contamination = seq(0, 1, length.out = 7)
+    contamination = seq(0, 1, length.out = 50)
   )
 
   legend_plot <- ggplot2::ggplot(
     legend_df,
-    ggplot2::aes(x = .data$x, y = .data$y, colour = .data$contamination)
+    ggplot2::aes(x = .data$x, y = .data$y, fill = .data$contamination)
   ) +
-    ggplot2::geom_point(size = 3) +
-    ggplot2::scale_colour_gradient(
+    ggplot2::geom_tile(height = 0.1, width = 0.02) +
+    ggplot2::scale_fill_gradient(
       low = cols$low,
       high = cols$high,
       name = "Contamination",
       limits = c(0, 1),
       breaks = c(0, 1),
-      labels = c("Low", "High")
+      labels = c("Low", "High"),
+      guide = ggplot2::guide_colourbar(
+        barwidth = grid::unit(bar_mm * 3, "mm"),
+        barheight = grid::unit(bar_mm, "mm")
+      )
     ) +
     ggplot2::theme_void() +
-    circular_phylogeny_legend_theme() +
-    ggplot2::theme(legend.position = "left")
+    legend_theme
 
   cowplot::get_legend(legend_plot)
 }
 
 build_genome_size_legend_grob <- function(
-    color = circular_phylogeny_genome_size_color()) {
+    color = circular_phylogeny_genome_size_color(),
+    legend_theme = circular_phylogeny_legend_theme()) {
   legend_df <- tibble::tibble(
     ring = factor("Genome size", levels = "Genome size")
   )
@@ -5236,12 +7803,15 @@ build_genome_size_legend_grob <- function(
     ggplot2::scale_fill_manual(
       name = "Genome size",
       values = c("Genome size" = color),
-      drop = FALSE
+      drop = FALSE,
+      guide = ggplot2::guide_legend(
+        ncol = 1,
+        override.aes = list(alpha = 1, linewidth = 0)
+      )
     ) +
     ggplot2::theme_void() +
-    circular_phylogeny_legend_theme() +
+    legend_theme +
     ggplot2::theme(
-      legend.position = "left",
       legend.key = ggplot2::element_rect(color = NA)
     )
 
@@ -5253,35 +7823,60 @@ compose_circular_phylogeny_environment_figure <- function(tree_plot,
                                                           env_settings,
                                                           env_levels,
                                                           legend_rel_width = 0.18,
+                                                          legend_inset_mm = circular_phylogeny_environment_legend_inset_mm(),
                                                           show_genome_size_legend = FALSE,
                                                           show_contamination_legend = FALSE,
                                                           show_hmsc_legend = FALSE,
                                                           spotlight_cols = spotlight_palettes()) {
-  legend_theme <- circular_phylogeny_legend_theme(
-    base_size = 6 * circular_phylogeny_environment_plot_annotation_scale()
-  )
-  phylum_legend <- cowplot::get_legend(
-    phylum_plot +
-      legend_theme +
-      ggplot2::theme(
-        legend.position = "left",
-        legend.box = "vertical",
-        legend.box.spacing = ggplot2::unit(2.5, "mm")
-      )
-  )
+  legend_base_size <- circular_phylogeny_environment_legend_base_size()
+  key_scale <- legend_base_size / 6
+  legend_theme <- circular_phylogeny_legend_theme(base_size = legend_base_size) +
+    ggplot2::theme(
+      legend.position = "left",
+      legend.box = "vertical",
+      legend.box.spacing = ggplot2::unit(2 * key_scale, "mm"),
+      legend.key.size = ggplot2::unit(2.2 * key_scale, "mm"),
+      legend.key.height = ggplot2::unit(2.4 * key_scale, "mm"),
+      legend.key.width = ggplot2::unit(2.4 * key_scale, "mm"),
+      legend.spacing.y = ggplot2::unit(0.6 * key_scale, "mm"),
+      legend.title = ggplot2::element_text(size = legend_base_size + 0.25, face = "bold")
+    )
+  phylum_legend <- cowplot::get_legend(phylum_plot + legend_theme)
   env_legend <- build_environment_legend_grob(
     env_settings = env_settings,
-    env_levels = env_levels
+    env_levels = env_levels,
+    legend_theme = legend_theme
   )
-  legend_parts <- list(phylum_legend, env_legend)
+  legend_parts <- list(phylum_legend)
   if (isTRUE(show_genome_size_legend)) {
-    legend_parts <- c(legend_parts, list(build_genome_size_legend_grob()))
+    legend_parts <- c(
+      legend_parts,
+      list(build_genome_size_legend_grob(legend_theme = legend_theme))
+    )
   }
+  legend_parts <- c(legend_parts, list(env_legend))
   if (isTRUE(show_contamination_legend)) {
-    legend_parts <- c(legend_parts, list(build_contamination_legend_grob()))
+    legend_parts <- c(
+      legend_parts,
+      list(
+        build_contamination_legend_grob(
+          legend_theme = legend_theme,
+          legend_base_size = legend_base_size
+        )
+      )
+    )
   }
   if (show_hmsc_legend) {
-    legend_parts <- c(legend_parts, list(build_hmsc_context_legend_grob(spotlight_cols)))
+    legend_parts <- c(
+      legend_parts,
+      list(
+        build_hmsc_context_legend_grob(
+          spotlight_cols = spotlight_cols,
+          legend_theme = legend_theme,
+          legend_base_size = legend_base_size
+        )
+      )
+    )
   }
   legend_grob <- cowplot::plot_grid(
     plotlist = legend_parts,
@@ -5295,8 +7890,19 @@ compose_circular_phylogeny_environment_figure <- function(tree_plot,
       plot.margin = ggplot2::margin(0, 0, 0, 0)
     )
 
+  legend_panel <- patchwork::wrap_elements(full = legend_grob) +
+    ggplot2::theme(
+      plot.margin = ggplot2::margin(
+        0,
+        1,
+        0,
+        legend_inset_mm,
+        unit = "mm"
+      )
+    )
+
   finalize_patchwork_tight_layout(
-    patchwork::wrap_elements(full = legend_grob) +
+    legend_panel +
       tree_panel +
       patchwork::plot_layout(widths = c(legend_rel_width, 1 - legend_rel_width))
   )
@@ -5307,6 +7913,7 @@ finalize_circular_phylogeny_environment_plot <- function(p,
                                                            env_settings,
                                                            env_levels,
                                                            legend_rel_width = 0.18,
+                                                           legend_inset_mm = circular_phylogeny_environment_legend_inset_mm(),
                                                            show_hmsc_legend = FALSE,
                                                            spotlight_cols = spotlight_palettes(),
                                                            open_angle = 18,
@@ -5341,6 +7948,7 @@ finalize_circular_phylogeny_environment_plot <- function(p,
     env_settings = env_settings,
     env_levels = env_levels,
     legend_rel_width = legend_rel_width,
+    legend_inset_mm = legend_inset_mm,
     show_genome_size_legend = show_genome_size_legend,
     show_contamination_legend = show_contamination_legend,
     show_hmsc_legend = show_hmsc_legend,
@@ -5388,7 +7996,8 @@ build_circular_phylogeny_base <- function(genome_tree,
                                           fan_open_angle = 5,
                                           phylum_ring_alpha = NULL,
                                           tree_radial_scale = circular_phylo_tree_radial_scale(),
-                                          tree_inner_power = circular_phylo_tree_inner_power()) {
+                                          tree_inner_power = circular_phylo_tree_inner_power(),
+                                          skip_phylum_color_enhancement = FALSE) {
   if (!is.null(genome_ids)) {
     keep_ids <- intersect(genome_ids, genome_tree$tip.label)
     genome_tree <- ape::keep.tip(genome_tree, keep_ids)
@@ -5416,7 +8025,9 @@ build_circular_phylogeny_base <- function(genome_tree,
   phylum_labels <- NULL
   if (!is.null(phylum_colors)) {
     phylum_colors <- phylum_colors[names(phylum_colors) %in% present_phyla]
-    phylum_colors <- enhance_phylum_plot_colors(phylum_colors)
+    if (!isTRUE(skip_phylum_color_enhancement)) {
+      phylum_colors <- enhance_phylum_plot_colors(phylum_colors)
+    }
     if (!is.null(phylum_ring_alpha)) {
       phylum_colors <- fade_phylum_ring_colors(phylum_colors, alpha = phylum_ring_alpha)
     }
@@ -5432,7 +8043,7 @@ build_circular_phylogeny_base <- function(genome_tree,
     layout = "fan",
     open.angle = fan_open_angle,
     linewidth = tree_linewidth,
-    color = "grey55"
+    color = circular_phylogeny_tree_color()
   )
 
   phylum_ring_offset <- phylum_ring_offset %||% circular_phylo_phylum_ring_offset()
@@ -5510,7 +8121,10 @@ finalize_circular_phylogeny_plot <- function(p,
     p <- p +
       ggplot2::theme(
         legend.position = "bottom",
-        legend.text = ggplot2::element_text(size = 7)
+        legend.text = ggplot2::element_text(
+          size = publication_legend_text_size(circular_phylogeny_legend_base_size()),
+          face = "bold"
+        )
       )
   } else {
     p <- p + ggplot2::theme(legend.position = "none")
@@ -5690,20 +8304,23 @@ prepare_hmsc_context_ring_matrix <- function(post_table,
   scaled
 }
 
-build_hmsc_context_legend_grob <- function(spotlight_cols = spotlight_palettes()) {
+build_hmsc_context_legend_grob <- function(spotlight_cols = spotlight_palettes(),
+                                         legend_theme = circular_phylogeny_legend_theme(),
+                                         legend_base_size = circular_phylogeny_legend_base_size()) {
   cols <- hmsc_context_gradient_colors(spotlight_cols)
+  bar_mm <- 2.8 * legend_base_size / 6
   legend_df <- tibble::tibble(
-    x = seq(-1, 1, length.out = 7),
+    x = seq(-1, 1, length.out = 50),
     y = 1,
-    strength = seq(-1, 1, length.out = 7)
+    strength = seq(-1, 1, length.out = 50)
   )
 
   legend_plot <- ggplot2::ggplot(
     legend_df,
-    ggplot2::aes(x = .data$x, y = .data$y, colour = .data$strength)
+    ggplot2::aes(x = .data$x, y = .data$y, fill = .data$strength)
   ) +
-    ggplot2::geom_point(size = 3) +
-    ggplot2::scale_colour_gradient2(
+    ggplot2::geom_tile(height = 0.1, width = 0.04) +
+    ggplot2::scale_fill_gradient2(
       low = cols$low,
       mid = cols$mid,
       high = cols$high,
@@ -5711,11 +8328,14 @@ build_hmsc_context_legend_grob <- function(spotlight_cols = spotlight_palettes()
       limits = c(-1, 1),
       name = "HMSC association",
       breaks = c(-1, 0, 1),
-      labels = c("Negative", "Not tested", "Positive")
+      labels = c("Negative", "Not tested", "Positive"),
+      guide = ggplot2::guide_colourbar(
+        barwidth = grid::unit(bar_mm * 3, "mm"),
+        barheight = grid::unit(bar_mm, "mm")
+      )
     ) +
     ggplot2::theme_void() +
-    circular_phylogeny_legend_theme() +
-    ggplot2::theme(legend.position = "left")
+    legend_theme
 
   cowplot::get_legend(legend_plot)
 }
@@ -5936,6 +8556,12 @@ create_circular_community_phylogeny_environment_plot <- function(genome_tree,
       genome_ring_width = genome_width_est
     )
 
+  if (!is.null(phylum_colors)) {
+    phylum_colors <- resolve_circular_phylogeny_environment_phylum_colors(
+      enhance_phylum_plot_colors(phylum_colors)
+    )
+  }
+
   base <- build_circular_phylogeny_base(
     genome_tree = genome_tree,
     genome_metadata = genome_metadata,
@@ -5946,7 +8572,8 @@ create_circular_community_phylogeny_environment_plot <- function(genome_tree,
     phylum_ring_offset = phylum_geom$offset,
     phylum_ring_inward_distance = stack_inward_distance,
     fan_open_angle = fan_open_angle,
-    phylum_ring_alpha = phylum_ring_alpha
+    phylum_ring_alpha = phylum_ring_alpha,
+    skip_phylum_color_enhancement = !is.null(phylum_colors)
   )
   if (is.null(base)) {
     return(NULL)
@@ -6053,7 +8680,8 @@ create_circular_community_phylogeny_environment_plot <- function(genome_tree,
     if (!is.null(hmsc_mat) && ncol(hmsc_mat) > 0) {
       if (!is.null(genome_size_offset)) {
         tip_r <- circular_phylogeny_tip_radius(base$phylo_tree)
-        fruit_outer <- env_outer_radius + genome_size_width
+        fruit_outer <- env_outer_radius +
+          genome_size_width / circular_phylogeny_fruit_offset_scale()
         hmsc_offset <- circular_phylogeny_fruit_offset_from_tips_flush_heatmap(
           tip_r,
           fruit_outer
@@ -6071,6 +8699,7 @@ create_circular_community_phylogeny_environment_plot <- function(genome_tree,
         base_width = default_phylum_w,
         min_width = 0.035
       ) * ring_scale
+
       hmsc_cols <- hmsc_context_gradient_colors(spotlight_cols)
 
       p <- p + ggnewscale::new_scale_fill()
@@ -6102,7 +8731,11 @@ create_circular_community_phylogeny_environment_plot <- function(genome_tree,
     phylum_plot = base$plot,
     env_settings = env_settings,
     env_levels = env_levels,
-    legend_rel_width = if (show_hmsc_legend) 0.24 else if (isTRUE(show_contamination_ring)) 0.2 else 0.18,
+    legend_rel_width = circular_phylogeny_environment_legend_rel_width(
+      show_hmsc_legend = show_hmsc_legend,
+      show_contamination_legend = isTRUE(show_contamination_ring),
+      n_tips = length(tip_order)
+    ),
     show_hmsc_legend = show_hmsc_legend,
     spotlight_cols = spotlight_cols,
     open_angle = open_angle,
@@ -6207,7 +8840,7 @@ create_circular_community_phylogeny_detailed_plot <- function(genome_tree,
   finalize_circular_phylogeny_plot(
     p = p,
     legend_position = legend_position,
-    legend_rel_width = 0.15,
+    legend_rel_width = 0.18,
     open_angle = open_angle,
     rotate_angle = rotate_angle,
     tighten_canvas = tighten_canvas
@@ -6217,18 +8850,18 @@ create_circular_community_phylogeny_detailed_plot <- function(genome_tree,
 circular_phylogeny_figure_dims <- function(width_mm = NULL,
                                            height_mm = NULL,
                                            n_tips = NULL,
-                                           legend_mm = 22,
+                                           legend_mm = round(22 * circular_phylogeny_legend_base_size() / 6),
                                            tight = TRUE) {
   size_scale <- sqrt(circular_phylogeny_readability_scale())
   if (is.null(height_mm)) {
-    height_mm <- if (isTRUE(tight)) 150 * size_scale else 210 * size_scale
+    height_mm <- if (isTRUE(tight)) 172 * size_scale else 220 * size_scale
   }
   tree_mm <- height_mm
   if (!is.null(n_tips) && n_tips > 400) {
     if (isTRUE(tight)) {
-      tree_mm <- max(150, min(185, 115 + sqrt(n_tips) * 1.6)) * size_scale
+      tree_mm <- max(172, min(205, 128 + sqrt(n_tips) * 1.75)) * size_scale
     } else {
-      tree_mm <- max(tree_mm, min(260, 160 + sqrt(n_tips) * 2.5)) * size_scale
+      tree_mm <- max(tree_mm, min(275, 175 + sqrt(n_tips) * 2.65)) * size_scale
     }
   }
   if (isTRUE(tight)) {
@@ -6241,10 +8874,15 @@ circular_phylogeny_figure_dims <- function(width_mm = NULL,
 }
 
 circular_phylogeny_detailed_figure_dims <- function(n_tips = NULL, tight = TRUE) {
-  circular_phylogeny_figure_dims(
+  layout <- circular_phylogeny_g1b_figure_layout(
     n_tips = n_tips,
-    legend_mm = if (isTRUE(tight)) 34 else 38,
+    show_hmsc_legend = FALSE,
+    show_contamination_legend = FALSE,
     tight = tight
+  )
+  list(
+    width_mm = layout$width_mm,
+    height_mm = layout$height_mm
   )
 }
 
@@ -6304,13 +8942,14 @@ build_publication_base_cache <- function(sample_metadata,
                                          beta_mats) {
   env_settings <- environment_plot_settings()
   filtered <- filter_study_samples(sample_metadata, genome_counts_filt)
+  env_order <- phylum_stacked_environment_order(filtered$metadata, env_settings)
 
   landcover_wide <- landcover_wide %>%
     dplyr::rename(sample = dplyr::any_of(c("sample", "id")))
 
   sample_metadata_fig <- filtered$metadata %>%
     dplyr::mutate(
-      broad_environment = factor(broad_environment, levels = env_settings$limits)
+      broad_environment = factor(broad_environment, levels = env_order)
     ) %>%
     dplyr::left_join(landcover_wide, by = "sample")
 
@@ -6361,6 +9000,7 @@ build_publication_hmsc_cache <- function(fit_model,
   interaction_ci_fig <- prepare_covariate_ci(
     fit_model, model_obj, "devil:temperature", genome_metadata
   )
+  diversity_ci_fig <- prepare_covariate_ci(fit_model, model_obj, "diversity", genome_metadata)
   threeway_genomes_fig <- prepare_threeway_congruence_genomes(post_table, genome_metadata)
 
   list(
@@ -6386,6 +9026,7 @@ build_publication_hmsc_cache <- function(fit_model,
     devil_ci_fig = devil_ci_fig,
     temp_ci_fig = temp_ci_fig,
     interaction_ci_fig = interaction_ci_fig,
+    diversity_ci_fig = diversity_ci_fig,
     devil_ci_top_fig = select_top_genomes_ci(devil_ci_fig, n_top = 20),
     temp_ci_top_fig = select_top_genomes_ci(temp_ci_fig, n_top = 20),
     interaction_ci_top_fig = select_top_genomes_ci(interaction_ci_fig, n_top = 20),
@@ -6397,6 +9038,7 @@ build_publication_hmsc_cache <- function(fit_model,
       elements_response,
       min_genomes = 10
     ),
+    functional_diff_diversity_fig = calculate_functional_differences(elements_response, "diversity"),
     threeway_genomes_fig = threeway_genomes_fig,
     threeway_summary_fig = summarise_threeway_congruence(threeway_genomes_fig),
     cache_built_at = Sys.time()
@@ -6535,8 +9177,29 @@ save_publication_figure <- function(plot, filename, width_mm = NULL, height_mm =
   }
 
   out_path <- file.path(dir, filename)
+  ext <- tolower(tools::file_ext(filename))
+  device <- switch(
+    ext,
+    pdf = "pdf",
+    png = "png",
+    tiff = "tiff",
+    tif = "tiff",
+    jpg = "jpeg",
+    jpeg = "jpeg",
+    NULL
+  )
+
   if (isTRUE(tight_layout)) {
     plot <- tight_layout_figure(plot)
+    cowplot::save_plot(
+      filename = out_path,
+      plot = plot,
+      base_width = mm_to_inches(width_mm),
+      base_height = mm_to_inches(height_mm),
+      dpi = dpi,
+      bg = "white"
+    )
+  } else if (isTRUE(attr(plot, "phylo_gift_stacked_figure"))) {
     cowplot::save_plot(
       filename = out_path,
       plot = plot,
@@ -6552,7 +9215,8 @@ save_publication_figure <- function(plot, filename, width_mm = NULL, height_mm =
       width = width_mm,
       height = height_mm,
       units = "mm",
-      dpi = dpi
+      dpi = dpi,
+      device = device
     )
   }
   invisible(out_path)

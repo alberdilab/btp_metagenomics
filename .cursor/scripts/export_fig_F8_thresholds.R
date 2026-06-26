@@ -1,5 +1,5 @@
 #!/usr/bin/env Rscript
-# Export F2–F4 and F8 threshold-focused HMSC PDFs from publication cache.
+# Export F2–F4 spotlight forests and F8 climate-stripe panels (one file per predictor).
 
 suppressPackageStartupMessages({
   library(dplyr)
@@ -23,6 +23,13 @@ if (!exists("phylum_colors")) {
     "https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv"
   ) %>%
     deframe()
+}
+
+if (!exists("functional_diff_diversity_fig")) {
+  functional_diff_diversity_fig <- calculate_functional_differences(
+    elements_response,
+    "diversity"
+  )
 }
 
 spotlight_cols <- spotlight_palettes()
@@ -79,25 +86,6 @@ fig_F4 <- create_functional_trait_forest_plot(
   theme_fn = theme_publication
 )
 
-fig_F8 <- create_functional_climate_comparison_plot(
-  functional_diff_list = list(
-    devil = functional_diff_devil_fig,
-    temperature = functional_diff_temp_fig,
-    interaction = functional_diff_interaction_fig
-  ),
-  predictor_labels = c("Devil density", "Temperature", "Devil x temperature"),
-  gift_colors = gift_colors,
-  fc_threshold = c(0.2, 0.2, 0.05),
-  fdr_threshold = 0.05,
-  shared_limits = FALSE,
-  theme_fn = theme_publication
-) +
-  plot_annotation(
-    tag_levels = "A",
-    title = "Functional trait associations across HMSC predictors",
-    subtitle = "Devil/temp: abundance contrast; interaction: mean beta per GIFT (|effect| >= threshold, FDR < 0.05)"
-  )
-
 save_publication_figure(
   fig_F2, "fig_F2_devil_spotlight.pdf",
   width_mm = spotlight_fig_dims$width_mm,
@@ -113,18 +101,88 @@ save_publication_figure(
   width_mm = spotlight_fig_dims$width_mm,
   height_mm = spotlight_fig_dims$height_mm
 )
-save_publication_figure(
-  fig_F8,
-  "fig_F8_hmsc_thresholds.pdf",
-  width_mm = 200,
-  height_mm = functional_comparison_height_mm(
-    list(
-      devil = functional_diff_devil_fig,
-      temperature = functional_diff_temp_fig,
-      interaction = functional_diff_interaction_fig
-    ),
-    fc_threshold = c(0.2, 0.2, 0.05)
+
+f8_panels <- list(
+  list(
+    data = functional_diff_devil_fig,
+    label = "Devil density",
+    slug = "devil",
+    fc = 0.2,
+    negative = "Negative association",
+    positive = "Positive association"
+  ),
+  list(
+    data = functional_diff_temp_fig,
+    label = "Temperature",
+    slug = "temperature",
+    fc = 0.2,
+    negative = "Negative association",
+    positive = "Positive association"
+  ),
+  list(
+    data = functional_diff_interaction_fig,
+    label = "Devil x temperature",
+    slug = "interaction",
+    fc = 0.05,
+    negative = "Negative interaction",
+    positive = "Positive interaction"
+  ),
+  list(
+    data = functional_diff_diversity_fig,
+    label = "Diversity",
+    slug = "diversity",
+    fc = 0.2,
+    negative = "Negative association",
+    positive = "Positive association"
   )
 )
 
-cat("Exported F2, F3, F4, F8 to figures/\n")
+for (panel in f8_panels) {
+  panel_list <- stats::setNames(list(panel$data), panel$label)
+  panel_data <- prepare_functional_predictor_comparison(
+    functional_diff_list = panel_list,
+    predictor_labels = panel$label,
+    gift_colors = gift_colors,
+    fc_threshold = panel$fc,
+    trait_set = "per_panel",
+    truncate_func_label = NULL
+  )
+  trait_labels <- if (nrow(panel_data) > 0L) {
+    levels(panel_data$trait_label)
+  } else {
+    character()
+  }
+  dims <- functional_climate_stripe_dims_mm(
+    functional_differences = panel$data,
+    fc_threshold = panel$fc,
+    trait_labels = trait_labels
+  )
+
+  fig <- create_functional_climate_stripe_figure(
+    predictor_label = panel$label,
+    functional_diff_list = panel_list,
+    gift_colors = gift_colors,
+    fc_threshold = panel$fc,
+    trait_set = "per_panel",
+    truncate_func_label = NULL,
+    group_by_function = TRUE,
+    negative_label = panel$negative,
+    positive_label = panel$positive,
+    theme_fn = theme_publication
+  )
+  base <- paste0("fig_F8_", panel$slug, "_hmsc_thresholds")
+  save_publication_figure(
+    fig,
+    paste0(base, ".pdf"),
+    width_mm = dims$width_mm,
+    height_mm = dims$height_mm
+  )
+  save_publication_figure(
+    fig,
+    paste0(base, ".png"),
+    width_mm = dims$width_mm,
+    height_mm = dims$height_mm
+  )
+}
+
+cat("Exported F2, F3, F4 and F8 panels (PDF + PNG) to figures/\n")

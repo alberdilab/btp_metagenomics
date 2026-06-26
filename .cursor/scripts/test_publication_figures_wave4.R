@@ -16,11 +16,12 @@ source("R/plot_helpers.R")
 load("data/data.Rdata")
 
 filtered <- filter_study_samples(sample_metadata, genome_counts_filt)
+env_order <- phylum_stacked_environment_order(filtered$metadata)
 sample_metadata_fig <- filtered$metadata %>%
   mutate(
     broad_environment = factor(
       broad_environment,
-      levels = environment_plot_settings()$limits
+      levels = env_order
     )
   )
 genome_counts_fig <- filtered$genome_counts
@@ -37,18 +38,30 @@ phylum_stack_fig <- prepare_phylum_stacked_data(
   genome_counts_fig,
   genome_metadata,
   sample_metadata_fig,
-  sample_order = sample_order_fig,
-  n_top = 12
+  sample_order = sample_order_fig
 )
 stopifnot(nrow(phylum_stack_fig) > 0)
-stopifnot(all(abs(phylum_stack_fig %>% group_by(sample) %>% summarise(s = sum(relabun)) %>% pull(s) - 1) < 0.01))
+stack_sums <- phylum_stack_fig %>%
+  dplyr::group_by(sample) %>%
+  dplyr::summarise(s = sum(count), .groups = "drop")
+stopifnot(all(abs(stack_sums$s - 1) < 0.01))
 
 fig_E1 <- create_phylum_stacked_bar(
   phylum_stack_fig,
   phylum_colors = phylum_colors,
-  theme_fn = theme_publication
+  facet_env = FALSE,
+  style = "chapter"
 )
-stopifnot(inherits(fig_E1, "ggplot"))
+fig_E1b <- create_phylum_stacked_bar(
+  phylum_stack_fig,
+  phylum_colors = phylum_colors,
+  facet_env = TRUE,
+  style = "chapter"
+)
+stopifnot(
+  inherits(fig_E1, "ggplot") || inherits(fig_E1, "patchwork"),
+  inherits(fig_E1b, "ggplot") || inherits(fig_E1b, "patchwork")
+)
 
 # --- E2 family Sankey ---
 family_sankey_fig <- prepare_family_sankey_data(

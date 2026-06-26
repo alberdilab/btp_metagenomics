@@ -12,7 +12,7 @@ Publication figures for the BTP webbook are built in `15_publication_figures.Rmd
 |------|-------|
 | Theme | `theme_publication()` |
 | Export | `save_publication_figure(plot, "fig_XX.pdf", height_mm = …)` |
-| Default size | 180 mm wide, 300 dpi, PDF → `figures/` |
+| Default size | 180 mm wide, 600 dpi, PDF → `figures/` |
 | Environment colours | `environment_plot_settings()$colors` (MF/TW/XS/TS/C) |
 | Phylum colours | EHI `phylum_colors` — never hardcode |
 | GIFT colours | `data/gift_colors.tsv` |
@@ -174,7 +174,7 @@ save_publication_figure(
   filename = "fig_XX_name.pdf",
   width_mm = 180,   # default
   height_mm = 140,  # adjust per figure
-  dpi = 300         # default
+  dpi = 600         # default
 )
 ```
 

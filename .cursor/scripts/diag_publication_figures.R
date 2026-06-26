@@ -29,8 +29,8 @@ counts <- filtered$genome_counts
 if ("EHI01340" %in% meta$sample) issues <- c(issues, "EHI01340 in metadata")
 if ("EHI01340" %in% colnames(counts)) issues <- c(issues, "EHI01340 in counts")
 
-stack <- prepare_phylum_stacked_data(counts, genome_metadata, meta, n_top = 12)
-stack_sums <- stack %>% group_by(sample) %>% summarise(s = sum(relabun), .groups = "drop")
+stack <- prepare_phylum_stacked_data(counts, genome_metadata, meta)
+stack_sums <- stack %>% group_by(sample) %>% summarise(s = sum(count), .groups = "drop")
 if (max(abs(stack_sums$s - 1)) > 0.01) {
   issues <- c(issues, "E1: phylum stacks do not sum to 1")
 }

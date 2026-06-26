@@ -43,6 +43,16 @@ tasmania_devil <- prepare_tasmania_map_points(
 stopifnot("devil" %in% names(tasmania_devil))
 stopifnot(sum(is.na(tasmania_devil$devil)) == 0)
 
+fig_A1b <- create_tasmania_environment_map(
+  tasmania_devil,
+  env_settings,
+  australia_map,
+  devil_var = "devil",
+  theme_fn = theme_publication
+)
+stopifnot(inherits(fig_A1b, "ggplot"))
+stopifnot("devil_density" %in% names(aggregate_tasmania_map_sites(tasmania_devil, "devil")))
+
 fig_A2 <- create_tasmania_devil_density_map(
   tasmania_devil, map_sf = australia_map, theme_fn = theme_publication
 )

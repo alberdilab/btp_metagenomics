@@ -43,6 +43,7 @@ cat("Columns in post_table:", paste(colnames(post_table), collapse = ", "), "\n\
 beta_ci_list <- prepare_hmsc_context_beta_ci_list(
   devil_ci = devil_ci_fig,
   temperature_ci = temp_ci_fig,
+  diversity_ci = diversity_ci_fig,
   post_table = post_table
 )
 

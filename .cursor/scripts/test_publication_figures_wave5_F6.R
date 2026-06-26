@@ -70,34 +70,36 @@ phylo_gift_fig_data <- build_phylo_gift_fig_data(
   beta_ci_list = spotlight_beta_ci_list(
     prepare_covariate_ci(fit_model_fig, m, "devil", genome_metadata),
     prepare_covariate_ci(fit_model_fig, m, "temperature", genome_metadata),
-    prepare_covariate_ci(fit_model_fig, m, "devil:temperature", genome_metadata)
+    prepare_covariate_ci(fit_model_fig, m, "devil:temperature", genome_metadata),
+    prepare_covariate_ci(fit_model_fig, m, "diversity", genome_metadata)
   )
 )
 stopifnot(!is.null(phylo_gift_fig_data))
 stopifnot(
   nrow(phylo_gift_fig_data$phylum) == phylo_gift_fig_data$n_genomes,
   nrow(phylo_gift_fig_data$beta) == phylo_gift_fig_data$n_genomes,
-  ncol(phylo_gift_fig_data$beta) == 3,
+  ncol(phylo_gift_fig_data$beta) == 4,
   nrow(phylo_gift_fig_data$gift) == phylo_gift_fig_data$n_genomes,
   ncol(phylo_gift_fig_data$gift) >= 15,
   ncol(phylo_gift_fig_data$gift) <= 25,
   identical(phylo_gift_fig_data$gift_level, "function")
 )
 
-fig_F6 <- create_phylo_gift_heatmap_plot(
+fig_F6 <- create_phylo_gift_heatmap_plot_stacked(
   phylo_tree = phylo_gift_fig_data$tree,
   phylum_matrix = phylo_gift_fig_data$phylum,
   gift_matrix = phylo_gift_fig_data$gift,
+  GIFT_db = GIFT_db,
   beta_matrix = phylo_gift_fig_data$beta,
   phylum_colors = phylum_colors
 )
-stopifnot(inherits(fig_F6, c("ggtree", "gg")))
+stopifnot(inherits(fig_F6, c("ggtree", "gg", "patchwork", "aplot")))
 
-dims <- phylo_gift_figure_dims(
+dims <- phylo_gift_stacked_figure_dims(
   phylo_gift_fig_data$n_genomes,
   ncol(phylo_gift_fig_data$gift)
 )
-stopifnot(dims$height_mm >= 200, dims$width_mm >= 180)
+stopifnot(dims$height_mm >= 180, dims$width_mm >= 180)
 
 dir.create("figures", showWarnings = FALSE)
 save_publication_figure(
@@ -119,7 +121,8 @@ phylo_gift_fig_data_stacked <- build_phylo_gift_fig_data(
   beta_ci_list = spotlight_beta_ci_list(
     prepare_covariate_ci(fit_model_fig, m, "devil", genome_metadata),
     prepare_covariate_ci(fit_model_fig, m, "temperature", genome_metadata),
-    prepare_covariate_ci(fit_model_fig, m, "devil:temperature", genome_metadata)
+    prepare_covariate_ci(fit_model_fig, m, "devil:temperature", genome_metadata),
+    prepare_covariate_ci(fit_model_fig, m, "diversity", genome_metadata)
   ),
   gift_level = "element"
 )
@@ -142,7 +145,8 @@ stopifnot(inherits(fig_F6b, c("ggtree", "gg", "patchwork", "aplot")))
 
 dims_stacked <- phylo_gift_stacked_figure_dims(
   phylo_gift_fig_data_stacked$n_genomes,
-  ncol(phylo_gift_fig_data_stacked$gift)
+  ncol(phylo_gift_fig_data_stacked$gift),
+  gift_level = "element"
 )
 stopifnot(dims_stacked$height_mm >= 220, dims_stacked$width_mm >= 180)
 

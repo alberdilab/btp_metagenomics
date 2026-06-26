@@ -33,6 +33,7 @@ study_genomes_fig <- study_genome_ids(genome_counts_fig)
 beta_ci_list <- prepare_hmsc_context_beta_ci_list(
   devil_ci = devil_ci_fig,
   temperature_ci = temp_ci_fig,
+  diversity_ci = diversity_ci_fig,
   post_table = post_table
 )
 
@@ -107,9 +108,9 @@ if (is.null(fig_G1b_hmsc)) {
   stop("G1b env+HMSC plot is NULL — no overlapping tips.", call. = FALSE)
 }
 
-g1b_hmsc_dims <- circular_phylogeny_figure_dims(
+g1b_hmsc_dims <- circular_phylogeny_g1b_figure_layout(
   n_tips = length(study_genomes_fig),
-  legend_mm = 52
+  show_hmsc_legend = TRUE
 )
 save_publication_figure(
   plot = fig_G1b_hmsc,

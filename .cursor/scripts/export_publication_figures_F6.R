@@ -71,7 +71,8 @@ phylo_gift_fig_data <- build_phylo_gift_fig_data(
   beta_ci_list = spotlight_beta_ci_list(
     prepare_covariate_ci(fit_model_fig, m, "devil", genome_metadata),
     prepare_covariate_ci(fit_model_fig, m, "temperature", genome_metadata),
-    prepare_covariate_ci(fit_model_fig, m, "devil:temperature", genome_metadata)
+    prepare_covariate_ci(fit_model_fig, m, "devil:temperature", genome_metadata),
+    prepare_covariate_ci(fit_model_fig, m, "diversity", genome_metadata)
   )
 )
 
@@ -79,16 +80,17 @@ if (is.null(phylo_gift_fig_data)) {
   stop("No spotlight-significant genomes for F6 export", call. = FALSE)
 }
 
-fig_F6 <- create_phylo_gift_heatmap_plot(
+fig_F6 <- create_phylo_gift_heatmap_plot_stacked(
   phylo_tree = phylo_gift_fig_data$tree,
   phylum_matrix = phylo_gift_fig_data$phylum,
   gift_matrix = phylo_gift_fig_data$gift,
+  GIFT_db = GIFT_db,
   beta_matrix = phylo_gift_fig_data$beta,
   phylum_colors = phylum_colors,
   tree_size = 0.22
 )
 
-dims <- phylo_gift_figure_dims(
+dims <- phylo_gift_stacked_figure_dims(
   phylo_gift_fig_data$n_genomes,
   ncol(phylo_gift_fig_data$gift)
 )
@@ -96,6 +98,12 @@ dims <- phylo_gift_figure_dims(
 save_publication_figure(
   fig_F6,
   "fig_F6_phylo_gift_heatmap.pdf",
+  width_mm = dims$width_mm,
+  height_mm = dims$height_mm
+)
+save_publication_figure(
+  fig_F6,
+  "fig_F6_phylo_gift_heatmap.png",
   width_mm = dims$width_mm,
   height_mm = dims$height_mm
 )
@@ -110,7 +118,8 @@ phylo_gift_fig_data_stacked <- build_phylo_gift_fig_data(
   beta_ci_list = spotlight_beta_ci_list(
     prepare_covariate_ci(fit_model_fig, m, "devil", genome_metadata),
     prepare_covariate_ci(fit_model_fig, m, "temperature", genome_metadata),
-    prepare_covariate_ci(fit_model_fig, m, "devil:temperature", genome_metadata)
+    prepare_covariate_ci(fit_model_fig, m, "devil:temperature", genome_metadata),
+    prepare_covariate_ci(fit_model_fig, m, "diversity", genome_metadata)
   ),
   gift_level = "element"
 )
@@ -127,7 +136,8 @@ fig_F6b <- create_phylo_gift_heatmap_plot_stacked(
 
 dims_stacked <- phylo_gift_stacked_figure_dims(
   phylo_gift_fig_data_stacked$n_genomes,
-  ncol(phylo_gift_fig_data_stacked$gift)
+  ncol(phylo_gift_fig_data_stacked$gift),
+  gift_level = "element"
 )
 
 save_publication_figure(
@@ -136,10 +146,18 @@ save_publication_figure(
   width_mm = dims_stacked$width_mm,
   height_mm = dims_stacked$height_mm
 )
+save_publication_figure(
+  fig_F6b,
+  "fig_F6b_phylo_gift_heatmap_stacked.png",
+  width_mm = dims_stacked$width_mm,
+  height_mm = dims_stacked$height_mm
+)
 
 cat(
   "Exported F6 (", phylo_gift_fig_data$n_genomes, " genomes) to figures/\n",
+  "  fig_F6_phylo_gift_heatmap.pdf + .png\n",
   "Exported F6b (", phylo_gift_fig_data_stacked$n_genomes, " genomes, ",
   ncol(phylo_gift_fig_data_stacked$gift), " GIFT elements) to figures/\n",
+  "  fig_F6b_phylo_gift_heatmap_stacked.pdf + .png\n",
   sep = ""
 )

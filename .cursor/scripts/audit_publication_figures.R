@@ -272,7 +272,7 @@ if (file.exists(cache_paths$hmsc)) {
         !identical(rownames(phylo_gift$gift), tips)) {
       issues <- c(issues, "F6: annotation matrix row order mismatch vs tree tips")
     }
-    if (ncol(phylo_gift$beta) != 3) {
+    if (ncol(phylo_gift$beta) != 4) {
       issues <- c(issues, "F6: beta matrix should have 3 HMSC columns")
     }
     if (ncol(phylo_gift$gift) == 0) {
@@ -302,6 +302,7 @@ expected_pdfs <- c(
   "fig_C1_beta_nmds.pdf",
   "fig_G1_circular_phylogeny.pdf",
   "fig_E1_phylum_stacked.pdf",
+  "fig_E1b_phylum_stacked_faceted.pdf",
   "fig_E2_family_sankey.pdf",
   "fig_E3_dominant_mag_tile.pdf",
   "fig_F1_hmsc_hero.pdf",
@@ -311,7 +312,10 @@ expected_pdfs <- c(
   "fig_F5_devil_temp_congruence.pdf",
   "fig_F6_phylo_gift_heatmap.pdf",
   "fig_F7_threeway_congruence.pdf",
-  "fig_F8_hmsc_thresholds.pdf"
+  "fig_F8_devil_hmsc_thresholds.pdf",
+  "fig_F8_temperature_hmsc_thresholds.pdf",
+  "fig_F8_interaction_hmsc_thresholds.pdf",
+  "fig_F8_diversity_hmsc_thresholds.pdf"
 )
 missing_pdfs <- expected_pdfs[!file.exists(file.path("figures", expected_pdfs))]
 if (length(missing_pdfs) > 0) {
