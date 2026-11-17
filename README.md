@@ -9,6 +9,8 @@ The raw analysis code is in the root **Rmd** chapters; the bookdown webbook is m
 
 **Caveats:** ANCOM-BC chapters remain for exploration but are **not** in the Letter Methods. Paper Figs 1–3 are the submission figures; ch15 also keeps developmental export IDs. `docs/` was re-rendered **2026-11-17** (narrative-fast mode: `BTP_WEBBOOK_FAST=1`, code chunks not re-executed). For a full compute knit set `BTP_WEBBOOK_FAST=0`.
 
+**Submission freeze:** one more push should include only `_bookdown.yml` (lists ch16) + refreshed `docs/`. Leave local exploratory `15_` / figure-script edits out of that commit so Pages does not churn again. Author placeholders (DOI, ethics, GTDB ID) live in the Word manuscript only unless you deliberately choose to edit `index.Rmd` again.
+
 Chapters are numbered **01–16** in `_bookdown.yml` (environment = ch05, alpha = ch06, beta = ch07, HMSC analysis = ch14, publication figures = ch15, HMSC group predictions = ch16). Heavy chunks use `eval=FALSE`. To re-render:
 
 ```r

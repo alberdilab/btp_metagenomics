@@ -19,3 +19,4 @@ rmd_files:
   - 13_hmsc_setup_final.Rmd
   - 14_hmsc_analysis_final.Rmd
   - 15_publication_figures.Rmd
+  - 16_hmsc_group_prediction.Rmd

@@ -178,7 +178,7 @@ b.-alpha-diversity-microbiome
 fig-b1-alpha-diversity-hill-numbers
 c.-beta-diversity-microbiome
 fig-c1-beta-diversity-nmds
-fig.-3-alpha-diversity-along-devil-density-and-temperature
+fig-b1-c1-alpha-and-beta-diversity-composite
 g.-community-phylogeny
 fig-g1-circular-community-phylogeny
 fig-g1b-circular-phylogeny-environment-presence-rings
@@ -187,7 +187,6 @@ fig-g2-circular-community-phylogeny-mag-catalogue-rings
 e.-community-composition
 fig-e1-phylum-composition-stacked-bars
 australia-tasmania-context-maps-and-relative-abundance
-fig-1-radial-tree-with-vertical-or-horizontal-phylum-bars
 study-context-overview-a1b-e1b
 fig-e2-family-composition-sankey
 fig-e2b-family-composition-sankey-legend-left
@@ -201,7 +200,6 @@ fig-f3-temperature-associations
 fig-f4-devil-temperature-interaction-key-finding
 fig-f5-devil-temperature-congruence
 fig-f6-phylogeny-gift-heatmap
-fig-f6c-predator-density-and-temperature-are-uncorrelated
 fig-f6b-phylogeny-gift-element-heatmap
 fig-f7-three-way-congruence
 fig-f8-functional-climate-stripe-panels-hmsc-thresholds
