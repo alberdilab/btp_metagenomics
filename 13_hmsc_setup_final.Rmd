@@ -25,7 +25,7 @@ predictors <- inner_join(animal_variables, location_variables, by = "id") %>%
 
 ## Filter genomes
 
-The genome set is pinned in `data/model_final_genomes.tsv` (576 genomes) so it matches the fitted model on ERDA. Do not re-derive this list from prevalence filters unless you intend to refit the model on HPC.
+The genome set is pinned in `data/model_final_genomes.tsv` (576 genomes) so it matches the fitted model on ERDA. Do not re-derive this list from prevalence filters unless you intend to refit the model on HPC. (A simple “>10% of samples and >5 sites” rule on the current Tasmania table does **not** regenerate this list; the manuscript therefore cites the pinned genome set rather than that filter.)
 
 ```{r filter_genomes_final, comment="", message=FALSE, warning=FALSE}
 genomes_to_model <- read_tsv("data/model_final_genomes.tsv", show_col_types = FALSE) %>%
@@ -82,7 +82,8 @@ rL.site = HmscRandomLevel(units = levels(StudyDesign$site))
 
 The unfitted model object is saved as `hmsc/model_final`. The version in the repository (55 Tasmania samples, 576 genomes) is the canonical model for fitting and analysis. Re-running the chunks above may produce a different genome set because filtering was tuned for the final model; only rebuild if you intend to replace `hmsc/model_final` deliberately.
 
-```{r hmsc_models_final, warning=FALSE, comments="", message=FALSE}
+```{r hmsc_models_final, warning=FALSE, comments="", message=FALSE, eval = FALSE}
+# eval=FALSE for webbook renders — do not overwrite the canonical hmsc/model_final object.
 m = Hmsc(
   Y = YData,
   XData = XData,
@@ -112,6 +113,9 @@ init="init/model_final.rds"
 export samples=250
 export thin=1000
 export transient=$(( samples * thin ))
+# nChains=4 is the intended design (four independent sampler jobs / posterior lists).
+# The single-process hmsc.run_gibbs_sampler call below fits one chain; run four jobs
+# (or pass the engine-specific chain flag if your Hmsc-HPC build exposes one) and combine.
 export nChains=4
 export verbose=TRUE
 export model
@@ -143,7 +147,7 @@ source activate hmsc-hpc
 output="output/Hmsc_model_final.rds"
 mkdir output
 
-# Run model fit
+# One chain per job. Submit four jobs (or array 0-3) for nChains=4; $nChains is documentation only here.
 srun python3 -m hmsc.run_gibbs_sampler --input $init --output $output --samples $samples --transient $transient --thin $thin --verbose 100
 EOF
 ```

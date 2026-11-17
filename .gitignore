@@ -7,16 +7,13 @@
 
 # Ignore any GeoTIFFs under data/
 data/**/*.tif
-
 # Ignore any high-res PNGs under data/
 data/**/*.png
-
 # Ignore bookdown cache files
 _main_cache/
 _main_files/
 _bookdown_files/
-
 # Fitted HMSC posteriors exceed GitHub's 100 MB limit (hosted on ERDA)
 hmsc/Hmsc_model_*.rds
-
 .positai
+tools/pandoc/

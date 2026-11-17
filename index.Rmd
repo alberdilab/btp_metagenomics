@@ -11,20 +11,36 @@ url: https://alberdilab.github.io/btp_metagenomics
 description: |
   Data analysis code for the study on the gut microbiomes of brushtail possums in tasmania.
 link-citations: yes
-github-repo: https://github.com/alberdilab/btp_metagenomics.git
+github-repo: alberdilab/btp_metagenomics
 ---
+
+```{r webbook_fast_mode, include=FALSE}
+# Default: narrative-only knit for GitHub Pages (skip heavy compute).
+# Full recompute: Sys.setenv(BTP_WEBBOOK_FAST = "0") before render_book().
+if (Sys.getenv("BTP_WEBBOOK_FAST", "1") != "0") {
+  knitr::opts_chunk$set(eval = FALSE)
+}
+```
 
 # Introduction
 
-# Project description
+This webbook contains the analysis code for the brushtail possum (*Trichosurus vulpecula*) metagenomics study (Fix et al.; Ecology Letters Letter target). The manuscript asks how **Tasmanian devil density**, **ambient temperature**, and their **interaction** shape gut MAG abundances and genome-inferred functional traits (GIFTs), with land-cover diversity and sequencing depth as covariates.
 
-This webbook contains all the code used for data analysis in our study on the hologenomic ecology of wild possums. We integrate host genomic variation with shotgun metagenomic profiles of the gut microbiome to examine how environment and diet are associated with microbial composition, diversity, and function.
+**Sample accounting (matches the manuscript and `data/archive_deposit/`):**
 
-We sampled free-ranging possums across multiple sites and environment types (e.g., contrasting habitat/land-use categories), recorded basic covariates (such as sex and body measurements), and generated both host and microbial DNA data from faecal material. Rather than imposing laboratory treatments, this study leverages natural ecological variation to test whether differences among environment types and related ecological factors are linked to shifts in the gut microbiome and to host genetic backgrounds.
+- 73 faecal samples collected; 1 mainland sample failed QC → **72** in the MAG catalogue (**1,817** non-redundant MAGs).
+- **55** Tasmanian samples from **17** sites enter HMSC; **17** mainland samples stay in the catalogue only (not in HMSC).
+- HMSC response: **55 × 576** genomes (pinned list `data/model_final_genomes.tsv`).
+- Coverage rule for presence/diversity: CoverM **≥ 30%** genome covered (`min_coverage = 0.3`).
+- HMSC formula: `devil + temperature + devil:temperature + diversity + logseqdepth`, with site and animal random effects; Gaussian responses; posterior support ≥ 0.90.
+- MCMC: deposited `hmsc/Hmsc_model_final.rds` has **4** chains × **250** samples (verified). Launch/import path uses `thin = 1000`, transient **250,000** (`13_` / `14_` / `launch_hmsc_model_final.sh`). Slurm `.out` logs are not in this repo; see `MCMC_PROVENANCE.md`.
+- GIFT class contrasts: Welch **t-tests** + BH FDR (see ch14 / `R/plot_helpers.R`).
 
-Analytically, the webbook documents the complete workflow: data import and quality control; mapping and recovery metrics; taxonomic and functional summaries; diversity analyses (Hill numbers) and community structure tests; and differential abundance comparisons across environment types and other covariates. Where relevant, we also relate microbial features (e.g., dominant taxa, MAGs, and pathway profiles) to host genomic patterns to explore potential hologenomic links between ecology, microbiota, and host variation.
+Upstream assembly/binning (EHI Snakemake: metaSPAdes, dRep 98% ANI, CoverM, GTDB-Tk, DRAM) is documented in the manuscript Methods; this webbook starts from the deposited count, coverage, taxonomy, GIFT and environmental tables.
 
-Together, these analyses provide a reproducible, end-to-end account of how we interrogate possum hologenomes to understand microbiome–environment–host relationships in the wild.
+**Manuscript figures (Ecology Letters):** Fig. 1 catalogue + Tasmanian diversity; Fig. 2 maps/environment + phylo–GIFT; Fig. 3 HMSC functional contrasts + prediction. Chapter 15 still also exports exploratory multi-panel IDs (A–G / F-series) used during figure development—treat paper Figs 1–3 as the submission set.
+
+Exploratory chapters that fit ANCOM-BC2 or broad environment-type contrasts (e.g. ch08, ch11) are **retained for reproducibility but are not part of the Letter Methods** (ANCOM-BC was removed from the manuscript).
 
 
 ## Prepare the R environment
@@ -39,7 +55,9 @@ RStudio > New Project > Version Control > Git
 
 And indicating the following git repository:
 
-##included later
+```
+https://github.com/alberdilab/btp_metagenomics.git
+```
 
 Once the R project has been created, follow the instructions and code chunks shown in this webbook.
 

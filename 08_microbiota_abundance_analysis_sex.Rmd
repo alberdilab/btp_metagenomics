@@ -1,6 +1,8 @@
 
 # Differential abundance analysis
 
+> **Manuscript note:** ANCOM-BC was **removed** from the Ecology Letters Letter Methods. This chapter is exploratory only and is not part of the reported analysis path (HMSC + GIFT Welch t-tests).
+
 ANCOM-BC2-style models test which taxa change with sex, with and without random effects and while accounting for structural zeros. Results are summarised at MAG, phylum, family, and genus levels.
 
 **Note:** Load all required data objects including genome counts, metadata, and color schemes.

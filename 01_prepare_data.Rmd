@@ -184,7 +184,9 @@ sample_metadata <- sample_metadata %>%
 
 **Note:** Save all processed data objects into a single RData file for efficient loading in downstream analyses. This includes sample metadata, genome metadata, read counts, normalized genome counts (both filtered and unfiltered), phylogenetic tree, GIFT functional annotations, and color schemes. All subsequent chapters load this single file to access the prepared data.
 
-```{r wrap_working_objects, warning=FALSE, comments="", message=FALSE}
+`eval = FALSE` for routine webbook renders: `distill_annotations` above is also off (heavy), and a current `data/data.Rdata` is already in the repo. Re-enable this chunk only after re-running annotation download + distill locally.
+
+```{r wrap_working_objects, warning=FALSE, comments="", message=FALSE, eval = FALSE}
   save(sample_metadata,
      genome_metadata,
      read_counts,

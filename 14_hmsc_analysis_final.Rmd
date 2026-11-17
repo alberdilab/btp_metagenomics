@@ -26,7 +26,7 @@ gift_colors <- read_tsv("data/gift_colors.tsv") %>%
 
 ## Set parameters
 
-**Note:** Define HMSC model parameters including number of MCMC samples, thinning interval, transient (burn-in) period, and posterior support thresholds for determining positive/negative associations.
+**Note:** Define HMSC model parameters including number of MCMC samples, thinning interval, transient (burn-in) period, and posterior support thresholds for determining positive/negative associations. Canonical fit settings (must match the manuscript and `launch_hmsc_model_final.sh`): `nSamples=250`, `thin=1000`, `transient=250000`, `nChains=4`, `support_threshold=0.9`. GIFT class contrasts below use Welch `t.test` + BH FDR (not Wilcoxon).
 
 ```{r parameters_hmsc_18}
 #Parameters
@@ -340,7 +340,7 @@ fit_model_18 <- importPosteriorFromHPC(m, postList, nSamples, thin, transient)
 
 ## Predictor correlations
 
-**Note:** Pearson correlations among the fixed-effect predictors in `model_final` (including the devil × temperature interaction term). Sample size matches the Tasmania HMSC design matrix (`r nrow(m$XData)` samples).
+**Note:** Pearson correlations among the fixed-effect predictors in `model_final` (including the devil × temperature interaction term). Sample size matches the Tasmania HMSC design matrix (55 samples).
 
 ```{r hmsc_predictor_correlation, warning=FALSE, message=FALSE, fig.height=5.5, fig.width=6}
 source("R/plot_helpers.R")

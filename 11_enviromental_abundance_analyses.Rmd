@@ -1,5 +1,7 @@
 
-#abundance analysis of micrb community in diffrent enviroment diversitys
+# Abundance analysis across environmental diversity
+
+> **Manuscript note:** ANCOM-BC was **removed** from the Ecology Letters Letter Methods. This chapter is exploratory only; the Letter reports HMSC genome associations and GIFT contrasts instead.
 
 This chapter analyzes differential abundance of microbial genomes between samples with low and high environmental diversity (Hill diversity metrics h0, h1, h2). We use ANCOM-BC2 to identify significantly differentially abundant genomes and visualize results with barplots and volcano plots.
 
@@ -457,7 +459,7 @@ for (i in seq_along(barplots2)) {
 
 ## Alternative ANCOM-BC2 analysis with structural zeros
 
-**Note:** Run an alternative ANCOM-BC2 analysis with additional structural zero handling parameters. This analysis uses a random effects model (rand_formula="~1") and different parameter settings including Holm p-value adjustment, pseudo-sensitivity analysis, and explicit structural zero detection. This provides a complementary view to the main analysis and may identify additional differentially abundant genomes.
+**Note:** Run an alternative ANCOM-BC2 analysis with additional structural zero handling parameters. This analysis uses a random effects model (rand_formula="~1") and different parameter settings including Holm p-value adjustment, pseudo-sensitivity analysis, and explicit structural zero detection. This provides a complementary view to the primary ANCOM-BC2 analysis **in this exploratory chapter** (not part of the Letter Methods) and may identify additional differentially abundant genomes.
 
 ```{r env_ancom_rand_season, comment="", echo=FALSE, message=FALSE, warning=FALSE}
 # --- optional: ANCOMBC2 with structural zeros ----------------------------

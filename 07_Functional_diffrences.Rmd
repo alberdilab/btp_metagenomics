@@ -37,29 +37,35 @@ restore_beta_sample_labels <- function(beta_obj, sample_ids) {
   beta_obj
 }
 
-counts_for_beta <- genome_counts_filt %>%
-  tibble::column_to_rownames("genome") %>%
-  dplyr::filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
-  dplyr::select_if(~!all(. == 0))
-sample_ids <- colnames(counts_for_beta)
+# Prefer cached matrices for webbook renders (hillpair is slow).
+if (file.exists("data/beta.Rdata")) {
+  load("data/beta.Rdata")
+  message("Loaded beta diversity matrices from data/beta.Rdata")
+} else {
+  counts_for_beta <- genome_counts_filt %>%
+    tibble::column_to_rownames("genome") %>%
+    dplyr::filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
+    dplyr::select_if(~!all(. == 0))
+  sample_ids <- colnames(counts_for_beta)
 
-# Presence/Absence
-beta_q0n <- counts_for_beta %>%
-  hillpair(., q = 0) %>%
-  restore_beta_sample_labels(., sample_ids)
+  # Presence/Absence
+  beta_q0n <- counts_for_beta %>%
+    hillpair(., q = 0) %>%
+    restore_beta_sample_labels(., sample_ids)
 
-# Abundance-sensitive
-beta_q1n <- counts_for_beta %>%
-  hillpair(., q = 1) %>%
-  restore_beta_sample_labels(., sample_ids)
+  # Abundance-sensitive
+  beta_q1n <- counts_for_beta %>%
+    hillpair(., q = 1) %>%
+    restore_beta_sample_labels(., sample_ids)
 
-# Abundance + Phylogeny
-genome_counts_filt_beta <- counts_for_beta %>%
-  tibble::rownames_to_column("genome")
-genome_tree_beta <- keep.tip(genome_tree, tip = genome_counts_filt_beta$genome)
-beta_q1p <- counts_for_beta %>%
-  hillpair(., q = 1, tree = genome_tree_beta) %>%
-  restore_beta_sample_labels(., sample_ids)
+  # Abundance + Phylogeny
+  genome_counts_filt_beta <- counts_for_beta %>%
+    tibble::rownames_to_column("genome")
+  genome_tree_beta <- keep.tip(genome_tree, tip = genome_counts_filt_beta$genome)
+  beta_q1p <- counts_for_beta %>%
+    hillpair(., q = 1, tree = genome_tree_beta) %>%
+    restore_beta_sample_labels(., sample_ids)
+}
 ```
 
 **Note:** Calculate functional beta diversity (beta_q1f) by matching genomes between count data and functional trait data (genome_gifts). Converts GIFT traits to elements, calculates Gower distance matrix, filters and aligns both datasets to common genomes, then computes Hill-based pairwise distances with functional trait distances.

@@ -1,0 +1,122 @@
+# Predicted responses of highlighted functional groups
+
+Chapter 14 estimates a devil × temperature interaction for every genome. A few GIFT elements carry most of that signal, and stretching the interaction volcano to show them leaves the rest of the distribution hard to read. This chapter predicts how genomes that carry those elements respond, using the fitted `model_final` posterior. The manuscript figure uses the temperature prediction. Both that prediction and a second one, along predator density, are saved as supplementary figures.
+
+The two groups are the strongest interaction hits that also match the host story in the manuscript:
+
+- **Nitrogen compound degradation** — betaine (`D0608`), nitrate (`D0601`) and creatinine (`D0607`)
+- **Amino acid degradation** — histidine (`D0512`)
+
+Xenobiotic degradation is not included. Its pathway completeness is near zero, and it does not pass the effect-size cutoff used on the volcano plots.
+
+```{r load_libraries_prediction_16, comment="", message=FALSE, warning=FALSE}
+library(tidyverse)
+library(Hmsc)
+```
+
+## Highlighted genomes
+
+**Note:** Load the chapter 14 cache and count genomes in which each highlighted element is present. A genome is a carrier when its GIFT completeness is greater than zero. These are the genomes averaged in the prediction.
+
+```{r highlight_groups_16, message=FALSE, warning=FALSE}
+source("R/chapter_deps.R")
+source("R/plot_helpers.R")
+load("data/data.Rdata")
+load("data/publication_hmsc.Rdata")
+
+prediction_groups <- hmsc_prediction_highlight_groups()
+
+prediction_carriers <- purrr::map_dfr(prediction_groups, function(group) {
+  genomes <- hmsc_gift_carrier_genomes(elements_response, group$elements)
+  tibble(
+    group = group$label,
+    elements = paste(group$elements, collapse = ", "),
+    detail = group$detail,
+    n_genomes = length(genomes)
+  )
+})
+
+prediction_carriers
+```
+
+## Gradient
+
+**Note:** Two gradients use the same posterior. In the manuscript panel, temperature is focal: it starts at the coldest Tasmania sample and continues 2.9°C past the warmest, the high-emission warming for Tasmania. A dotted line marks 1.6°C of warming, the low-emission case. Both increments are added to the warmest sample. The lighter part of the band is the low-emission range and the darker part is the additional warming to the high-emission case. Predator density is fixed at its 10th percentile (low) and 90th percentile (high). In the second supplementary figure, predator density is focal: it starts at the lowest density in the samples and continues to 1 devil/km². A dotted line marks 0.82 devils/km², the pre-disease density, and the shaded band is the extrapolation beyond the samples. Temperature is held at its 10th percentile (cool) and 90th percentile (warm). Landscape diversity and log sequencing depth are held at their means, so the curves isolate the devil × temperature term already in `model_final`. Predictions are the posterior expected log abundance, back-transformed from the scaled response, with random effects at their posterior mean. Each point on a curve is the mean across carrier genomes. Ribbons are 95% posterior intervals. Posterior draws are thinned by 5.
+
+The download and prediction chunk is off by default because it fetches the same ERDA posterior as chapter 14. Set `eval=TRUE` to recompute. The export script `.cursor/scripts/export_fig_hmsc_volcano.R` places the temperature prediction in the lower right of the volcano figure, with the interaction axis limited to −0.5 to 0.5, and writes both predictions to `figures/`.
+
+```{r hmsc_group_prediction_16, eval=FALSE, message=FALSE, warning=FALSE}
+nSamples <- 250
+thin <- 1000
+transient <- nSamples * thin
+
+load(file = "hmsc/model_final")
+
+tmp <- tempfile(fileext = ".rds")
+options(timeout = max(600, getOption("timeout")))
+download.file(
+  "https://sid.erda.dk/share_redirect/Gh0WbM42c4/Hmsc_model_final.rds",
+  tmp,
+  mode = "wb"
+)
+hpc_fit <- readRDS(tmp)
+unlink(tmp)
+
+n_sp_fit <- ncol(hpc_fit$list[[1]][[1]]$Beta)
+if (length(m$spNames) != n_sp_fit) {
+  stop(
+    "model_final: unfitted model (", length(m$spNames),
+    " genomes) does not match fitted posterior (", n_sp_fit, " genomes).",
+    call. = FALSE
+  )
+}
+
+fit_model_16 <- importPosteriorFromHPC(
+  m, hpc_fit$list[1:4], nSamples, thin, transient
+)
+
+hmsc_group_prediction_temperature <- prepare_hmsc_group_prediction(
+  fit_model = fit_model_16,
+  elements_response = elements_response,
+  groups = prediction_groups,
+  focal = "temperature",
+  mcmc_step = 5L
+)
+
+hmsc_group_prediction_devil <- prepare_hmsc_group_prediction(
+  fit_model = fit_model_16,
+  elements_response = elements_response,
+  groups = prediction_groups,
+  focal = "devil",
+  mcmc_step = 5L
+)
+
+fig_hmsc_prediction_temperature <- create_hmsc_group_prediction_plot(
+  hmsc_group_prediction_temperature
+)
+fig_hmsc_prediction_devil <- create_hmsc_group_prediction_plot(
+  hmsc_group_prediction_devil
+)
+fig_hmsc_prediction_temperature
+fig_hmsc_prediction_devil
+```
+
+## Manuscript figure
+
+**Note:** Panel D is the temperature prediction. Panels A and B remain the devil-density and temperature abundance contrasts. Panel C is the interaction volcano on a common axis; the four elements used here sit beyond that axis and are shown as predictions instead.
+
+```{r hmsc_prediction_figure_16, echo=FALSE, fig.cap="HMSC functional associations. A, devil density. B, temperature. C, devil × temperature interaction on a shared axis. D, predicted log abundance of genomes carrying the strongest interaction traits along temperature at low and high predator density. The shaded band is warmer than the warmest sample: the dotted line is +1.6°C (low emissions) and the band ends at +2.9°C (high emissions)."}
+knitr::include_graphics("figures/fig_hmsc_volcano_3panel.png")
+```
+
+## Supplementary predictions
+
+**Note:** The same two curves, saved on their own. The temperature figure is panel D of the manuscript composite. The predator-density figure holds temperature at the cool and warm sample percentiles, extends density to 1 devil/km², and marks 0.82 devils/km² as the pre-disease level.
+
+```{r hmsc_prediction_supp_temperature_16, echo=FALSE, fig.cap="Supplementary prediction along temperature. Curves are the mean log abundance of genomes carrying nitrogen-compound degradation (betaine, nitrate, creatinine) or histidine degradation, at low and high predator density. The dotted line is +1.6°C above the warmest sample (low emissions) and the shaded band ends at +2.9°C (high emissions)."}
+knitr::include_graphics("figures/fig_hmsc_prediction_temperature.png")
+```
+
+```{r hmsc_prediction_supp_devil_16, echo=FALSE, fig.cap="Supplementary prediction along predator density. The same genomes at a cool and a warm temperature. Density is extended to 1 devil/km². The dotted line is 0.82 devils/km², the pre-disease level. The shaded band is above the highest predator density in the samples."}
+knitr::include_graphics("figures/fig_hmsc_prediction_devil_density.png")
+```
