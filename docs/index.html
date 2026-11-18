@@ -2339,7 +2339,7 @@ color: #a52929;
 <h1 class="title">AlberdiLab | Fix et al 2025</h1>
 <h2 class="subtitle"><em>Brush-tail possum metagenomics</em></h2>
 <p class="author"><em>Lukas Fix, Antton Alberdi, Raphael Eisenhofer</em></p>
-<p class="date"><em>Last update: 2026-11-17</em></p>
+<p class="date"><em>Last update: 2026-11-18</em></p>
 </div>
 <div id="introduction" class="section level1 hasAnchor" number="1">
 <h1><span class="header-section-number">Chapter 1</span> Introduction<a href="index.html#introduction" class="anchor-section" aria-label="Anchor link to header"></a></h1>
@@ -2354,7 +2354,7 @@ color: #a52929;
 <li>MCMC: deposited <code>hmsc/Hmsc_model_final.rds</code> has <strong>4</strong> chains × <strong>250</strong> samples (verified). Launch/import path uses <code>thin = 1000</code>, transient <strong>250,000</strong> (<code>13_</code> / <code>14_</code> / <code>launch_hmsc_model_final.sh</code>). Slurm <code>.out</code> logs are not in this repo; see <code>MCMC_PROVENANCE.md</code>.</li>
 <li>GIFT class contrasts: Welch <strong>t-tests</strong> + BH FDR (see ch14 / <code>R/plot_helpers.R</code>).</li>
 </ul>
-<p>Upstream assembly/binning (EHI Snakemake: metaSPAdes, dRep 98% ANI, CoverM, GTDB-Tk, DRAM) is documented in the manuscript Methods; this webbook starts from the deposited count, coverage, taxonomy, GIFT and environmental tables.</p>
+<p>Upstream assembly/binning (EHI Snakemake: metaSPAdes, dRep 98% ANI, CoverM, GTDB-Tk vs GTDB <strong>R214</strong>, DRAM) is documented in the manuscript Methods; this webbook starts from the deposited count, coverage, taxonomy, GIFT and environmental tables.</p>
 <p><strong>Manuscript figures (Ecology Letters):</strong> Fig. 1 catalogue + Tasmanian diversity; Fig. 2 maps/environment + phylo–GIFT; Fig. 3 HMSC functional contrasts + prediction. Chapter 15 still also exports exploratory multi-panel IDs (A–G / F-series) used during figure development—treat paper Figs 1–3 as the submission set.</p>
 <p>Exploratory chapters that fit ANCOM-BC2 or broad environment-type contrasts (e.g. ch08, ch11) are <strong>retained for reproducibility but are not part of the Letter Methods</strong> (ANCOM-BC was removed from the manuscript).</p>
 <div id="prepare-the-r-environment" class="section level2 hasAnchor" number="1.1">

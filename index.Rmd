@@ -36,7 +36,7 @@ This webbook contains the analysis code for the brushtail possum (*Trichosurus v
 - MCMC: deposited `hmsc/Hmsc_model_final.rds` has **4** chains × **250** samples (verified). Launch/import path uses `thin = 1000`, transient **250,000** (`13_` / `14_` / `launch_hmsc_model_final.sh`). Slurm `.out` logs are not in this repo; see `MCMC_PROVENANCE.md`.
 - GIFT class contrasts: Welch **t-tests** + BH FDR (see ch14 / `R/plot_helpers.R`).
 
-Upstream assembly/binning (EHI Snakemake: metaSPAdes, dRep 98% ANI, CoverM, GTDB-Tk, DRAM) is documented in the manuscript Methods; this webbook starts from the deposited count, coverage, taxonomy, GIFT and environmental tables.
+Upstream assembly/binning (EHI Snakemake: metaSPAdes, dRep 98% ANI, CoverM, GTDB-Tk vs GTDB **R214**, DRAM) is documented in the manuscript Methods; this webbook starts from the deposited count, coverage, taxonomy, GIFT and environmental tables.
 
 **Manuscript figures (Ecology Letters):** Fig. 1 catalogue + Tasmanian diversity; Fig. 2 maps/environment + phylo–GIFT; Fig. 3 HMSC functional contrasts + prediction. Chapter 15 still also exports exploratory multi-panel IDs (A–G / F-series) used during figure development—treat paper Figs 1–3 as the submission set.
 

@@ -1,0 +1,87 @@
+file,column,unit_or_type,description
+01_sample_metadata.csv,sample,ID,Primary sample identifier (EHI code)
+01_sample_metadata.csv,sample_code,ID,Alternate sample code
+01_sample_metadata.csv,species,text,Host scientific name
+01_sample_metadata.csv,region,text,Sampling region label
+01_sample_metadata.csv,sex,categorical,Host sex (Male/Female/Unknown)
+01_sample_metadata.csv,country,text,Country of collection
+01_sample_metadata.csv,latitude,decimal degrees,WGS84 latitude
+01_sample_metadata.csv,longitude,decimal degrees,WGS84 longitude
+01_sample_metadata.csv,site,integer,Sampling site identifier used as HMSC random effect
+01_sample_metadata.csv,island,categorical,Tasmania or mainland Australia
+01_sample_metadata.csv,ENA_sample_accession,accession,ENA sample accession if assigned (may be blank until public)
+01_sample_metadata.csv,Development,categorical,Host developmental stage
+01_sample_metadata.csv,Weight (g),g,Host body mass
+01_sample_metadata.csv,Sampling date,date,Collection date
+01_sample_metadata.csv,broad_environment,categorical,Broad habitat class used in figures
+01_sample_metadata.csv,local_environment,text,Local habitat description
+01_sample_metadata.csv,reads_post_fastp,count,Read pairs retained after fastp
+01_sample_metadata.csv,host_reads,count,Reads mapping to host genome
+01_sample_metadata.csv,metagenomic_bases,bases,Metagenomic bases after processing
+01_sample_metadata.csv,singlem_fraction,proportion,SingleM-estimated microbial fraction (0-1)
+02_hmsc_covariates.csv,sample,ID,Tasmanian sample ID (n = 55)
+02_hmsc_covariates.csv,temperature,degrees Celsius,Mean annual temperature (WorldClim v2.1 BIO1) at sample locality
+02_hmsc_covariates.csv,precipitation,mm year-1,Mean annual precipitation (WorldClim v2.1) at sample locality
+02_hmsc_covariates.csv,diversity,Hill number (dimensionless),Land-cover Hill diversity (q = 1) within 200 m buffer
+02_hmsc_covariates.csv,density,percent cover,Overall vegetated land-cover density within 200 m buffer
+02_hmsc_covariates.csv,devil,devils km-2,Tasmanian devil density 2021-2023 mean within 200 m buffer
+02_hmsc_covariates.csv,logseqdepth,ln(reads),Natural log of total mapped sequencing depth used as covariate
+02_hmsc_covariates.csv,site,factor,Sampling site random-effect level
+02_hmsc_covariates.csv,animal,factor,Individual animal random-effect level (equals sample)
+03_mag_taxonomy_quality.csv,genome,ID,MAG identifier
+03_mag_taxonomy_quality.csv,domain,GTDB taxon,GTDB domain
+03_mag_taxonomy_quality.csv,phylum,GTDB taxon,GTDB phylum
+03_mag_taxonomy_quality.csv,class,GTDB taxon,GTDB class
+03_mag_taxonomy_quality.csv,order,GTDB taxon,GTDB order
+03_mag_taxonomy_quality.csv,family,GTDB taxon,GTDB family
+03_mag_taxonomy_quality.csv,genus,GTDB taxon,GTDB genus
+03_mag_taxonomy_quality.csv,species,GTDB taxon,GTDB species (blank if unassigned)
+03_mag_taxonomy_quality.csv,completeness,percent,CheckM2 completeness
+03_mag_taxonomy_quality.csv,contamination,percent,CheckM2 contamination
+03_mag_taxonomy_quality.csv,length,bp,Genome length
+04_hmsc_genomes.csv,genome,ID,The 576 MAGs included in the fitted HMSC model
+05_read_counts_genome_by_sample.csv,genome,ID,MAG identifier (rows)
+05_read_counts_genome_by_sample.csv,<sample columns>,read count,Raw or pipeline read counts per genome per sample (see README for coverage filter)
+06_hmsc_response_matrix_Y.csv,sample,ID,Sample ID (rows of HMSC Y)
+06_hmsc_response_matrix_Y.csv,<genome columns>,ln(normalised count + 1),HMSC response values after length normalisation +1 and log transform
+07_genome_gifts.csv,genome,ID,MAG identifier
+07_genome_gifts.csv,<GIFT element columns>,0-1 completeness,Genome-inferred functional trait completeness from distillR
+08_hmsc_association_classes.csv,genome,ID,MAG identifier
+08_hmsc_association_classes.csv,devil,categorical,Association class at posterior support >= 0.9 (Positive/Neutral/Negative)
+08_hmsc_association_classes.csv,temperature,categorical,Association class for mean annual temperature
+08_hmsc_association_classes.csv,diversity,categorical,Association class for land-cover diversity
+08_hmsc_association_classes.csv,logseqdepth,categorical,Association class for log sequencing depth
+08_hmsc_association_classes.csv,devil:temperature,categorical,Association class for devil x temperature interaction
+09_variance_partitioning.csv,genome,ID,MAG identifier
+09_variance_partitioning.csv,devil,proportion,Variance attributed to devil density
+09_variance_partitioning.csv,temperature,proportion,Variance attributed to temperature
+09_variance_partitioning.csv,diversity,proportion,Variance attributed to land-cover diversity
+09_variance_partitioning.csv,logseqdepth,proportion,Variance attributed to log sequencing depth
+09_variance_partitioning.csv,devil.temperature,proportion,Variance attributed to devil x temperature
+09_variance_partitioning.csv,Random..animal,proportion,Variance attributed to animal random effect
+09_variance_partitioning.csv,Random..site,proportion,Variance attributed to site random effect
+10_functional_diff_devil_fig.csv,GIFT,ID,GIFT element code
+10_functional_diff_devil_fig.csv,n_pos,count,"Number of genomes with Positive devil association in the contrast (constant across GIFT rows; equals class size, not only carriers)"
+10_functional_diff_devil_fig.csv,n_neg,count,Number of genomes with Negative devil association in the contrast (constant across GIFT rows; equals class size)
+10_functional_diff_devil_fig.csv,mean_pos,0-1,"Number of genomes with Positive devil association in the contrast (constant across GIFT rows; equals class size, not only carriers)"
+10_functional_diff_devil_fig.csv,mean_neg,0-1,Number of genomes with Negative devil association in the contrast (constant across GIFT rows; equals class size)
+10_functional_diff_devil_fig.csv,diff,0-1,mean_pos - mean_neg
+10_functional_diff_devil_fig.csv,p,p-value,Welch two-sample t-test p-value (var.equal=FALSE; as computed in pipeline)
+10_functional_diff_devil_fig.csv,p_adj,FDR,Benjamini-Hochberg adjusted p-value
+10_functional_diff_temp_fig.csv,*,*,Same columns as devil functional contrast for temperature association classes
+10_functional_diff_interaction_fig.csv,*,*,Functional contrast / mean interaction beta summaries for the interaction term
+11_hmsc_phylogeny.nwk,Newick tree,topology,Phylogeny of the 576 HMSC genomes
+11b_catalogue_phylogeny.nwk,Newick tree,topology,Phylogeny of the full MAG catalogue
+12_environment_multiscale.csv,id,ID,Sample ID
+12_environment_multiscale.csv,radius_m,m,Buffer radius (100 200 400)
+12_environment_multiscale.csv,h1,Hill number,Land-cover Hill diversity q=1 in buffer
+12_environment_multiscale.csv,pop_density_1km,people km-2,WorldPop 2020 population density
+12_environment_multiscale.csv,annual_mean_temp,degrees Celsius,WorldClim v2.1 BIO1
+12_environment_multiscale.csv,annual_precipitation,mm year-1,WorldClim v2.1 precipitation
+12_environment_multiscale.csv,Overall_Density,percent cover,Vegetated cover summary in buffer
+12_environment_multiscale.csv,devil_density_baseline,devils km-2,Devil density 2021-2023 mean in buffer (0 outside model mask)
+13_gift_function_colors.tsv,Code_function,ID,GIFT function-family code
+13_gift_function_colors.tsv,Function,text,Function-family label
+13_gift_function_colors.tsv,Color,hex,Plot colour
+14_DMB0167_coverage.tsv.gz,genome,id,MAG / genome identifier (rows)
+14_DMB0167_coverage.tsv.gz,<sample_id>,fraction,Horizontal genome coverage fraction in that sample (CoverM --min-covered-fraction uses ≥0.3 for presence)
